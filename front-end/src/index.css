@@ -1,0 +1,145 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&display=swap');
+@import 'tailwindcss';
+@import 'tw-animate-css';
+
+@theme inline {
+  --font-sans: 'Inter', system-ui, sans-serif;
+  --font-heading: var(--font-sans);
+  --color-background: var(--background);
+  --color-foreground: var(--foreground);
+  --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
+  --color-accent: var(--accent);
+  --color-accent-foreground: var(--accent-foreground);
+  --color-destructive: var(--destructive);
+  --color-positive: var(--positive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
+  --color-surface: var(--card);
+  --color-ink: var(--foreground);
+  --radius-card: 20px;
+  --radius-sm: calc(var(--radius) * 0.6);
+  --radius-md: calc(var(--radius) * 0.8);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) * 1.4);
+  --radius-2xl: calc(var(--radius) * 1.8);
+}
+
+/* CRED-inspired: near-black canvas, soft glass surfaces, one glossy violet accent. */
+:root {
+  color-scheme: dark;
+  --radius: 1rem;
+  --background: #0a0a0f;
+  --foreground: #f4f4f8;
+  --card: #15151c;
+  --card-foreground: #f4f4f8;
+  --popover: #1a1a23;
+  --popover-foreground: #f4f4f8;
+  --primary: #7c6cff;
+  --primary-foreground: #ffffff;
+  --secondary: #1f1f29;
+  --secondary-foreground: #f4f4f8;
+  --muted: #1b1b24;
+  --muted-foreground: #8e8ea0;
+  --accent: #23232e;
+  --accent-foreground: #f4f4f8;
+  --destructive: #ff6b7a;
+  --positive: #4ae3b5;
+  --border: rgba(255, 255, 255, 0.07);
+  --input: rgba(255, 255, 255, 0.1);
+  --ring: #7c6cff;
+}
+
+@layer base {
+  * {
+    @apply border-border outline-ring/50;
+  }
+  html {
+    -webkit-tap-highlight-color: transparent;
+  }
+  body {
+    @apply bg-background font-sans text-foreground antialiased;
+    background-image:
+      radial-gradient(60rem 28rem at 50% -8rem, rgba(124, 108, 255, 0.18), transparent 70%),
+      radial-gradient(34rem 20rem at 100% 30%, rgba(74, 227, 181, 0.06), transparent 70%);
+    background-attachment: fixed;
+  }
+  h1 {
+    @apply tracking-tight;
+  }
+}
+
+@layer components {
+  /* Raised glass card with a faint top highlight. */
+  .surface {
+    background: linear-gradient(160deg, #1c1c25 0%, #13131a 100%);
+    border: 1px solid var(--border);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.06),
+      0 12px 32px -12px rgba(0, 0, 0, 0.7);
+  }
+  /* Hero card: glossy violet gradient with a sheen. */
+  .hero {
+    position: relative;
+    overflow: hidden;
+    background: linear-gradient(135deg, #8a7bff 0%, #5a49f0 55%, #3b2fc4 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.35),
+      0 18px 40px -14px rgba(92, 73, 240, 0.65);
+  }
+  .hero::after {
+    content: '';
+    position: absolute;
+    inset: 0;
+    background: linear-gradient(115deg, rgba(255, 255, 255, 0.22) 0%, transparent 38%);
+    pointer-events: none;
+  }
+  .gloss {
+    background: linear-gradient(180deg, #8f81ff 0%, #6b5bff 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.4),
+      0 8px 20px -6px rgba(107, 91, 255, 0.7);
+  }
+  .glass {
+    background: rgba(21, 21, 28, 0.72);
+    backdrop-filter: blur(18px) saturate(140%);
+    -webkit-backdrop-filter: blur(18px) saturate(140%);
+    border: 1px solid var(--border);
+  }
+  /* Inputs, selects and date pickers. */
+  .field {
+    width: 100%;
+    border-radius: 16px;
+    padding: 0.8rem 1rem;
+    background: #101016;
+    border: 1px solid var(--input);
+    color: var(--foreground);
+    outline: none;
+    transition:
+      border-color 0.15s,
+      box-shadow 0.15s;
+  }
+  .field:focus {
+    border-color: var(--primary);
+    box-shadow: 0 0 0 3px rgba(124, 108, 255, 0.25);
+  }
+  .field::placeholder {
+    color: #5f5f70;
+  }
+  .label {
+    @apply text-xs font-medium tracking-wide text-muted-foreground uppercase;
+  }
+  .money {
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.02em;
+  }
+}

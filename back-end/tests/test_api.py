@@ -1,0 +1,123 @@
+from tests.conftest import H
+
+
+def me(c, u):
+    return c.get("/auth/me", headers=H(u)).json()["id"]
+
+
+def tx(**kw):
+    return {
+        "description": "Dinner",
+        "amount_minor": 30000,
+        "transaction_date": "2026-10-05T12:00:00Z",
+        **kw,
+    }
+
+
+def make_group(c):
+    a, b = me(c, "alice"), me(c, "bob")
+    g = c.post("/groups", json={"name": "Trip"}, headers=H("alice")).json()
+    assert c.post(f"/groups/{g['id']}/members", json={"email": "Bob@gmail.com"}, headers=H("alice")).status_code == 201
+    return g["id"], a, b
+
+
+def test_personal_private_and_idempotent(client):
+    c = client
+    body = tx(client_id="11111111-1111-1111-1111-111111111111")
+    r1 = c.post("/transactions", json=body, headers=H("alice"))
+    r2 = c.post("/transactions", json=body, headers=H("alice"))
+    assert r1.status_code == 201 and r1.json()["id"] == r2.json()["id"]
+    assert len(c.get("/transactions", headers=H("alice")).json()) == 1
+    assert c.get("/transactions", headers=H("bob")).json() == []
+    assert c.delete(f"/transactions/{r1.json()['id']}", headers=H("bob")).status_code == 404
+
+
+def test_personal_rejects_group_fields(client):
+    me(client, "alice")
+    r = client.post("/transactions", json=tx(splits=[{"user_id": me(client, "alice")}]), headers=H("alice"))
+    assert r.status_code == 422
+
+
+def test_group_flow_split_balance_settle(client):
+    c = client
+    gid, a, b = make_group(c)
+    # invited but not yet active: cannot see group
+    assert c.get(f"/groups/{gid}/members", headers=H("bob")).status_code == 404
+    assert [g["id"] for g in c.get("/groups/invitations", headers=H("bob")).json()] == [gid]
+    m = c.post(f"/groups/{gid}/join", headers=H("bob")).json()
+    assert m["status"] == "active" and m["display_name"] == "Bob"
+
+    r = c.post(
+        "/transactions",
+        json=tx(context="group", group_id=gid, split_method="equal", splits=[{"user_id": a}, {"user_id": b}]),
+        headers=H("alice"),
+    )
+    assert r.status_code == 201 and r.json()["is_shared"]
+    # bob sees the shared expense
+    assert len(c.get("/transactions", headers=H("bob")).json()) == 1
+    bal = c.get(f"/groups/{gid}/balances", headers=H("bob")).json()
+    assert bal["net"] == {a: 15000, b: -15000}
+    assert bal["transfers"] == [{"from": b, "to": a, "amount_minor": 15000}]
+
+    s = c.post("/settlements", json={"group_id": gid, "receiver_user_id": a, "amount_minor": 5000}, headers=H("bob"))
+    assert s.status_code == 201
+    bal = c.get(f"/groups/{gid}/balances", headers=H("alice")).json()
+    assert bal["net"][a] == 10000
+
+    summ = c.get("/insights/summary", params={"year": 2026, "month": 10}, headers=H("bob")).json()
+    assert summ["total_minor"] == 15000
+
+
+def test_split_validation_and_outsiders(client):
+    c = client
+    gid, a, b = make_group(c)
+    c.post(f"/groups/{gid}/join", headers=H("bob"))
+    carol = me(c, "carol")
+    bad = tx(context="group", group_id=gid, split_method="exact_amount",
+             splits=[{"user_id": a, "value": 1}, {"user_id": b, "value": 2}])
+    assert c.post("/transactions", json=bad, headers=H("alice")).status_code == 422
+    outsider = tx(context="group", group_id=gid, splits=[{"user_id": carol}])
+    assert c.post("/transactions", json=outsider, headers=H("alice")).status_code == 422
+    # carol cannot post into or read the group
+    assert c.post("/transactions", json=tx(context="group", group_id=gid), headers=H("carol")).status_code == 404
+    assert c.get(f"/groups/{gid}/balances", headers=H("carol")).status_code == 404
+
+
+def test_only_admin_invites_and_no_self_settlement(client):
+    c = client
+    gid, a, b = make_group(c)
+    c.post(f"/groups/{gid}/join", headers=H("bob"))
+    r = c.post(f"/groups/{gid}/members", json={"email": "x@gmail.com"}, headers=H("bob"))
+    assert r.status_code == 403
+    assert c.post("/settlements", json={"receiver_user_id": a, "amount_minor": 1}, headers=H("alice")).status_code == 422
+
+
+def test_budget_and_accounts(client):
+    c = client
+    r = c.post("/budgets", json={"name": "Food", "amount_minor": 500000, "period_start": "2026-10-01"}, headers=H("alice"))
+    assert r.status_code == 201
+    assert len(c.get("/budgets", headers=H("alice")).json()) == 1
+    assert c.get("/budgets", headers=H("bob")).json() == []
+    assert c.post("/accounts", json={"name": "HDFC", "account_type": "bank"}, headers=H("alice")).status_code == 201
+
+
+def test_invite_sends_email_and_account_limits(client, monkeypatch):
+    from app import routers
+
+    sent = []
+    monkeypatch.setattr(routers, "send_email", lambda to, subj, body: sent.append((to, subj, body)))
+    c = client
+    g = c.post("/groups", json={"name": "Flat"}, headers=H("alice")).json()
+    r = c.post(f"/groups/{g['id']}/members", json={"email": "Bob@Gmail.com"}, headers=H("alice"))
+    assert r.status_code == 201
+    assert sent and sent[0][0] == "bob@gmail.com" and "Flat" in sent[0][1]
+    # failed delivery never fails the invite
+    monkeypatch.setattr(routers, "send_email", lambda *a: False)
+    assert c.post(f"/groups/{g['id']}/members", json={"email": "x@gmail.com"}, headers=H("alice")).status_code == 201
+
+    acc = c.post(
+        "/accounts",
+        json={"name": "Visa", "account_type": "credit_card", "credit_limit": 100000, "opening_balance": 2500},
+        headers=H("alice"),
+    ).json()
+    assert acc["credit_limit"] == 100000 and acc["opening_balance"] == 2500

@@ -1,0 +1,64 @@
+export type SyncState = 'pending' | 'syncing' | 'synced' | 'failed' | 'conflict'
+export type RecordStatus = 'active' | 'archived' | 'deleted'
+export type ExpenseContext = 'personal' | 'family' | 'group'
+export type TransactionType = 'expense' | 'income' | 'refund' | 'transfer'
+export type SplitMethod = 'equal' | 'exact_amount' | 'percentage' | 'shares'
+export type AccountType =
+  'cash' | 'bank' | 'upi' | 'credit_card' | 'debit_card' | 'wallet' | 'other'
+
+/** Fields every locally stored, syncable record carries. */
+export interface Syncable {
+  id: string // client-generated uuid, also the idempotency key
+  version: number
+  sync_state: SyncState
+  status: RecordStatus
+  created_at: string
+  updated_at: string
+}
+
+export interface Account extends Syncable {
+  name: string
+  account_type: AccountType
+  currency: string
+  opening_balance: number
+  /** Credit cards only, in minor units. */
+  credit_limit: number | null
+  is_default: boolean
+}
+
+export interface Category extends Syncable {
+  name: string
+  icon: string
+  color: string | null
+  transaction_type: TransactionType
+  is_system: boolean
+}
+
+export interface Transaction extends Syncable {
+  account_id: string | null
+  category_id: string | null
+  group_id: string | null
+  context: ExpenseContext
+  transaction_type: TransactionType
+  description: string
+  merchant: string | null
+  amount_minor: number
+  currency: string
+  transaction_date: string
+  notes: string | null
+  is_shared: boolean
+  split_method: SplitMethod | null
+}
+
+export interface Budget extends Syncable {
+  group_id: string | null
+  category_id: string | null
+  name: string
+  amount_minor: number
+  currency: string
+  period: 'weekly' | 'monthly' | 'yearly' | 'custom'
+  period_start: string
+  period_end: string | null
+  alert_threshold_percent: number
+  is_active: boolean
+}
