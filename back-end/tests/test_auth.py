@@ -8,6 +8,10 @@ def test_requires_token(client):
     assert c.get("/auth/me").status_code == 401
 
 
+def test_vercel_api_prefix_requires_token(client):
+    assert client.get("/api/auth/me").status_code == 401
+
+
 def test_creates_profile_once(client):
     c, Session = client, client.session_factory
     h = {"Authorization": "Bearer alice"}

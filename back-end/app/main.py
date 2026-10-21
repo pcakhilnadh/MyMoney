@@ -19,6 +19,12 @@ app.include_router(auth_router)
 app.include_router(api_router)
 app.include_router(sync_router)
 
+# Keep the existing local API paths while exposing a collision-free prefix
+# for the frontend when both apps share a Vercel domain.
+app.include_router(auth_router, prefix="/api")
+app.include_router(api_router, prefix="/api")
+app.include_router(sync_router, prefix="/api")
+
 
 @app.get("/health")
 def health() -> dict[str, str]:

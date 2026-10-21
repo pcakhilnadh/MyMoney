@@ -115,6 +115,39 @@ Open http://localhost:5173 and sign in with Google.
 - Everything in `front-end/.env` ends up in the browser bundle, so it must **never** hold a secret.
 - The server never trusts the browser for identity: every request is verified against Google's signature.
 
+## Deploy to Vercel with Services
+
+The repository-root `vercel.json` configures `front-end/` and `back-end/` as
+Services in one Vercel project. Import the repository root, select **Services**
+as the project framework, and set these variables under **Project Settings →
+Environment Variables**:
+
+| Variable | Value | Environment / sensitivity |
+|---|---|---|
+| `DATABASE_URL` | Your PostgreSQL URI | Development, Preview, Production; mark sensitive |
+| `GOOGLE_CLIENT_ID` | Your Google OAuth Web client ID | Development, Preview, Production |
+| `APP_URL` | `https://YOUR-PRODUCTION-DOMAIN` | Optional for initial deployment; set in Production after the first deployment |
+| `CORS_ORIGINS` | `[]` | Development, Preview, Production; same-origin `/api` calls do not need CORS |
+| `VITE_GOOGLE_CLIENT_ID` | Same Google OAuth Web client ID | Development, Preview, Production; public build-time variable |
+| `VITE_API_URL` | `/api` | Development, Preview, Production; public build-time variable |
+
+Use the same `DATABASE_URL` for all three environments for now, as requested.
+This means Preview and Production will share data; switch to separate databases
+before using Preview for tests that modify data. Enter the real database URI
+and client ID directly in Vercel; do not commit them or paste them into source
+files. SMTP variables are optional and can be omitted.
+
+The frontend URL is not needed to configure API routing: requests use the
+same-origin `/api` path. You can leave `APP_URL` unset for the initial deploy
+when email is not configured. After Vercel assigns a URL, set `APP_URL` to that
+site's origin (for example, `https://your-project.vercel.app`) and redeploy.
+Add that exact origin in Google Cloud Console under the OAuth client's
+**Authorized JavaScript origins**. For Preview Google sign-in, also authorize
+the Preview origin or configure a stable preview domain.
+
+The backend retains its existing unprefixed routes for local development and
+also serves `/api`-prefixed routes for Vercel's shared-domain routing.
+
 ## Tests
 
 ```bash
