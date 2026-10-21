@@ -56,7 +56,10 @@ export default function Transactions() {
                     {formatMinor(t.amount_minor)}
                     <button
                       aria-label={`Delete ${t.description}`}
-                      onClick={() => transactionsRepo.remove(t.id)}
+                      onClick={() => {
+                        if (window.confirm(`Delete "${t.description}"?`))
+                          void transactionsRepo.remove(t.id)
+                      }}
                       className="text-muted-foreground"
                     >
                       <Trash2 size={16} />

@@ -12,6 +12,7 @@ import Login from './pages/Login'
 import Transactions from './pages/Transactions'
 import Settings from './pages/Settings'
 import Layout from './components/Layout'
+import AccountDetail from './pages/AccountDetail'
 
 function Protected() {
   const { user } = useAuth()
@@ -32,6 +33,7 @@ export default function App() {
             <Route path="/insights" element={<Insights />} />
             <Route path="/budgets" element={<Budgets />} />
             <Route path="/settings/accounts" element={<SettingsAccounts />} />
+            <Route path="/accounts/:accountId" element={<AccountDetail />} />
             <Route path="/settings/categories" element={<SettingsCategories />} />
             <Route path="/groups" element={<Groups />} />
             <Route path="/groups/:groupId" element={<GroupDetail />} />

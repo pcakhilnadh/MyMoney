@@ -68,6 +68,17 @@ def test_group_flow_split_balance_settle(client):
     assert summ["total_minor"] == 15000
 
 
+def test_only_owner_can_delete_group(client):
+    c = client
+    gid, _, _ = make_group(c)
+    c.post(f"/groups/{gid}/join", headers=H("bob"))
+    assert c.delete(f"/groups/{gid}", headers=H("bob")).status_code == 403
+    response = c.delete(f"/groups/{gid}", headers=H("alice"))
+    assert response.status_code == 204
+    assert c.get("/groups", headers=H("alice")).json() == []
+    assert c.get(f"/groups/{gid}/members", headers=H("bob")).status_code == 404
+
+
 def test_split_validation_and_outsiders(client):
     c = client
     gid, a, b = make_group(c)

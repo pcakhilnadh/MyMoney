@@ -18,24 +18,36 @@ export default function Layout() {
             ₹
           </div>
           <span className="text-sm font-semibold tracking-wide text-muted-foreground">
-            ExpTracker
+            MyMoney
           </span>
         </div>
-        {pathname !== '/expenses/new' && (
-          <Link
-            to="/expenses/new"
-            aria-label="Add expense"
-            className="gloss flex size-10 items-center justify-center rounded-full text-primary-foreground transition-transform active:scale-95"
-          >
-            <Plus size={20} strokeWidth={2.5} />
-          </Link>
-        )}
       </div>
       <main className="space-y-5 px-5 pt-2">
         <Outlet />
       </main>
-      <nav className="glass fixed inset-x-4 bottom-4 mx-auto flex max-w-[26rem] justify-around rounded-[28px] px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_20px_40px_-12px_rgba(0,0,0,0.8)]">
-        {tabs.map(({ to, label, Icon }) => (
+      <nav className="bottom-nav fixed inset-x-4 bottom-4 z-10 mx-auto flex max-w-[26rem] items-center justify-around rounded-[28px] px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_20px_40px_-12px_rgba(0,0,0,0.8)]">
+        {tabs.slice(0, 2).map(({ to, label, Icon }) => (
+          <NavLink
+            key={to}
+            to={to}
+            className={({ isActive }) =>
+              `flex min-w-16 flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                isActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground'
+              }`
+            }
+          >
+            <Icon size={21} />
+            {label}
+          </NavLink>
+        ))}
+        <Link
+          to="/expenses/new"
+          aria-label="Add expense"
+          className={`gloss -mt-6 flex size-12 shrink-0 items-center justify-center rounded-full text-primary-foreground shadow-lg transition-transform active:scale-95 ${pathname === '/expenses/new' ? 'ring-2 ring-white/70' : ''}`}
+        >
+          <Plus size={23} strokeWidth={2.5} />
+        </Link>
+        {tabs.slice(2).map(({ to, label, Icon }) => (
           <NavLink
             key={to}
             to={to}

@@ -93,7 +93,7 @@ export default function Settings() {
             {install.canPrompt ? (
               <>
                 <p className="text-sm text-muted-foreground">
-                  Add Expense Tracker to your home screen. It works offline.
+                  Add MyMoney to your home screen. It works offline.
                 </p>
                 <Button onClick={install.install}>Install app</Button>
               </>

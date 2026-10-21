@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, useParams } from 'react-router-dom'
+import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Button,
   Card,
@@ -17,6 +17,7 @@ import { formatMinor } from '@/lib/money'
 const TABS = ['Expenses', 'Balances', 'Members'] as const
 
 export default function GroupDetail() {
+  const navigate = useNavigate()
   const { groupId = '' } = useParams()
   const [tab, setTab] = useState<(typeof TABS)[number]>('Expenses')
   const group = useGroups().data?.find((g) => g.id === groupId)
@@ -31,6 +32,11 @@ export default function GroupDetail() {
   const label = (uid: string) => (uid === me?.id ? 'You' : memberLabel(byUser.get(uid)))
   const myNet = me ? (balances.data?.net[me.id] ?? 0) : 0
   const myRole = members.data?.find((m) => m.user_id === me?.id)?.role
+  const removeGroup = useAction<{ id: string }>(
+    (b) => `/groups/${b.id}`,
+    [['groups'], ['invitations']],
+    'DELETE',
+  )
 
   const [email, setEmail] = useState('')
   const invite = useAction<{ email: string }>(`/groups/${groupId}/members`, [['members', groupId]])
@@ -47,6 +53,22 @@ export default function GroupDetail() {
         ← Groups
       </Link>
       <PageHeader title={group?.name ?? 'Group'} />
+      {myRole === 'owner' && (
+        <Button
+          variant="outline"
+          className="w-full text-destructive"
+          disabled={removeGroup.isPending}
+          onClick={() => {
+            if (window.confirm(`Delete "${group?.name}"? This removes it for all members.`))
+              removeGroup.mutate({ id: groupId }, { onSuccess: () => navigate('/groups') })
+          }}
+        >
+          Delete Group
+        </Button>
+      )}
+      {removeGroup.error && (
+        <p className="text-sm text-destructive">{removeGroup.error.message}</p>
+      )}
       <Card className="grid grid-cols-2 gap-2 text-center">
         <div>
           <div className="text-sm text-muted-foreground">Total expenses</div>
@@ -142,7 +164,7 @@ export default function GroupDetail() {
                 m.status === 'invited' ? (
                   <a
                     className="text-sm font-medium text-primary"
-                    href={`mailto:${m.email}?subject=${encodeURIComponent(`Join "${group?.name}" on Expense Tracker`)}&body=${encodeURIComponent(`I added you to "${group?.name}". Sign in with this Google account to join: ${window.location.origin}/groups`)}`}
+                    href={`mailto:${m.email}?subject=${encodeURIComponent(`Join "${group?.name}" on MyMoney`)}&body=${encodeURIComponent(`I added you to "${group?.name}". Sign in with this Google account to join: ${window.location.origin}/groups`)}`}
                   >
                     Invited · email
                   </a>

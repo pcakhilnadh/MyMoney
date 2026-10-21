@@ -53,4 +53,13 @@ test('create group, invite by email, join, split expense, see balances, settle',
   await b.getByPlaceholder('0').fill('100')
   await b.getByRole('button', { name: 'Record Settlement' }).click()
   await expect(b.getByText('₹200.00').first()).toBeVisible()
+
+  a.once('dialog', async (dialog) => {
+    expect(dialog.type()).toBe('confirm')
+    expect(dialog.message()).toContain('Goa Trip')
+    await dialog.accept()
+  })
+  await a.getByRole('button', { name: 'Delete Group' }).click()
+  await expect(a).toHaveURL(/\/groups$/)
+  await expect(a.getByText('No groups yet')).toBeVisible()
 })

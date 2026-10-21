@@ -1,4 +1,4 @@
-# Expense Tracker
+# MyMoney
 
 A simple, installable (PWA) expense tracker for **personal, family and group** spending, with a dark
 CRED-inspired UI. Data is stored locally first (works offline) and syncs to the server when online.

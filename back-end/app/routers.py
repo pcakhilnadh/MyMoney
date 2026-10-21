@@ -217,6 +217,25 @@ def my_groups(user: Profile = Depends(get_current_user), db: Session = Depends(g
     ).all()
 
 
+@router.delete("/groups/{group_id}", status_code=204)
+def delete_group(
+    group_id: uuid.UUID, user: Profile = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    member = require_member(db, group_id, user)
+    if member.role != "owner":
+        raise HTTPException(403, "Only the group owner can delete this group")
+    group = active_group(db, group_id)
+    if group.created_by != user.id:
+        raise HTTPException(403, "Only the group owner can delete this group")
+    group.status = "deleted"
+    for group_member in db.scalars(
+        select(GroupMember).where(GroupMember.group_id == group_id)
+    ):
+        group_member.status = "inactive"
+    audit(db, user, "group", group.id, "delete")
+    db.commit()
+
+
 @router.get("/groups/invitations", response_model=list[s.GroupOut])
 def my_invitations(user: Profile = Depends(get_current_user), db: Session = Depends(get_db)):
     return db.scalars(

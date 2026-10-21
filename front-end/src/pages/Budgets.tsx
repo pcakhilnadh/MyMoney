@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { Pencil, Trash2 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Button,
@@ -21,6 +22,7 @@ export default function Budgets() {
   const [name, setName] = useState('')
   const [amount, setAmount] = useState(0)
   const [category, setCategory] = useState<string | null>(null)
+  const [editingId, setEditingId] = useState<string | null>(null)
   const month = currentMonth()
 
   const spent = (categoryId: string | null) =>
@@ -33,22 +35,38 @@ export default function Budgets() {
       )
       .reduce((n, t) => n + t.amount_minor, 0)
 
-  async function add() {
-    await budgetsRepo.create({
+  function resetForm() {
+    setName('')
+    setAmount(0)
+    setCategory(null)
+    setEditingId(null)
+  }
+
+  async function save() {
+    const values = {
       group_id: null,
       category_id: cats.find((c) => c.name === category)?.id ?? null,
       name: name.trim() || category || 'Monthly budget',
       amount_minor: amount,
       currency: 'INR',
-      period: 'monthly',
+      period: 'monthly' as const,
       period_start: `${month}-01`,
       period_end: null,
       alert_threshold_percent: 80,
       is_active: true,
-    })
-    setName('')
-    setAmount(0)
-    setCategory(null)
+    }
+    if (editingId) await budgetsRepo.update(editingId, values)
+    else await budgetsRepo.create(values)
+    resetForm()
+  }
+
+  function edit(id: string) {
+    const budget = budgets.find((item) => item.id === id)
+    if (!budget) return
+    setEditingId(id)
+    setName(budget.name)
+    setAmount(budget.amount_minor)
+    setCategory(cats.find((c) => c.id === budget.category_id)?.name ?? null)
   }
 
   return (
@@ -62,7 +80,23 @@ export default function Budgets() {
             <ListItem
               title={b.name}
               subtitle={`${formatMinor(used)} of ${formatMinor(b.amount_minor)}`}
-              trailing={`${pct}%`}
+              trailing={
+                <span className="flex items-center gap-3">
+                  <span>{pct}%</span>
+                  <button aria-label={`Edit ${b.name}`} onClick={() => edit(b.id)}>
+                    <Pencil size={16} />
+                  </button>
+                  <button
+                    aria-label={`Delete ${b.name}`}
+                    onClick={() => {
+                      if (window.confirm(`Delete the "${b.name}" budget?`))
+                        void budgetsRepo.remove(b.id)
+                    }}
+                  >
+                    <Trash2 size={16} />
+                  </button>
+                </span>
+              }
             />
             <div className="h-2 overflow-hidden rounded-full bg-muted">
               <div
@@ -74,17 +108,26 @@ export default function Budgets() {
         )
       })}
       <div className="surface space-y-3 rounded-card p-5">
-        <SectionTitle>Add Budget</SectionTitle>
+        <SectionTitle>{editingId ? 'Edit Budget' : 'Add Budget'}</SectionTitle>
         <Input
           placeholder="Name (optional)"
           value={name}
           onChange={(e) => setName(e.target.value)}
         />
         <CurrencyInput label="Monthly limit" value={amount} onChange={setAmount} />
-        <CategorySelector value={category} onChange={setCategory} />
-        <Button className="w-full" disabled={amount <= 0} onClick={add}>
-          Add Budget
+        <CategorySelector
+          value={category}
+          onChange={setCategory}
+          options={cats.map((c) => c.name)}
+        />
+        <Button className="w-full" disabled={amount <= 0} onClick={() => void save()}>
+          {editingId ? 'Save Budget' : 'Add Budget'}
         </Button>
+        {editingId && (
+          <Button variant="outline" className="w-full" onClick={resetForm}>
+            Cancel
+          </Button>
+        )}
       </div>
     </div>
   )

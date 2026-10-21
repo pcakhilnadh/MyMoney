@@ -14,8 +14,8 @@ export default defineConfig({
       includeAssets: ['icon.svg', 'apple-touch-icon.png'],
       manifest: {
         id: '/',
-        name: 'Expense Tracker',
-        short_name: 'ExpTracker',
+        name: 'MyMoney',
+        short_name: 'MyMoney',
         description: 'Track personal, family and group expenses',
         theme_color: '#0A0A0F',
         background_color: '#0A0A0F',

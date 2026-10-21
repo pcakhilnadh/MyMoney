@@ -6,7 +6,7 @@ from app.routers import router as api_router
 from app.routers_auth import router as auth_router
 from app.sync import router as sync_router
 
-app = FastAPI(title="Expense Tracker API")
+app = FastAPI(title="MyMoney API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
