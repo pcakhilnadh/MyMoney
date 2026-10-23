@@ -227,7 +227,7 @@ def delete_group(
     group = active_group(db, group_id)
     if group.created_by != user.id:
         raise HTTPException(403, "Only the group owner can delete this group")
-    group.status = "deleted"
+    group.status = "inactive"
     for group_member in db.scalars(
         select(GroupMember).where(GroupMember.group_id == group_id)
     ):
@@ -253,6 +253,18 @@ def members(
     return db.scalars(select(GroupMember).where(GroupMember.group_id == group_id)).all()
 
 
+@router.delete("/groups/{group_id}/members/me", status_code=204)
+def leave_group(
+    group_id: uuid.UUID, user: Profile = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    member = require_member(db, group_id, user)
+    if member.role == "owner":
+        raise HTTPException(403, "The group owner cannot leave; delete the group instead")
+    member.status = "inactive"
+    audit(db, user, "group_member", member.id, "leave", old={"status": "active"})
+    db.commit()
+
+
 @router.post("/groups/{group_id}/members", response_model=s.MemberOut, status_code=201)
 def invite(
     group_id: uuid.UUID,
@@ -264,18 +276,27 @@ def invite(
     require_admin(db, group_id, user)
     if body.role not in ("admin", "member"):
         raise HTTPException(422, "Invalid role")
-    email = body.email.strip().lower()
-    if db.scalar(
-        select(GroupMember).where(GroupMember.group_id == group_id, GroupMember.email == email)
-    ):
-        raise HTTPException(409, "Already invited or a member")
-    m = GroupMember(
-        group_id=group_id, email=email, role=body.role, status="invited", invited_by=user.id
-    )
-    db.add(m)
-    db.flush()
-    audit(db, user, "group_member", m.id, "invite", new={"email": email})
     group = active_group(db, group_id)
+    email = body.email.strip().lower()
+    m = db.scalar(
+        select(GroupMember).where(GroupMember.group_id == group_id, GroupMember.email == email)
+    )
+    if m is not None and m.status != "inactive":
+        raise HTTPException(409, "Already invited or a member")
+    if m is None:
+        m = GroupMember(
+            group_id=group_id, email=email, role=body.role, status="invited", invited_by=user.id
+        )
+        db.add(m)
+        action = "invite"
+    else:
+        m.role = body.role
+        m.status = "invited"
+        m.invited_by = user.id
+        m.joined_at = None
+        action = "reinvite"
+    db.flush()
+    audit(db, user, "group_member", m.id, action, new={"email": email, "role": body.role})
     db.commit()
     background.add_task(send_email, email, *invite_email(group.name, user.email))
     return m

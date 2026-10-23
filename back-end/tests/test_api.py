@@ -1,3 +1,6 @@
+from uuid import UUID
+
+from app.models import ExpenseGroup, GroupMember
 from tests.conftest import H
 
 
@@ -76,7 +79,40 @@ def test_only_owner_can_delete_group(client):
     response = c.delete(f"/groups/{gid}", headers=H("alice"))
     assert response.status_code == 204
     assert c.get("/groups", headers=H("alice")).json() == []
+    assert c.get("/groups", headers=H("bob")).json() == []
     assert c.get(f"/groups/{gid}/members", headers=H("bob")).status_code == 404
+    with c.session_factory() as db:
+        group_id = UUID(gid)
+        assert db.get(ExpenseGroup, group_id).status == "inactive"
+        assert {m.status for m in db.query(GroupMember).filter_by(group_id=group_id)} == {
+            "inactive"
+        }
+
+
+def test_member_can_leave_and_owner_can_reinvite(client):
+    c = client
+    gid, _, _ = make_group(c)
+    c.post(f"/groups/{gid}/join", headers=H("bob"))
+
+    assert c.delete(f"/groups/{gid}/members/me", headers=H("alice")).status_code == 403
+    assert c.delete(f"/groups/{gid}/members/me", headers=H("bob")).status_code == 204
+    assert c.get("/groups", headers=H("bob")).json() == []
+    assert c.get(f"/groups/{gid}/members", headers=H("bob")).status_code == 404
+
+    members = c.get(f"/groups/{gid}/members", headers=H("alice")).json()
+    bob = next(member for member in members if member["email"] == "bob@gmail.com")
+    assert bob["status"] == "inactive"
+
+    reinvite = c.post(
+        f"/groups/{gid}/members",
+        json={"email": "Bob@gmail.com"},
+        headers=H("alice"),
+    )
+    assert reinvite.status_code == 201
+    assert reinvite.json()["id"] == bob["id"]
+    assert reinvite.json()["status"] == "invited"
+    assert c.post(f"/groups/{gid}/join", headers=H("bob")).json()["status"] == "active"
+    assert [group["id"] for group in c.get("/groups", headers=H("bob")).json()] == [gid]
 
 
 def test_split_validation_and_outsiders(client):

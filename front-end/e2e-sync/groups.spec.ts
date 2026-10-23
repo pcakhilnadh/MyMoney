@@ -54,6 +54,22 @@ test('create group, invite by email, join, split expense, see balances, settle',
   await b.getByRole('button', { name: 'Record Settlement' }).click()
   await expect(b.getByText('₹200.00').first()).toBeVisible()
 
+  await b.getByRole('button', { name: 'Members' }).click()
+  b.once('dialog', async (dialog) => {
+    expect(dialog.type()).toBe('confirm')
+    expect(dialog.message()).toContain('Goa Trip')
+    await dialog.accept()
+  })
+  await b.getByRole('button', { name: 'Leave Group' }).click()
+  await expect(b).toHaveURL(/\/groups$/)
+  await expect(b.getByText('No groups yet')).toBeVisible()
+
+  await a.reload()
+  await a.getByRole('button', { name: 'Members' }).click()
+  await expect(a.getByText('bob@gmail.com · member · Left')).toBeVisible()
+  await a.getByRole('button', { name: 'Invite again' }).click()
+  await expect(a.getByText('Invited', { exact: true })).toBeVisible()
+
   a.once('dialog', async (dialog) => {
     expect(dialog.type()).toBe('confirm')
     expect(dialog.message()).toContain('Goa Trip')

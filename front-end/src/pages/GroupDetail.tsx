@@ -37,6 +37,11 @@ export default function GroupDetail() {
     [['groups'], ['invitations']],
     'DELETE',
   )
+  const leaveGroup = useAction<{ id: string }>(
+    (b) => `/groups/${b.id}/members/me`,
+    [['groups'], ['invitations'], ['members', groupId], ['balances', groupId], ['gtx', groupId]],
+    'DELETE',
+  )
 
   const [email, setEmail] = useState('')
   const invite = useAction<{ email: string }>(`/groups/${groupId}/members`, [['members', groupId]])
@@ -159,19 +164,44 @@ export default function GroupDetail() {
             <ListItem
               key={m.id}
               title={memberLabel(m)}
-              subtitle={`${m.email} · ${m.role}`}
+              subtitle={`${m.email} · ${m.role}${m.status === 'inactive' ? ' · Left' : ''}`}
               trailing={
                 m.status === 'invited' ? (
-                  <a
-                    className="text-sm font-medium text-primary"
-                    href={`mailto:${m.email}?subject=${encodeURIComponent(`Join "${group?.name}" on MyMoney`)}&body=${encodeURIComponent(`I added you to "${group?.name}". Sign in with this Google account to join: ${window.location.origin}/groups`)}`}
+                  <span className="text-sm font-medium text-muted-foreground">Invited</span>
+                ) : m.status === 'inactive' && (myRole === 'owner' || myRole === 'admin') ? (
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={invite.isPending}
+                    onClick={() => invite.mutate({ email: m.email })}
                   >
-                    Invited · email
-                  </a>
+                    Invite again
+                  </Button>
                 ) : undefined
               }
             />
           ))}
+          {myRole && myRole !== 'owner' && (
+            <div className="space-y-2 pt-2">
+              <Button
+                variant="outline"
+                className="w-full text-destructive"
+                disabled={leaveGroup.isPending}
+                onClick={() => {
+                  if (window.confirm(`Leave "${group?.name}"? You will no longer see this group.`))
+                    leaveGroup.mutate(
+                      { id: groupId },
+                      { onSuccess: () => navigate('/groups') },
+                    )
+                }}
+              >
+                Leave Group
+              </Button>
+              {leaveGroup.error && (
+                <p className="text-sm text-destructive">{leaveGroup.error.message}</p>
+              )}
+            </div>
+          )}
           {(myRole === 'owner' || myRole === 'admin') && (
             <div className="surface flex gap-2 rounded-card p-4">
               <Input
@@ -189,8 +219,7 @@ export default function GroupDetail() {
           )}
           {invite.isSuccess && (
             <p className="text-sm text-muted-foreground">
-              Invitation saved. We email them if mail is set up; you can also tap “Invited · email”
-              to send it yourself.
+              Invitation saved. We email them if mail is set up.
             </p>
           )}
           {invite.error && <p className="text-sm text-destructive">{invite.error.message}</p>}

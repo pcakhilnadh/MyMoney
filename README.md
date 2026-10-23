@@ -86,7 +86,7 @@ uv sync                     # creates .venv and installs dependencies
 uv run alembic upgrade head # creates/updates tables in the database
 uv run uvicorn app.main:app --reload --port 8000
 ```
-API: http://localhost:8000 · interactive docs: http://localhost:8000/docs · health: `/health`
+API: http://localhost:8000 · interactive docs: http://localhost:8000/docs · health: `/health` (reports database connectivity; returns HTTP 503 when the database is unavailable)
 
 ### 3. Front-end
 ```bash
