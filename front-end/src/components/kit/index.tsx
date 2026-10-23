@@ -122,11 +122,13 @@ export function CategorySelector({
   options?: readonly string[]
   label?: string
 }) {
+  const sortedOptions = [...options].sort((a, b) => a.localeCompare(b))
+
   return (
-    <div className="space-y-1.5">
+    <div role="group" aria-label={label} className="space-y-1.5">
       <span className="label">{label}</span>
       <div className="flex flex-wrap gap-2">
-        {options.map((c) => (
+        {sortedOptions.map((c) => (
           <button
             key={c}
             type="button"

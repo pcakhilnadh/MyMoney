@@ -30,7 +30,9 @@ export default function SettingsCategories() {
     setShowForm(false)
   }
 
-  const shown = categories.filter((category) => category.transaction_type === type)
+  const shown = categories
+    .filter((category) => category.transaction_type === type)
+    .sort((a, b) => a.name.localeCompare(b.name))
   const duplicateName = shown.some(
     (category) => category.name.toLocaleLowerCase() === name.trim().toLocaleLowerCase(),
   )
