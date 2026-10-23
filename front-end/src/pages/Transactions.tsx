@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Trash2 } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Plus, Trash2 } from 'lucide-react'
 import { Input, PageHeader, SegmentedControl } from '@/components/kit'
 import { db } from '@/db/db'
 import { transactionsRepo } from '@/db/repos'
@@ -29,6 +30,7 @@ const TYPE_STYLE = {
 } as const
 
 export default function Transactions() {
+  const navigate = useNavigate()
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All')
   const [q, setQ] = useState('')
   const txs = useLiveQuery(() => transactionsRepo.listByDate(), [])
@@ -47,7 +49,17 @@ export default function Transactions() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Transactions" />
+      <div className="flex items-center justify-between">
+        <PageHeader title="Transactions" />
+        <button
+          type="button"
+          aria-label="Add transaction"
+          onClick={() => navigate('/expenses/new')}
+          className="gloss flex size-10 items-center justify-center rounded-full text-primary-foreground"
+        >
+          <Plus size={21} />
+        </button>
+      </div>
       <Input
         placeholder="Search transactions or merchants"
         value={q}

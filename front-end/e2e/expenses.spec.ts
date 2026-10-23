@@ -22,6 +22,9 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await expect(page).toHaveURL(/\/transactions/)
   await expect(page.getByText('Lunch')).toBeVisible()
   await expect(page.getByText('₹250.50')).toBeVisible()
+  await page.getByRole('button', { name: 'Add transaction' }).click()
+  await expect(page).toHaveURL(/\/expenses\/new/)
+  await page.goBack()
   await page.getByPlaceholder('Search transactions or merchants').fill('zzz')
   await expect(page.getByText('No transactions yet')).toBeVisible()
   await page.getByPlaceholder('Search transactions or merchants').fill('lun')
@@ -31,6 +34,7 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await expect(page.getByText('₹250.50').first()).toBeVisible()
 
   await page.getByRole('link', { name: 'Budgets' }).click()
+  await page.getByRole('button', { name: 'Add budget' }).click()
   await page.getByPlaceholder('0').fill('1000')
   await page.getByRole('button', { name: 'Food' }).click()
   await page.getByRole('button', { name: 'Add Budget' }).click()

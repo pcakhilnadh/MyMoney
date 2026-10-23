@@ -27,7 +27,15 @@ test('category types, hiding, and expense-only budgets', async ({ page }) => {
   await page.getByRole('button', { name: 'Transfer' }).click()
   await expect(page.getByRole('button', { name: 'Money Lent' })).toBeVisible()
 
+  await page.goto('/settings/categories')
+  await page.getByRole('button', { name: 'Add category' }).click()
+  await expect(page.getByPlaceholder('New expense category')).toBeVisible()
+  await page.getByPlaceholder('New expense category').fill('Test category')
+  await page.getByRole('button', { name: 'Add', exact: true }).click()
+  await expect(page.getByText('Test category')).toBeVisible()
+
   await page.goto('/budgets')
+  await page.getByRole('button', { name: 'Add budget' }).click()
   await expect(page.getByRole('button', { name: 'Food & Dining' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Shopping' })).toBeVisible()
 })

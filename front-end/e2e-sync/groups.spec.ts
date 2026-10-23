@@ -18,6 +18,7 @@ test('create group, invite by email, join, split expense, see balances, settle',
 
   // Alice creates a group and adds Bob by email
   await a.goto('/groups')
+  await a.getByRole('button', { name: 'Add group' }).click()
   await a.getByPlaceholder('Group name').fill('Goa Trip')
   await a.getByRole('button', { name: 'Create Group' }).click()
   await a.getByText('Goa Trip').click()

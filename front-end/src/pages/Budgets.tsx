@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Button,
@@ -19,6 +19,7 @@ export default function Budgets() {
   const budgets = useLiveQuery(() => budgetsRepo.list(), []) ?? []
   const txs = useLiveQuery(() => transactionsRepo.list(), []) ?? []
   const cats = useLiveQuery(() => db.categories.toArray(), []) ?? []
+  const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [amount, setAmount] = useState(0)
   const [category, setCategory] = useState<string | null>(null)
@@ -43,6 +44,15 @@ export default function Budgets() {
     setAmount(0)
     setCategory(null)
     setEditingId(null)
+    setShowForm(false)
+  }
+
+  function addBudget() {
+    setName('')
+    setAmount(0)
+    setCategory(null)
+    setEditingId(null)
+    setShowForm(true)
   }
 
   async function save() {
@@ -77,75 +87,111 @@ export default function Budgets() {
     setName(budget.name)
     setAmount(budget.amount_minor)
     setCategory(cats.find((c) => c.id === budget.category_id && !c.is_hidden)?.name ?? null)
+    setShowForm(true)
   }
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Budgets" />
-      {budgets.map((b) => {
-        const used = spent(b.category_id)
-        const pct = Math.round((used / b.amount_minor) * 100)
-        return (
-          <div key={b.id} className="space-y-1">
-            <ListItem
-              title={b.name}
-              subtitle={`${formatMinor(used)} of ${formatMinor(b.amount_minor)}`}
-              trailing={
-                <span className="flex items-center gap-3">
-                  <span>{pct}%</span>
-                  <button aria-label={`Edit ${b.name}`} onClick={() => edit(b.id)}>
-                    <Pencil size={16} />
-                  </button>
-                  <button
-                    aria-label={`Delete ${b.name}`}
-                    onClick={() => {
-                      if (window.confirm(`Delete the "${b.name}" budget?`))
-                        void budgetsRepo.remove(b.id)
-                    }}
-                  >
-                    <Trash2 size={16} />
-                  </button>
-                </span>
-              }
-            />
-            <div className="h-2 overflow-hidden rounded-full bg-muted">
-              <div
-                className={`h-full ${pct >= 100 ? 'bg-destructive' : 'bg-primary'}`}
-                style={{ width: `${Math.min(pct, 100)}%` }}
-              />
-            </div>
-          </div>
-        )
-      })}
-      <div className="surface space-y-3 rounded-card p-5">
-        <SectionTitle>{editingId ? 'Edit Budget' : 'Add Budget'}</SectionTitle>
-        <Input
-          placeholder="Name (optional)"
-          value={name}
-          onChange={(e) => setName(e.target.value)}
-        />
-        <CurrencyInput label="Monthly limit" value={amount} onChange={setAmount} />
-        <CategorySelector
-          value={category}
-          onChange={setCategory}
-          options={cats
-            .filter(
-              (category) =>
-                category.transaction_type === 'expense' &&
-                category.status === 'active' &&
-                !category.is_hidden,
-            )
-            .map((c) => c.name)}
-        />
-        <Button className="w-full" disabled={amount <= 0} onClick={() => void save()}>
-          {editingId ? 'Save Budget' : 'Add Budget'}
-        </Button>
-        {editingId && (
-          <Button variant="outline" className="w-full" onClick={resetForm}>
-            Cancel
-          </Button>
+      <div className="flex items-center justify-between">
+        {showForm ? (
+          <button
+            type="button"
+            onClick={resetForm}
+            className="flex items-center gap-1 text-sm font-medium text-muted-foreground"
+          >
+            <ArrowLeft size={18} />
+            Back
+          </button>
+        ) : (
+          <PageHeader title="Budgets" />
+        )}
+        {showForm ? (
+          <span className="text-sm font-medium text-muted-foreground">
+            {editingId ? 'Edit budget' : 'New budget'}
+          </span>
+        ) : (
+          <button
+            type="button"
+            aria-label="Add budget"
+            onClick={addBudget}
+            className="gloss flex size-10 items-center justify-center rounded-full text-primary-foreground"
+          >
+            <Plus size={21} />
+          </button>
         )}
       </div>
+      {showForm ? (
+        <div className="surface space-y-3 rounded-card p-5">
+          <SectionTitle>{editingId ? 'Edit Budget' : 'Add Budget'}</SectionTitle>
+          <Input
+            placeholder="Name (optional)"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+          />
+          <CurrencyInput label="Monthly limit" value={amount} onChange={setAmount} />
+          <CategorySelector
+            value={category}
+            onChange={setCategory}
+            options={cats
+              .filter(
+                (category) =>
+                  category.transaction_type === 'expense' &&
+                  category.status === 'active' &&
+                  !category.is_hidden,
+              )
+              .map((c) => c.name)}
+          />
+          <Button className="w-full" disabled={amount <= 0} onClick={() => void save()}>
+            {editingId ? 'Save Budget' : 'Add Budget'}
+          </Button>
+          {editingId && (
+            <Button variant="outline" className="w-full" onClick={resetForm}>
+              Cancel
+            </Button>
+          )}
+        </div>
+      ) : (
+        <>
+          {budgets.map((b) => {
+            const used = spent(b.category_id)
+            const pct = Math.round((used / b.amount_minor) * 100)
+            return (
+              <div key={b.id} className="space-y-1">
+                <ListItem
+                  title={b.name}
+                  subtitle={`${formatMinor(used)} of ${formatMinor(b.amount_minor)}`}
+                  trailing={
+                    <span className="flex items-center gap-3">
+                      <span>{pct}%</span>
+                      <button aria-label={`Edit ${b.name}`} onClick={() => edit(b.id)}>
+                        <Pencil size={16} />
+                      </button>
+                      <button
+                        aria-label={`Delete ${b.name}`}
+                        onClick={() => {
+                          if (window.confirm(`Delete the "${b.name}" budget?`))
+                            void budgetsRepo.remove(b.id)
+                        }}
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </span>
+                  }
+                />
+                <div className="h-2 overflow-hidden rounded-full bg-muted">
+                  <div
+                    className={`h-full ${pct >= 100 ? 'bg-destructive' : 'bg-primary'}`}
+                    style={{ width: `${Math.min(pct, 100)}%` }}
+                  />
+                </div>
+              </div>
+            )
+          })}
+          {budgets.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted-foreground">No budgets yet</p>
+          )}
+        </>
+      )}
     </div>
   )
 }
