@@ -4,8 +4,11 @@ import { fakeSignIn } from './helpers'
 test('signed-out users are sent to login', async ({ page }) => {
   await page.goto('/home')
   await expect(page).toHaveURL(/\/login/)
+  await expect(page).toHaveTitle('MyTracker')
   await expect(page.getByText('MyTracker')).toBeVisible()
   await expect(page.getByRole('heading', { name: /Track money, food, habits and more/ })).toBeVisible()
+  await expect(page.locator('h1 span')).toHaveCSS('background-image', /rgb\(124, 108, 255\)/)
+  await expect(page.locator('.gloss svg')).toBeVisible()
 })
 
 test('signed-in shell shows tabs and settings', async ({ page }) => {

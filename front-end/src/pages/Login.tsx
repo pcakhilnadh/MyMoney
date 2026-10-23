@@ -1,4 +1,5 @@
 import { Navigate } from 'react-router-dom'
+import { Activity } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import GoogleButton from '@/auth/GoogleButton'
 
@@ -14,15 +15,15 @@ export default function Login() {
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-between px-8 py-14">
       <div className="flex items-center gap-3">
-        <div className="gloss flex size-14 items-center justify-center rounded-2xl text-2xl font-bold">
-          ₹
+        <div className="gloss flex size-14 items-center justify-center rounded-2xl">
+          <Activity size={28} strokeWidth={2.25} aria-hidden="true" />
         </div>
         <span className="text-xl font-bold">MyTracker</span>
       </div>
       <div className="space-y-4">
         <h1 className="text-[40px] leading-[1.05] font-extrabold tracking-tight">
           Track money, food, habits and more,{' '}
-          <span className="bg-gradient-to-r from-[#a99dff] to-[#4ae3b5] bg-clip-text text-transparent">
+          <span className="bg-gradient-to-r from-primary to-positive bg-clip-text text-transparent">
             all in one place.
           </span>
         </h1>
