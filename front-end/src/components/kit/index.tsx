@@ -222,8 +222,8 @@ export function BarChartCard({ title, data }: { title: string; data: ChartPoint[
         <BarChart data={data}>
           <defs>
             <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="#9d90ff" />
-              <stop offset="100%" stopColor="#5a49f0" />
+              <stop offset="0%" stopColor="var(--primary)" />
+              <stop offset="100%" stopColor="color-mix(in srgb, var(--primary) 65%, #0a0a0f)" />
             </linearGradient>
           </defs>
           <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} stroke="#8e8ea0" />

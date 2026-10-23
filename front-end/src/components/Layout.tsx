@@ -104,9 +104,9 @@ export default function Layout() {
               type="button"
               disabled
               aria-disabled="true"
-              className="flex min-w-16 flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 text-[11px] font-medium text-muted-foreground opacity-60"
+              className="flex min-w-16 flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 text-[11px] font-medium text-primary"
             >
-              <Icon size={21} />
+              <Icon size={21} className="text-primary" />
               {label}
             </button>
           ))}
@@ -118,14 +118,14 @@ export default function Layout() {
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex min-w-16 flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                `flex min-w-16 flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 text-[11px] font-medium text-primary transition-colors ${
                   isActive
-                    ? 'bg-primary/20 text-primary ring-1 ring-primary/30'
-                    : 'text-muted-foreground'
+                    ? 'bg-primary/20 ring-1 ring-primary/30'
+                    : ''
                 }`
               }
             >
-              <Icon size={21} />
+              <Icon size={21} className="text-primary" />
               {label}
             </NavLink>
           ))}
@@ -141,14 +141,14 @@ export default function Layout() {
               key={to}
               to={to}
               className={({ isActive }) =>
-                `flex min-w-16 flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 text-[11px] font-medium transition-colors ${
+                `flex min-w-16 flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 text-[11px] font-medium text-primary transition-colors ${
                   isActive
-                    ? 'bg-primary/20 text-primary ring-1 ring-primary/30'
-                    : 'text-muted-foreground'
+                    ? 'bg-primary/20 ring-1 ring-primary/30'
+                    : ''
                 }`
               }
             >
-              <Icon size={21} />
+              <Icon size={21} className="text-primary" />
               {label}
             </NavLink>
           ))}
