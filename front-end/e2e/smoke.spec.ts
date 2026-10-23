@@ -4,7 +4,8 @@ import { fakeSignIn } from './helpers'
 test('signed-out users are sent to login', async ({ page }) => {
   await page.goto('/home')
   await expect(page).toHaveURL(/\/login/)
-  await expect(page.getByText('Track expenses together')).toBeVisible()
+  await expect(page.getByText('MyTracker')).toBeVisible()
+  await expect(page.getByRole('heading', { name: /Track money, food, habits and more/ })).toBeVisible()
 })
 
 test('signed-in shell shows tabs and settings', async ({ page }) => {
