@@ -17,6 +17,14 @@ class TransactionsRepository extends Repository<Transaction> {
     if (account?.status !== 'active') {
       throw new Error('An active account is required to create a transaction')
     }
+    if (
+      data.transaction_type === 'transfer' &&
+      (!data.transfer_to_account_id ||
+        data.transfer_to_account_id === data.account_id ||
+        !(await accountsRepo.get(data.transfer_to_account_id)))
+    ) {
+      throw new Error('A different destination account is required for a transfer')
+    }
     return super.create(data)
   }
 

@@ -51,6 +51,7 @@ class TransactionIn(BaseModel):
     transaction_type: str = "expense"
     group_id: uuid.UUID | None = None
     account_id: uuid.UUID
+    transfer_to_account_id: uuid.UUID | None = None
     category_id: uuid.UUID | None = None
     description: str
     merchant: str | None = None
@@ -70,6 +71,7 @@ class TransactionOut(ORM):
     transaction_type: str
     group_id: uuid.UUID | None
     account_id: uuid.UUID | None
+    transfer_to_account_id: uuid.UUID | None
     category_id: uuid.UUID | None
     description: str
     merchant: str | None

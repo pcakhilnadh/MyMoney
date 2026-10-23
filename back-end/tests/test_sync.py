@@ -2,6 +2,7 @@ from tests.conftest import H
 
 CAT = "aaaaaaaa-0000-0000-0000-000000000001"
 ACC = "aaaaaaaa-0000-0000-0000-000000000002"
+ACC_TO = "aaaaaaaa-0000-0000-0000-000000000004"
 TX = "aaaaaaaa-0000-0000-0000-000000000003"
 
 
@@ -77,3 +78,20 @@ def test_rejects_foreign_references_and_group_context(client):
     grp = payload()
     grp["transactions"][0]["context"] = "group"
     assert c.post("/sync/push", json=grp, headers=H("alice")).status_code == 422
+
+
+def test_transfer_sync_requires_and_persists_destination(client):
+    body = payload()
+    body["accounts"].append({"id": ACC_TO, "version": 1, "name": "Savings"})
+    transaction = body["transactions"][0]
+    transaction["transaction_type"] = "transfer"
+    transaction["transfer_to_account_id"] = ACC_TO
+    response = client.post("/sync/push", json=body, headers=H("alice"))
+
+    assert response.status_code == 200
+    pulled = client.get("/sync/pull", headers=H("alice")).json()
+    assert pulled["transactions"][0]["transfer_to_account_id"] == ACC_TO
+
+    body["transactions"][0]["id"] = "aaaaaaaa-0000-0000-0000-000000000005"
+    body["transactions"][0]["transfer_to_account_id"] = ACC
+    assert client.post("/sync/push", json=body, headers=H("alice")).status_code == 422

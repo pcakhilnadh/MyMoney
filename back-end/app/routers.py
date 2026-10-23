@@ -73,12 +73,29 @@ def _visible_filter(user: Profile, db: Session):
 
 def _validated_splits(db: Session, body: s.TransactionIn, user: Profile):
     """Validate group/context rules and return list[(user_id, share, paid)]."""
+    if body.transaction_type not in {"expense", "income", "refund", "transfer"}:
+        raise HTTPException(422, "Unsupported transaction type")
     if body.context == "personal":
         if body.group_id or body.splits:
             raise HTTPException(422, "Personal transactions cannot have a group or splits")
         account = db.get(Account, body.account_id)
         if account is None or account.user_id != user.id or account.status != "active":
             raise HTTPException(422, "An active account owned by the caller is required")
+        if body.transaction_type == "transfer":
+            destination = (
+                db.get(Account, body.transfer_to_account_id)
+                if body.transfer_to_account_id
+                else None
+            )
+            if (
+                destination is None
+                or body.transfer_to_account_id == body.account_id
+                or destination.user_id != user.id
+                or destination.status != "active"
+            ):
+                raise HTTPException(422, "A different active destination account is required")
+        elif body.transfer_to_account_id is not None:
+            raise HTTPException(422, "Only transfers can have a destination account")
         return []
     if body.group_id is None:
         raise HTTPException(422, "group_id required for family/group transactions")
@@ -87,6 +104,10 @@ def _validated_splits(db: Session, body: s.TransactionIn, user: Profile):
     account = db.get(Account, body.account_id)
     if account is None or account.user_id != user.id or account.status != "active":
         raise HTTPException(422, "An active account owned by the caller is required")
+    if body.transaction_type != "expense":
+        raise HTTPException(422, "Group transactions must be expenses")
+    if body.transfer_to_account_id is not None:
+        raise HTTPException(422, "Only transfers can have a destination account")
     if not body.splits:
         return []
     method = body.split_method or "equal"

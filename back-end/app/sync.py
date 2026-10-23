@@ -44,7 +44,8 @@ class CategoryRec(Rec):
 
 
 class TransactionRec(Rec):
-    account_id: uuid.UUID | None = None
+    account_id: uuid.UUID
+    transfer_to_account_id: uuid.UUID | None = None
     category_id: uuid.UUID | None = None
     context: str = "personal"
     transaction_type: str = "expense"
@@ -88,6 +89,7 @@ SPECS = {
         "owner_user_id",
         [
             "account_id",
+            "transfer_to_account_id",
             "category_id",
             "transaction_type",
             "description",
@@ -128,11 +130,24 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
     if name == "transactions":
         if rec.context != "personal":  # group data goes through /transactions
             raise HTTPException(422, "Only personal transactions can be synced")
-        account = db.get(Account, rec.account_id) if rec.account_id else None
-        if rec.account_id and (
-            account is None or account.user_id != user.id or account.status != "active"
-        ):
+        account = db.get(Account, rec.account_id)
+        if account is None or account.user_id != user.id or account.status != "active":
             raise HTTPException(422, "Unknown account")
+        destination = (
+            db.get(Account, rec.transfer_to_account_id) if rec.transfer_to_account_id else None
+        )
+        if rec.transaction_type == "transfer":
+            if (
+                destination is None
+                or rec.transfer_to_account_id == rec.account_id
+                or destination.user_id != user.id
+                or destination.status != "active"
+            ):
+                raise HTTPException(422, "A different active destination account is required")
+        elif rec.transfer_to_account_id is not None:
+            raise HTTPException(422, "Only transfers can have a destination account")
+        if rec.transaction_type not in {"expense", "income", "refund", "transfer"}:
+            raise HTTPException(422, "Unsupported transaction type")
         if not _owned_ref(db, Category, "user_id", rec.category_id, user):
             raise HTTPException(422, "Unknown account or category")
     existing = db.get(model, rec.id)

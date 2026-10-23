@@ -45,6 +45,7 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
     expect(dialog.message()).toContain('Food')
     await dialog.accept()
   })
+
   await page.getByRole('button', { name: 'Delete Food' }).click()
   await expect(page.getByText('₹250.50 of ₹2,000.00')).not.toBeVisible()
 
@@ -63,4 +64,35 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   })
   await page.getByRole('button', { name: 'Delete Lunch' }).click()
   await expect(page.getByText('No transactions yet')).toBeVisible()
+})
+
+test('capture income and transfers from the add-transaction flow', async ({ page, context }) => {
+  await fakeSignIn(page)
+  await page.goto('/home')
+  await context.setOffline(true)
+
+  await page.getByRole('link', { name: 'Add expense' }).click()
+  await page.getByRole('link', { name: 'Add account' }).click()
+  await page.getByPlaceholder('Account name').fill('Checking')
+  await page.getByRole('button', { name: 'Add Account' }).click()
+  await expect(page.getByRole('link', { name: /Checking/ })).toBeVisible()
+  await page.getByPlaceholder('Account name').fill('Savings')
+  await page.getByRole('button', { name: 'Add Account' }).click()
+
+  await page.getByRole('link', { name: 'Add expense' }).click()
+  await page.getByRole('button', { name: 'Income' }).click()
+  await page.getByPlaceholder('Income source').fill('Payday')
+  await page.getByPlaceholder('0').fill('2500')
+  await page.getByLabel('Received into').selectOption({ label: 'Checking' })
+  await page.getByRole('button', { name: 'Save Income' }).click()
+  await expect(page.getByText('Payday')).toBeVisible()
+
+  await page.getByRole('link', { name: 'Add expense' }).click()
+  await page.getByRole('button', { name: 'Transfer' }).click()
+  await page.getByPlaceholder('Transfer note').fill('Move to savings')
+  await page.getByPlaceholder('0').fill('1000')
+  await page.getByLabel('From account').selectOption({ label: 'Checking' })
+  await page.getByLabel('To account').selectOption({ label: 'Savings' })
+  await page.getByRole('button', { name: 'Save Transfer' }).click()
+  await expect(page.getByText('Move to savings')).toBeVisible()
 })

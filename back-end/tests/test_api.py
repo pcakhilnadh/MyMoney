@@ -53,6 +53,45 @@ def test_personal_transaction_requires_owned_active_account(client):
     assert foreign.status_code == 422
 
 
+def test_transfer_requires_two_different_owned_accounts(client):
+    source = make_account(client)
+    destination = make_account(client)
+    response = client.post(
+        "/transactions",
+        json=tx(
+            account_id=source,
+            transfer_to_account_id=destination,
+            transaction_type="transfer",
+        ),
+        headers=H("alice"),
+    )
+    assert response.status_code == 201
+    assert response.json()["transfer_to_account_id"] == destination
+
+    same_account = client.post(
+        "/transactions",
+        json=tx(
+            account_id=source,
+            transfer_to_account_id=source,
+            transaction_type="transfer",
+        ),
+        headers=H("alice"),
+    )
+    assert same_account.status_code == 422
+
+    foreign_destination = make_account(client, "bob")
+    foreign = client.post(
+        "/transactions",
+        json=tx(
+            account_id=source,
+            transfer_to_account_id=foreign_destination,
+            transaction_type="transfer",
+        ),
+        headers=H("alice"),
+    )
+    assert foreign.status_code == 422
+
+
 def test_personal_rejects_group_fields(client):
     me(client, "alice")
     r = client.post(

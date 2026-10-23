@@ -115,6 +115,7 @@ class Transaction(Base):
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"))
     owner_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), index=True)
     account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
+    transfer_to_account_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("accounts.id"))
     category_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("categories.id"), index=True)
     group_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("expense_groups.id"), index=True)
     context: Mapped[str] = mapped_column(String, default="personal")

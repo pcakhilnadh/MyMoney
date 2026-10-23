@@ -31,4 +31,15 @@ describe('summarizeAccount', () => {
   it('handles a card with no limit set', () => {
     expect(summarizeAccount(acc({ account_type: 'credit_card' }), [tx(100)]).available).toBeNull()
   })
+  it('moves a transfer between accounts without changing total funds', () => {
+    const checking = acc({ id: 'checking', opening_balance: 5000 })
+    const savings = acc({ id: 'savings', opening_balance: 2000 })
+    const transfer = {
+      ...tx(1200, 'transfer', 'checking'),
+      transfer_to_account_id: 'savings',
+    } as Transaction
+
+    expect(summarizeAccount(checking, [transfer]).balance).toBe(3800)
+    expect(summarizeAccount(savings, [transfer]).balance).toBe(3200)
+  })
 })

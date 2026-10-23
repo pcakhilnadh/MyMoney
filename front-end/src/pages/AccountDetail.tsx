@@ -17,7 +17,8 @@ export default function AccountDetail() {
   const account = useLiveQuery(() => accountsRepo.get(accountId), [accountId])
   const transactions =
     useLiveQuery(() => transactionsRepo.listByDate(), [])?.filter(
-      (transaction) => transaction.account_id === accountId,
+      (transaction) =>
+        transaction.account_id === accountId || transaction.transfer_to_account_id === accountId,
     ) ?? []
   const allTransactions = useLiveQuery(() => transactionsRepo.list(), []) ?? []
   const totals = transactions.reduce(
@@ -28,8 +29,7 @@ export default function AccountDetail() {
         transaction.transaction_type === 'refund'
       )
         sum.credit += transaction.amount_minor
-      else if (transaction.transaction_type === 'transfer')
-        sum.transfer += transaction.amount_minor
+      else if (transaction.transaction_type === 'transfer') sum.transfer += transaction.amount_minor
       return sum
     },
     { debit: 0, credit: 0, transfer: 0 },
@@ -104,15 +104,19 @@ export default function AccountDetail() {
         </p>
       )}
       {transactions.map((transaction) => {
-        const kind = KIND[transaction.transaction_type] ?? KIND.expense
+        const kind =
+          transaction.transaction_type === 'transfer'
+            ? {
+                ...KIND.transfer,
+                label: transaction.account_id === accountId ? 'Transfer out' : 'Transfer in',
+              }
+            : (KIND[transaction.transaction_type] ?? KIND.expense)
         return (
           <ListItem
             key={transaction.id}
             title={transaction.description}
             subtitle={`${kind.label} · ${new Date(transaction.transaction_date).toLocaleDateString('en-IN')}`}
-            trailing={
-              <span className={kind.style}>{formatMinor(transaction.amount_minor)}</span>
-            }
+            trailing={<span className={kind.style}>{formatMinor(transaction.amount_minor)}</span>}
           />
         )
       })}

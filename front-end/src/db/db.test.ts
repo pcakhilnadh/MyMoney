@@ -7,6 +7,7 @@ import { formatMinor, toMinor } from '@/lib/money'
 
 const base = {
   account_id: '',
+  transfer_to_account_id: null,
   category_id: null,
   group_id: null,
   context: 'personal' as const,
@@ -95,6 +96,27 @@ describe('repository', () => {
         transaction_date: '2026-10-01T00:00:00Z',
       }),
     ).rejects.toThrow('An active account is required')
+  })
+
+  it('requires a different destination account for transfers', async () => {
+    const source = await accountsRepo.create({
+      name: 'Checking',
+      account_type: 'bank',
+      currency: 'INR',
+      opening_balance: 0,
+      credit_limit: null,
+      is_default: false,
+    })
+    await expect(
+      transactionsRepo.create({
+        ...base,
+        account_id: source.id,
+        transaction_type: 'transfer',
+        description: 'Move money',
+        amount_minor: 2000,
+        transaction_date: '2026-10-01T00:00:00Z',
+      }),
+    ).rejects.toThrow('destination account is required')
   })
 })
 

@@ -13,7 +13,9 @@ export default function Transactions() {
   const [q, setQ] = useState('')
   const txs = useLiveQuery(() => transactionsRepo.listByDate(), [])
   const cats = useLiveQuery(() => db.categories.toArray(), [])
+  const accounts = useLiveQuery(() => db.accounts.toArray(), [])
   const names = new Map(cats?.map((c) => [c.id, c.name]))
+  const accountNames = new Map(accounts?.map((account) => [account.id, account.name]))
 
   const shown = (txs ?? []).filter(
     (t) =>
@@ -46,28 +48,35 @@ export default function Transactions() {
           </h2>
           {shown
             .filter((t) => t.transaction_date.startsWith(day))
-            .map((t) => (
-              <ListItem
-                key={t.id}
-                title={t.description}
-                subtitle={(t.category_id && names.get(t.category_id)) || 'Uncategorised'}
-                trailing={
-                  <span className="flex items-center gap-3">
-                    {formatMinor(t.amount_minor)}
-                    <button
-                      aria-label={`Delete ${t.description}`}
-                      onClick={() => {
-                        if (window.confirm(`Delete "${t.description}"?`))
-                          void transactionsRepo.remove(t.id)
-                      }}
-                      className="text-muted-foreground"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </span>
-                }
-              />
-            ))}
+            .map((t) => {
+              const type = t.transaction_type[0].toUpperCase() + t.transaction_type.slice(1)
+              const detail =
+                t.transaction_type === 'transfer'
+                  ? `${accountNames.get(t.account_id) ?? 'Account'} → ${accountNames.get(t.transfer_to_account_id ?? '') ?? 'Account'}`
+                  : (t.category_id && names.get(t.category_id)) || 'Uncategorised'
+              return (
+                <ListItem
+                  key={t.id}
+                  title={t.description}
+                  subtitle={`${type} · ${detail}`}
+                  trailing={
+                    <span className="flex items-center gap-3">
+                      {formatMinor(t.amount_minor)}
+                      <button
+                        aria-label={`Delete ${t.description}`}
+                        onClick={() => {
+                          if (window.confirm(`Delete "${t.description}"?`))
+                            void transactionsRepo.remove(t.id)
+                        }}
+                        className="text-muted-foreground"
+                      >
+                        <Trash2 size={16} />
+                      </button>
+                    </span>
+                  }
+                />
+              )
+            })}
         </section>
       ))}
     </div>

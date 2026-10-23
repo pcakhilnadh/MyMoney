@@ -16,7 +16,13 @@ export function summarizeAccount(account: Account, txs: Transaction[]): AccountS
   let inflow = 0
   let outflow = 0
   for (const t of txs) {
-    if (t.account_id !== account.id || t.status === 'deleted') continue
+    if (t.status === 'deleted') continue
+    if (t.transaction_type === 'transfer') {
+      if (t.account_id === account.id) outflow += t.amount_minor
+      if (t.transfer_to_account_id === account.id) inflow += t.amount_minor
+      continue
+    }
+    if (t.account_id !== account.id) continue
     if (t.transaction_type === 'expense') outflow += t.amount_minor
     else if (t.transaction_type === 'income' || t.transaction_type === 'refund')
       inflow += t.amount_minor

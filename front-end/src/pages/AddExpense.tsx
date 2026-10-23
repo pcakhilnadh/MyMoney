@@ -12,11 +12,13 @@ import {
 } from '@/components/kit'
 import { db } from '@/db/db'
 import { transactionsRepo } from '@/db/repos'
+import type { TransactionType } from '@/db/types'
 import { useAction, useGroups, useMe, useMembers } from '@/groups/hooks'
 import { memberLabel } from '@/groups/types'
 import { toMinor } from '@/lib/money'
 
 const CONTEXTS = ['Personal', 'Group'] as const
+const TRANSACTION_TYPES = ['Expense', 'Income', 'Transfer', 'Refund'] as const
 const METHODS = {
   Equal: 'equal',
   'By Amount': 'exact_amount',
@@ -157,27 +159,35 @@ export default function AddExpense() {
   const [context, setContext] = useState<(typeof CONTEXTS)[number]>(
     presetGroup ? 'Group' : 'Personal',
   )
+  const [transactionType, setTransactionType] = useState<TransactionType>('expense')
   const [amount, setAmount] = useState(0)
   const [description, setDescription] = useState('')
   const [category, setCategory] = useState<string | null>(null)
   const [date, setDate] = useState(today())
   const [accountId, setAccountId] = useState('')
+  const [transferToAccountId, setTransferToAccountId] = useState('')
   const [groupId, setGroupId] = useState(presetGroup)
   const post = useAction<object>('/transactions', [['gtx'], ['balances']])
 
   const activeAccounts = accounts?.filter((account) => account.status === 'active') ?? []
   const valid = amount > 0 && description.trim().length > 0
   const accountSelected = activeAccounts.some((account) => account.id === accountId)
+  const transferDestinationSelected =
+    transactionType !== 'transfer' ||
+    (transferToAccountId !== accountId &&
+      activeAccounts.some((account) => account.id === transferToAccountId))
 
   async function savePersonal() {
-    if (!accountSelected || !valid) return
+    if (!accountSelected || !transferDestinationSelected || !valid) return
     const cat = categories?.find((c) => c.name === category)
     await transactionsRepo.create({
       account_id: accountId,
-      category_id: cat?.id ?? null,
+      transfer_to_account_id: transactionType === 'transfer' ? transferToAccountId : null,
+      category_id:
+        transactionType === 'expense' || transactionType === 'refund' ? (cat?.id ?? null) : null,
       group_id: null,
       context: 'personal',
-      transaction_type: 'expense',
+      transaction_type: transactionType,
       description: description.trim(),
       merchant: null,
       amount_minor: amount,
@@ -197,6 +207,7 @@ export default function AddExpense() {
         context: 'group',
         group_id: groupId,
         account_id: accountId,
+        transaction_type: 'expense',
         description: description.trim(),
         amount_minor: amount,
         transaction_date: new Date(date + 'T12:00:00').toISOString(),
@@ -209,21 +220,55 @@ export default function AddExpense() {
 
   return (
     <div className="space-y-4">
-      <PageHeader title="Add Expense" />
-      <SegmentedControl options={[...CONTEXTS]} value={context} onChange={setContext} />
+      <PageHeader title="Add Transaction" />
+      <SegmentedControl
+        options={[...TRANSACTION_TYPES]}
+        value={TRANSACTION_TYPES.find((option) => option.toLowerCase() === transactionType)!}
+        onChange={(value) => {
+          const nextType = value.toLowerCase() as TransactionType
+          setTransactionType(nextType)
+          if (nextType !== 'expense') setContext('Personal')
+        }}
+      />
+      {transactionType === 'expense' && (
+        <SegmentedControl options={[...CONTEXTS]} value={context} onChange={setContext} />
+      )}
       <CurrencyInput value={amount} onChange={setAmount} />
       <Input
-        placeholder="Description"
+        placeholder={
+          transactionType === 'income'
+            ? 'Income source'
+            : transactionType === 'transfer'
+              ? 'Transfer note'
+              : transactionType === 'refund'
+                ? 'Refund description'
+                : 'Description'
+        }
         value={description}
         onChange={(e) => setDescription(e.target.value)}
       />
-      {context === 'Personal' && <CategorySelector value={category} onChange={setCategory} />}
+      {context === 'Personal' &&
+        (transactionType === 'expense' || transactionType === 'refund') && (
+          <CategorySelector value={category} onChange={setCategory} />
+        )}
       <DatePicker value={date} onChange={setDate} />
       <label className="block">
-        <span className="label">Paid from</span>
+        <span className="label">
+          {transactionType === 'income' || transactionType === 'refund'
+            ? 'Received into'
+            : transactionType === 'transfer'
+              ? 'From account'
+              : 'Paid from'}
+        </span>
         {activeAccounts.length > 0 ? (
           <select
-            aria-label="Paid from"
+            aria-label={
+              transactionType === 'income' || transactionType === 'refund'
+                ? 'Received into'
+                : transactionType === 'transfer'
+                  ? 'From account'
+                  : 'Paid from'
+            }
             value={accountId}
             onChange={(e) => setAccountId(e.target.value)}
             className="field mt-1 appearance-none normal-case"
@@ -244,13 +289,33 @@ export default function AddExpense() {
           </p>
         )}
       </label>
+      {transactionType === 'transfer' && (
+        <label className="block">
+          <span className="label">To account</span>
+          <select
+            aria-label="To account"
+            value={transferToAccountId}
+            onChange={(e) => setTransferToAccountId(e.target.value)}
+            className="field mt-1 appearance-none normal-case"
+          >
+            <option value="">Select destination account…</option>
+            {activeAccounts
+              .filter((account) => account.id !== accountId)
+              .map((account) => (
+                <option key={account.id} value={account.id}>
+                  {account.name}
+                </option>
+              ))}
+          </select>
+        </label>
+      )}
       {context === 'Personal' ? (
         <Button
           className="h-12 w-full rounded-card"
-          disabled={!valid || !accountSelected}
+          disabled={!valid || !accountSelected || !transferDestinationSelected}
           onClick={savePersonal}
         >
-          Save Expense
+          Save {TRANSACTION_TYPES.find((option) => option.toLowerCase() === transactionType)}
         </Button>
       ) : (
         <GroupFields
