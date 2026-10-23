@@ -1,17 +1,10 @@
 import { Link, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Card, ListItem, PageHeader } from '@/components/kit'
-import { db } from '@/db/db'
+import { Card, PageHeader } from '@/components/kit'
+import { TransactionList } from '@/components/TransactionList'
 import { accountsRepo, transactionsRepo } from '@/db/repos'
 import { summarizeAccount } from '@/lib/accounts'
 import { formatMinor } from '@/lib/money'
-
-const KIND: Record<string, { label: string; style: string }> = {
-  expense: { label: 'Debit', style: 'text-destructive' },
-  income: { label: 'Credit', style: 'text-positive' },
-  refund: { label: 'Credit', style: 'text-positive' },
-  transfer: { label: 'Transfer', style: 'text-primary' },
-}
 
 const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   bank: 'Bank',
@@ -32,7 +25,6 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
 export default function AccountDetail() {
   const { accountId = '' } = useParams()
   const account = useLiveQuery(() => accountsRepo.get(accountId), [accountId])
-  const categories = useLiveQuery(() => db.categories.toArray(), []) ?? []
   const transactions =
     useLiveQuery(() => transactionsRepo.listByDate(), [])?.filter(
       (transaction) =>
@@ -131,30 +123,7 @@ export default function AccountDetail() {
           No transactions for this account yet.
         </p>
       )}
-      {transactions.map((transaction) => {
-        const categoryName = categories.find((item) => item.id === transaction.category_id)?.name
-        const kind =
-          transaction.transaction_type === 'transfer'
-            ? {
-                ...KIND.transfer,
-                label: transaction.account_id === accountId ? 'Transfer out' : 'Transfer in',
-              }
-            : (KIND[transaction.transaction_type] ?? KIND.expense)
-        return (
-          <ListItem
-            key={transaction.id}
-            title={transaction.title}
-            subtitle={[
-              kind.label,
-              categoryName,
-              new Date(transaction.transaction_date).toLocaleDateString('en-IN'),
-            ]
-              .filter(Boolean)
-              .join(' · ')}
-            trailing={<span className={kind.style}>{formatMinor(transaction.amount_minor)}</span>}
-          />
-        )
-      })}
+      {transactions.length > 0 && <TransactionList transactions={transactions} />}
     </div>
   )
 }

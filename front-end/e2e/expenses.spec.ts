@@ -75,8 +75,11 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await page.getByRole('link', { name: 'Payment Account' }).click()
   await page.getByRole('link', { name: /Everyday/ }).click()
   await expect(page.getByText('Lunch', { exact: true })).toBeVisible()
-  await expect(page.getByText('Debit', { exact: true })).toBeVisible()
+  await expect(page.getByRole('button', { name: /Expense: Lunch/ })).toBeVisible()
   await expect(page.getByText('₹250.50').first()).toBeVisible()
+  await page.getByRole('button', { name: /Expense: Lunch/ }).click()
+  await expect(page.getByText('Amazon')).toBeVisible()
+  await page.getByRole('link', { name: '← Account' }).click()
 
   await page.getByRole('link', { name: 'Transactions' }).click()
   await page.getByRole('button', { name: /Expense: Lunch/ }).click()

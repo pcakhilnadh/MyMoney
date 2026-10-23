@@ -1,4 +1,4 @@
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CornerUpLeft, Trash2 } from 'lucide-react'
@@ -41,8 +41,18 @@ const TYPE_STYLE = {
 export default function TransactionDetail() {
   const { transactionId = '' } = useParams()
   const navigate = useNavigate()
+  const location = useLocation()
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const origin =
+    typeof location.state === 'object' &&
+    location.state !== null &&
+    'from' in location.state &&
+    typeof location.state.from === 'string'
+      ? location.state.from
+      : '/transactions'
+  const returnTo = origin.startsWith('/accounts/') ? origin : '/transactions'
+  const returnLabel = returnTo === '/transactions' ? '← Transactions' : '← Account'
   const transaction = useLiveQuery(() => transactionsRepo.get(transactionId), [transactionId])
   const categories = useLiveQuery(() => db.categories.toArray(), [])
   const accounts = useLiveQuery(() => db.accounts.toArray(), [])
@@ -50,8 +60,8 @@ export default function TransactionDetail() {
   if (transaction === undefined)
     return (
       <div className="space-y-4">
-        <Link to="/transactions" className="text-sm text-primary">
-          ← Transactions
+        <Link to={returnTo} className="text-sm text-primary">
+          {returnLabel}
         </Link>
         <p className="text-muted-foreground">Loading transaction…</p>
       </div>
@@ -60,8 +70,8 @@ export default function TransactionDetail() {
   if (!transaction)
     return (
       <div className="space-y-4">
-        <Link to="/transactions" className="text-sm text-primary">
-          ← Transactions
+        <Link to={returnTo} className="text-sm text-primary">
+          {returnLabel}
         </Link>
         <p className="text-muted-foreground">Transaction not found.</p>
       </div>
@@ -90,7 +100,7 @@ export default function TransactionDetail() {
     setDeleteError(null)
     try {
       await transactionsRepo.remove(selectedTransaction.id)
-      navigate('/transactions', { replace: true })
+      navigate(returnTo, { replace: true })
     } catch (error) {
       setDeleteError(error instanceof Error ? error.message : 'Unable to delete transaction.')
       setDeleting(false)
@@ -99,8 +109,8 @@ export default function TransactionDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to="/transactions" className="text-sm text-primary">
-        ← Transactions
+      <Link to={returnTo} className="text-sm text-primary">
+        {returnLabel}
       </Link>
       <PageHeader title={selectedTransaction.title} subtitle={kind.label} />
       <Card className="space-y-5">
