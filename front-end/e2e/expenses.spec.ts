@@ -45,7 +45,7 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await page.getByRole('link', { name: 'Home' }).click()
   await expect(page.getByText('₹250.50').first()).toBeVisible()
 
-  await page.getByRole('link', { name: 'Personal' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
   await page.getByRole('link', { name: 'Budgets' }).click()
   await page.getByRole('button', { name: 'Add budget' }).click()
   await expect(page.getByPlaceholder('Name (optional)')).toHaveCount(0)
@@ -71,7 +71,7 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await page.getByRole('button', { name: 'Delete Food' }).click()
   await expect(page.getByText('₹1,749.50')).not.toBeVisible()
 
-  await page.getByRole('link', { name: 'Personal' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
   await page.getByRole('link', { name: 'Payment Account' }).click()
   await page.getByRole('link', { name: /Everyday/ }).click()
   await expect(page.getByText('Lunch', { exact: true })).toBeVisible()
@@ -181,7 +181,7 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await page.getByLabel('To account').selectOption({ label: 'Checking' })
   await page.getByRole('button', { name: 'Save Transfer' }).click()
 
-  await page.getByRole('link', { name: 'Personal' }).click()
+  await page.getByRole('link', { name: 'Settings' }).click()
   await page.getByRole('link', { name: 'Payment Account' }).click()
   await page.getByRole('link', { name: /Loan — Alex/ }).click()
   await expect(page.getByText('Amount owed')).toBeVisible()

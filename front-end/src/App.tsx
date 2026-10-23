@@ -11,6 +11,7 @@ import Insights from './pages/Insights'
 import Login from './pages/Login'
 import Transactions from './pages/Transactions'
 import TransactionDetail from './pages/TransactionDetail'
+import Personal from './pages/Personal'
 import Settings from './pages/Settings'
 import Layout from './components/Layout'
 import AccountDetail from './pages/AccountDetail'
@@ -34,6 +35,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route element={<Protected />}>
           <Route element={<Layout />}>
+            <Route path="/personal" element={<Personal />} />
             <Route path="/settings" element={<Settings />} />
             <Route path="/home" element={<Home />} />
             <Route path="/transactions" element={<Transactions />} />

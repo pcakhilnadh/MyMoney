@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router-dom'
+import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Activity,
   CalendarCheck,
@@ -7,6 +7,7 @@ import {
   House,
   Plus,
   Receipt,
+  Settings as SettingsIcon,
   Utensils,
   User,
   Users,
@@ -17,7 +18,7 @@ const tabs = [
   { to: '/home', label: 'Home', Icon: House },
   { to: '/transactions', label: 'Transactions', Icon: Receipt },
   { to: '/groups', label: 'Groups', Icon: Users },
-  { to: '/settings', label: 'Personal', Icon: User },
+  { to: '/settings', label: 'Settings', Icon: SettingsIcon },
 ]
 
 const apps = [
@@ -37,8 +38,9 @@ const comingSoonTabs = {
 
 export default function Layout() {
   const { pathname } = useLocation()
-  const [selectedApp, setSelectedApp] = useState<'money' | 'food' | 'habit'>('money')
-  const comingSoon = selectedApp !== 'money'
+  const navigate = useNavigate()
+  const [selectedApp, setSelectedApp] = useState<'money' | 'food' | 'habit' | null>('money')
+  const comingSoon = selectedApp === 'food' || selectedApp === 'habit'
   const appInfo = apps.find((app) => app.id === selectedApp) ?? apps[0]
   const navigationItems =
     selectedApp === 'food'
@@ -48,11 +50,11 @@ export default function Layout() {
         : []
 
   return (
-    <div data-app={selectedApp} className="mx-auto min-h-screen max-w-md pb-32">
+    <div data-app={selectedApp ?? 'money'} className="mx-auto min-h-screen max-w-md pb-32">
       <div
         role="group"
         aria-label="App selector"
-        className="grid h-16 grid-cols-3 items-center gap-1 px-3"
+        className="grid h-16 grid-cols-[repeat(3,minmax(0,1fr))_2.5rem] items-center gap-1 px-3"
       >
         {apps.map(({ id, label, Icon }) => {
           const selected = selectedApp === id
@@ -61,7 +63,10 @@ export default function Layout() {
               key={label}
               type="button"
               aria-pressed={selected}
-              onClick={() => setSelectedApp(id)}
+              onClick={() => {
+                setSelectedApp(id)
+                if (id === 'money' && pathname === '/personal') navigate('/home')
+              }}
               className={`flex min-w-0 items-center justify-center gap-1.5 rounded-xl px-1.5 py-2 text-xs font-semibold transition-colors ${
                 selected ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted/50'
               }`}
@@ -71,6 +76,15 @@ export default function Layout() {
             </button>
           )
         })}
+        <Link
+          to="/personal"
+          aria-label="Personal"
+          aria-current={pathname === '/personal' ? 'page' : undefined}
+          onClick={() => setSelectedApp(null)}
+          className="flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted/50"
+        >
+          <User size={20} aria-hidden="true" />
+        </Link>
       </div>
       <main className="space-y-5 px-5 pt-2">
         {comingSoon ? (
@@ -93,7 +107,7 @@ export default function Layout() {
           <Outlet />
         )}
       </main>
-      {comingSoon ? (
+      {pathname === '/personal' ? null : comingSoon ? (
         <nav
           aria-label={`${appInfo.label} navigation`}
           className="bottom-nav fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
