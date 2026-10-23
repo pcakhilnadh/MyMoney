@@ -248,15 +248,13 @@ export default function AddExpense() {
         )}
       </label>
       {context === 'Personal' ? (
-        <>
-          <Button
-            className="h-12 w-full rounded-card"
-            disabled={!valid || !accountSelected}
-            onClick={savePersonal}
-          >
-            Save Expense
-          </Button>
-        </>
+        <Button
+          className="h-12 w-full rounded-card"
+          disabled={!valid || !accountSelected}
+          onClick={savePersonal}
+        >
+          Save Expense
+        </Button>
       ) : (
         <GroupFields
           key={context}

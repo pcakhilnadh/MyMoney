@@ -1,6 +1,6 @@
 import { CATEGORIES } from '@/lib/money'
 import { db } from './db'
-import { categoriesRepo } from './repos'
+import { accountsRepo, categoriesRepo, transactionsRepo } from './repos'
 
 /** Idempotent: safe to call on every app start. */
 export async function seedIfEmpty(): Promise<void> {
@@ -14,5 +14,23 @@ export async function seedIfEmpty(): Promise<void> {
         is_system: true,
       })
     }
+  }
+
+  const oldSeedAccount = (await accountsRepo.list()).find(
+    (account) =>
+      account.name === 'Cash' &&
+      account.account_type === 'cash' &&
+      account.currency === 'INR' &&
+      account.opening_balance === 0 &&
+      account.credit_limit === null &&
+      account.is_default,
+  )
+  if (
+    oldSeedAccount &&
+    !(await transactionsRepo.list()).some(
+      (transaction) => transaction.account_id === oldSeedAccount.id,
+    )
+  ) {
+    await accountsRepo.remove(oldSeedAccount.id)
   }
 }

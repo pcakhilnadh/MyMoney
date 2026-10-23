@@ -7,8 +7,14 @@ export const categoriesRepo = new Repository<Category>(db.categories)
 export const budgetsRepo = new Repository<Budget>(db.budgets)
 
 class TransactionsRepository extends Repository<Transaction> {
-  async create(data: Omit<Transaction, 'id' | 'version' | 'sync_state' | 'status' | 'created_at' | 'updated_at'>): Promise<Transaction> {
-    if (!data.account_id || !(await accountsRepo.get(data.account_id))) {
+  async create(
+    data: Omit<
+      Transaction,
+      'id' | 'version' | 'sync_state' | 'status' | 'created_at' | 'updated_at'
+    >,
+  ): Promise<Transaction> {
+    const account = data.account_id ? await accountsRepo.get(data.account_id) : undefined
+    if (account?.status !== 'active') {
       throw new Error('An active account is required to create a transaction')
     }
     return super.create(data)

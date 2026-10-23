@@ -106,6 +106,43 @@ describe('seed and money', () => {
     expect(await db.accounts.count()).toBe(0)
   })
 
+  it('removes the unused legacy seeded default account', async () => {
+    const account = await accountsRepo.create({
+      name: 'Cash',
+      account_type: 'cash',
+      currency: 'INR',
+      opening_balance: 0,
+      credit_limit: null,
+      is_default: true,
+    })
+
+    await seedIfEmpty()
+
+    expect(await accountsRepo.get(account.id)).toBeUndefined()
+  })
+
+  it('preserves a legacy seeded account that has transactions', async () => {
+    const account = await accountsRepo.create({
+      name: 'Cash',
+      account_type: 'cash',
+      currency: 'INR',
+      opening_balance: 0,
+      credit_limit: null,
+      is_default: true,
+    })
+    await transactionsRepo.create({
+      ...base,
+      account_id: account.id,
+      description: 'Tea',
+      amount_minor: 2000,
+      transaction_date: '2026-10-01T00:00:00Z',
+    })
+
+    await seedIfEmpty()
+
+    expect(await accountsRepo.get(account.id)).toBeDefined()
+  })
+
   it('handles money', () => {
     expect(toMinor('12.34')).toBe(1234)
     expect(toMinor('abc')).toBe(0)
