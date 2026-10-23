@@ -110,7 +110,7 @@ export default function SettingsCategories() {
                       void categoriesRepo.update(category.id, { is_hidden: !category.is_hidden })
                     }
                   >
-                    {category.is_hidden ? <Eye size={16} /> : <EyeOff size={16} />}
+                    {category.is_hidden ? <EyeOff size={16} /> : <Eye size={16} />}
                   </button>
                   {!category.is_system && (
                     <button
