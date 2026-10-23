@@ -1,12 +1,32 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Trash2 } from 'lucide-react'
-import { Input, ListItem, PageHeader, SegmentedControl } from '@/components/kit'
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Trash2 } from 'lucide-react'
+import { Input, PageHeader, SegmentedControl } from '@/components/kit'
 import { db } from '@/db/db'
 import { transactionsRepo } from '@/db/repos'
 import { formatMinor } from '@/lib/money'
 
 const FILTERS = ['All', 'Personal', 'Groups'] as const
+const TYPE_STYLE = {
+  debit: {
+    label: 'Debit',
+    Icon: ArrowUpRight,
+    color: 'text-destructive',
+    surface: 'bg-destructive/10',
+  },
+  credit: {
+    label: 'Credit',
+    Icon: ArrowDownLeft,
+    color: 'text-positive',
+    surface: 'bg-positive/10',
+  },
+  transfer: {
+    label: 'Transfer',
+    Icon: ArrowLeftRight,
+    color: 'text-primary',
+    surface: 'bg-primary/10',
+  },
+} as const
 
 export default function Transactions() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All')
@@ -49,32 +69,59 @@ export default function Transactions() {
           {shown
             .filter((t) => t.transaction_date.startsWith(day))
             .map((t) => {
-              const type = t.transaction_type[0].toUpperCase() + t.transaction_type.slice(1)
+              const kind =
+                t.transaction_type === 'income' || t.transaction_type === 'refund'
+                  ? TYPE_STYLE.credit
+                  : t.transaction_type === 'transfer'
+                    ? TYPE_STYLE.transfer
+                    : TYPE_STYLE.debit
+              const { Icon } = kind
               const detail =
                 t.transaction_type === 'transfer'
                   ? `${accountNames.get(t.account_id) ?? 'Account'} → ${accountNames.get(t.transfer_to_account_id ?? '') ?? 'Account'}`
-                  : (t.category_id && names.get(t.category_id)) || 'Uncategorised'
+                  : [
+                      (t.category_id && names.get(t.category_id)) || 'Uncategorised',
+                      accountNames.get(t.account_id) ?? 'Account',
+                    ].join(' · ')
+              const amountPrefix =
+                kind === TYPE_STYLE.debit ? '−' : kind === TYPE_STYLE.credit ? '+' : ''
               return (
-                <ListItem
+                <article
                   key={t.id}
-                  title={t.description}
-                  subtitle={`${type} · ${detail}`}
-                  trailing={
-                    <span className="flex items-center gap-3">
-                      {formatMinor(t.amount_minor)}
-                      <button
-                        aria-label={`Delete ${t.description}`}
-                        onClick={() => {
-                          if (window.confirm(`Delete "${t.description}"?`))
-                            void transactionsRepo.remove(t.id)
-                        }}
-                        className="text-muted-foreground"
-                      >
-                        <Trash2 size={16} />
-                      </button>
+                  className="surface flex min-w-0 items-center gap-3 rounded-2xl px-3.5 py-3"
+                >
+                  <span
+                    aria-hidden="true"
+                    className={`flex size-10 shrink-0 items-center justify-center rounded-full ${kind.surface} ${kind.color}`}
+                  >
+                    <Icon size={19} strokeWidth={2.2} />
+                  </span>
+                  <div className="min-w-0 flex-1">
+                    <div className="truncate font-semibold">{t.description}</div>
+                    <div className="mt-0.5 truncate text-xs text-muted-foreground">{detail}</div>
+                    <span
+                      className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] leading-none font-semibold ${kind.surface} ${kind.color}`}
+                    >
+                      {kind.label}
                     </span>
-                  }
-                />
+                  </div>
+                  <div className="flex shrink-0 flex-col items-end gap-1">
+                    <span className={`money text-sm font-bold ${kind.color}`}>
+                      {amountPrefix}
+                      {formatMinor(t.amount_minor)}
+                    </span>
+                    <button
+                      aria-label={`Delete ${t.description}`}
+                      onClick={() => {
+                        if (window.confirm(`Delete "${t.description}"?`))
+                          void transactionsRepo.remove(t.id)
+                      }}
+                      className="text-muted-foreground"
+                    >
+                      <Trash2 size={16} />
+                    </button>
+                  </div>
+                </article>
               )
             })}
         </section>
