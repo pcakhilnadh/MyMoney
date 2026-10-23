@@ -25,7 +25,7 @@ export default function Layout() {
       <main className="space-y-5 px-5 pt-2">
         <Outlet />
       </main>
-      <nav className="bottom-nav fixed inset-x-4 bottom-4 z-10 mx-auto flex max-w-[26rem] items-center justify-around rounded-[28px] px-2 py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] shadow-[0_20px_40px_-12px_rgba(0,0,0,0.8)]">
+      <nav className="bottom-nav fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
         {tabs.slice(0, 2).map(({ to, label, Icon }) => (
           <NavLink
             key={to}
@@ -43,7 +43,7 @@ export default function Layout() {
         <Link
           to="/expenses/new"
           aria-label="Add expense"
-          className={`gloss -mt-6 flex size-12 shrink-0 items-center justify-center rounded-full text-primary-foreground shadow-lg transition-transform active:scale-95 ${pathname === '/expenses/new' ? 'ring-2 ring-white/70' : ''}`}
+          className={`gloss flex size-12 shrink-0 items-center justify-center rounded-full text-primary-foreground shadow-lg transition-transform active:scale-95 ${pathname === '/expenses/new' ? 'ring-2 ring-white/70' : ''}`}
         >
           <Plus size={23} strokeWidth={2.5} />
         </Link>
