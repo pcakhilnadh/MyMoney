@@ -40,6 +40,7 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
 
   await page.getByRole('link', { name: 'Budgets' }).click()
   await page.getByRole('button', { name: 'Add budget' }).click()
+  await expect(page.getByPlaceholder('Name (optional)')).toHaveCount(0)
   await page.getByPlaceholder('0').fill('1000')
   await page.getByRole('button', { name: 'Food' }).click()
   await page.getByRole('button', { name: 'Add Budget' }).click()

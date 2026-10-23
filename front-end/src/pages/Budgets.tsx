@@ -5,7 +5,6 @@ import {
   Button,
   CategorySelector,
   CurrencyInput,
-  Input,
   ListItem,
   PageHeader,
   SectionTitle,
@@ -20,7 +19,6 @@ export default function Budgets() {
   const txs = useLiveQuery(() => transactionsRepo.list(), []) ?? []
   const cats = useLiveQuery(() => db.categories.toArray(), []) ?? []
   const [showForm, setShowForm] = useState(false)
-  const [name, setName] = useState('')
   const [amount, setAmount] = useState(0)
   const [category, setCategory] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
@@ -40,7 +38,6 @@ export default function Budgets() {
       )
 
   function resetForm() {
-    setName('')
     setAmount(0)
     setCategory(null)
     setEditingId(null)
@@ -48,7 +45,6 @@ export default function Budgets() {
   }
 
   function addBudget() {
-    setName('')
     setAmount(0)
     setCategory(null)
     setEditingId(null)
@@ -56,6 +52,8 @@ export default function Budgets() {
   }
 
   async function save() {
+    if (!category || amount <= 0) return
+
     const values = {
       group_id: null,
       category_id:
@@ -66,7 +64,7 @@ export default function Budgets() {
             c.status === 'active' &&
             !c.is_hidden,
         )?.id ?? null,
-      name: name.trim() || category || 'Monthly budget',
+      name: category,
       amount_minor: amount,
       currency: 'INR',
       period: 'monthly' as const,
@@ -84,7 +82,6 @@ export default function Budgets() {
     const budget = budgets.find((item) => item.id === id)
     if (!budget) return
     setEditingId(id)
-    setName(budget.name)
     setAmount(budget.amount_minor)
     setCategory(cats.find((c) => c.id === budget.category_id && !c.is_hidden)?.name ?? null)
     setShowForm(true)
@@ -123,11 +120,6 @@ export default function Budgets() {
       {showForm ? (
         <div className="surface space-y-3 rounded-card p-5">
           <SectionTitle>{editingId ? 'Edit Budget' : 'Add Budget'}</SectionTitle>
-          <Input
-            placeholder="Name (optional)"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
           <CurrencyInput label="Monthly limit" value={amount} onChange={setAmount} />
           <CategorySelector
             value={category}
@@ -141,7 +133,11 @@ export default function Budgets() {
               )
               .map((c) => c.name)}
           />
-          <Button className="w-full" disabled={amount <= 0} onClick={() => void save()}>
+          <Button
+            className="w-full"
+            disabled={amount <= 0 || !category}
+            onClick={() => void save()}
+          >
             {editingId ? 'Save Budget' : 'Add Budget'}
           </Button>
           {editingId && (
