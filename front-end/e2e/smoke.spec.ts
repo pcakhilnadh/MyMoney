@@ -12,6 +12,33 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await page.route('**/auth/login', (route) => route.abort())
   await fakeSignIn(page)
   await page.goto('/home')
+  const appSelector = page.getByRole('group', { name: 'App selector' })
+  await expect(appSelector.getByRole('button', { name: 'My Money' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await expect(appSelector.getByRole('button', { name: 'MyFood' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  )
+  await expect(appSelector.getByRole('button', { name: 'MyHabbit' })).toHaveAttribute(
+    'aria-pressed',
+    'false',
+  )
+  await appSelector.getByRole('button', { name: 'MyFood' }).click()
+  await expect(page.getByRole('heading', { name: 'MyFood' })).toBeVisible()
+  await expect(page.getByText('Coming Soon')).toBeVisible()
+  await expect(
+    page.getByRole('navigation', { name: 'MyFood navigation' }).getByText('Home'),
+  ).toBeDisabled()
+  await expect(page.locator('[data-app="food"]')).toHaveCSS('--primary', '#39c98a')
+  await appSelector.getByRole('button', { name: 'MyHabbit' }).click()
+  await expect(page.getByRole('heading', { name: 'MyHabbit' })).toBeVisible()
+  await expect(
+    page.getByRole('navigation', { name: 'MyHabbit navigation' }).getByText('Habits'),
+  ).toBeDisabled()
+  await expect(page.locator('[data-app="habit"]')).toHaveCSS('--primary', '#ed2939')
+  await appSelector.getByRole('button', { name: 'My Money' }).click()
   await page.getByRole('link', { name: 'View budgets' }).click()
   await expect(page).toHaveURL(/\/budgets/)
   await expect(page.getByRole('heading', { name: 'Budgets' })).toBeVisible()

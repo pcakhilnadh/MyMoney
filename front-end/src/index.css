@@ -38,6 +38,7 @@
 :root {
   color-scheme: dark;
   --radius: 1rem;
+  --app-glow: rgba(124, 108, 255, 0.18);
   --background: #0a0a0f;
   --foreground: #f4f4f8;
   --card: #15151c;
@@ -57,6 +58,32 @@
   --border: rgba(255, 255, 255, 0.07);
   --input: rgba(255, 255, 255, 0.1);
   --ring: #7c6cff;
+}
+
+[data-app='food'] {
+  --primary: #39c98a;
+  --primary-foreground: #07150e;
+  --positive: #72e7ad;
+  --ring: #39c98a;
+  --app-glow: rgba(57, 201, 138, 0.18);
+  background-color: var(--background);
+  background-image:
+    radial-gradient(60rem 28rem at 50% -8rem, var(--app-glow), transparent 70%),
+    radial-gradient(34rem 20rem at 100% 30%, rgba(57, 201, 138, 0.06), transparent 70%);
+  background-attachment: fixed;
+}
+
+[data-app='habit'] {
+  --primary: #ed2939;
+  --primary-foreground: #ffffff;
+  --positive: #ff8b94;
+  --ring: #ed2939;
+  --app-glow: rgba(237, 41, 57, 0.18);
+  background-color: var(--background);
+  background-image:
+    radial-gradient(60rem 28rem at 50% -8rem, var(--app-glow), transparent 70%),
+    radial-gradient(34rem 20rem at 100% 30%, rgba(237, 41, 57, 0.06), transparent 70%);
+  background-attachment: fixed;
 }
 
 @layer base {
