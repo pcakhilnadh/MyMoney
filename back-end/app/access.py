@@ -1,11 +1,10 @@
 import uuid
-from datetime import datetime, timezone
 
 from fastapi import HTTPException
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
-from app.models import AuditLog, ExpenseGroup, GroupMember, Profile
+from app.models import ExpenseGroup, GroupMember, Profile
 
 
 def membership(db: Session, group_id: uuid.UUID, user: Profile) -> GroupMember | None:
@@ -38,17 +37,3 @@ def active_group(db: Session, group_id: uuid.UUID) -> ExpenseGroup:
     if g is None or g.status != "active":
         raise HTTPException(404, "Group not found")
     return g
-
-
-def audit(db: Session, actor: Profile, entity_type: str, entity_id, action: str, new=None, old=None):
-    db.add(
-        AuditLog(
-            actor_user_id=actor.id,
-            entity_type=entity_type,
-            entity_id=entity_id,
-            action=action,
-            old_values=old,
-            new_values=new,
-            created_at=datetime.now(timezone.utc),
-        )
-    )

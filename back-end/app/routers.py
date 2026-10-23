@@ -6,7 +6,7 @@ from sqlalchemy import select
 from sqlalchemy.orm import Session, selectinload
 
 from app import schemas as s
-from app.access import active_group, audit, require_admin, require_member
+from app.access import active_group, require_admin, require_member
 from app.auth import GoogleIdentity, get_current_user, get_identity
 from app.category_rules import transfer_category_account_error
 from app.db import get_db
@@ -176,7 +176,6 @@ def create_transaction(
         tx.splits.append(SplitAllocation(user_id=uuid.UUID(uid), share_minor=share, paid_minor=paid))
     db.add(tx)
     db.flush()
-    audit(db, user, "transaction", tx.id, "create", new={"amount_minor": tx.amount_minor})
     db.commit()
     return tx
 
@@ -216,7 +215,6 @@ def delete_transaction(
     tx.status = "deleted"
     tx.deleted_at = datetime.now(timezone.utc)
     tx.version += 1
-    audit(db, user, "transaction", tx.id, "delete")
     db.commit()
 
 
@@ -242,7 +240,6 @@ def create_group(
             joined_at=datetime.now(timezone.utc),
         )
     )
-    audit(db, user, "group", g.id, "create")
     db.commit()
     return g
 
@@ -275,7 +272,6 @@ def delete_group(
         select(GroupMember).where(GroupMember.group_id == group_id)
     ):
         group_member.status = "inactive"
-    audit(db, user, "group", group.id, "delete")
     db.commit()
 
 
@@ -304,7 +300,6 @@ def leave_group(
     if member.role == "owner":
         raise HTTPException(403, "The group owner cannot leave; delete the group instead")
     member.status = "inactive"
-    audit(db, user, "group_member", member.id, "leave", old={"status": "active"})
     db.commit()
 
 
@@ -331,15 +326,12 @@ def invite(
             group_id=group_id, email=email, role=body.role, status="invited", invited_by=user.id
         )
         db.add(m)
-        action = "invite"
     else:
         m.role = body.role
         m.status = "invited"
         m.invited_by = user.id
         m.joined_at = None
-        action = "reinvite"
     db.flush()
-    audit(db, user, "group_member", m.id, action, new={"email": email, "role": body.role})
     db.commit()
     background.add_task(send_email, email, *invite_email(group.name, user.email))
     return m
@@ -365,7 +357,6 @@ def join(
     m.display_name = identity.name  # captured at join time only
     m.status = "active"
     m.joined_at = datetime.now(timezone.utc)
-    audit(db, user, "group_member", m.id, "join")
     db.commit()
     return m
 
@@ -435,7 +426,6 @@ def create_settlement(
     )
     db.add(st)
     db.flush()
-    audit(db, user, "settlement", st.id, "create", new={"amount_minor": st.amount_minor})
     db.commit()
     return st
 

@@ -15,7 +15,6 @@ from sqlalchemy import select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
-from app.access import audit
 from app.auth import get_current_user
 from app.category_rules import transfer_category_account_error
 from app.db import get_db
@@ -181,7 +180,6 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
                 {"entity": name, "id": str(rec.id), "canonical_id": str(existing.id)}
             )
             return
-        audit(db, user, name, rec.id, "sync_create")
         result["accepted"].append({"entity": name, "id": str(rec.id)})
         return
 
@@ -232,7 +230,6 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
         row.version = rec.version
         db.add(row)
         db.flush()
-        audit(db, user, name, rec.id, "sync_create")
     elif rec.version > existing.version:
         for k, v in data.items():
             setattr(existing, k, v)
@@ -240,7 +237,6 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
         existing.version = rec.version
         if name == "transactions" and rec.status == "deleted":
             existing.deleted_at = datetime.now(timezone.utc)
-        audit(db, user, name, rec.id, "sync_update")
     elif rec.version < existing.version:
         result["conflicts"].append({"entity": name, "id": str(rec.id)})
     result["accepted"].append({"entity": name, "id": str(rec.id)})

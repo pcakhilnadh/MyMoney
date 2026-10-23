@@ -52,7 +52,6 @@ Key ideas
 | `expense_groups`, `group_members` | Groups/family spaces; members are added by email (`invited` → `active`) |
 | `settlements` | Payments between members of a group |
 | `budgets` | Spending limits (personal or group) |
-| `audit_logs` | History of sensitive changes |
 
 Split methods: equal, exact amount, percentage, shares. Balances = (paid − share) per member, adjusted by
 settlements. 
