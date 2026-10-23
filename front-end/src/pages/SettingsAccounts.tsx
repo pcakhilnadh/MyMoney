@@ -2,7 +2,15 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Button, CurrencyInput, Input, PageHeader } from '@/components/kit'
+import {
+  Button,
+  CurrencyInput,
+  Input,
+  MetalActionButton,
+  MetalBadge,
+  MetalCard,
+  PageHeader,
+} from '@/components/kit'
 import { accountsRepo, transactionsRepo } from '@/db/repos'
 import type { AccountType } from '@/db/types'
 import { summarizeAccount } from '@/lib/accounts'
@@ -226,49 +234,56 @@ export default function SettingsAccounts() {
                   const receivable =
                     account.account_type === 'asset' || account.account_type === 'money_lent'
                   return (
-                    <div
-                      key={account.id}
-                      className="surface flex items-center gap-3 rounded-2xl px-4 py-3.5"
-                    >
-                      <Link to={`/accounts/${account.id}`} className="min-w-0 flex-1">
-                        <div className="truncate font-medium">{account.name}</div>
-                        <div className="truncate text-sm text-muted-foreground">
-                          {card
-                            ? `Credit card · limit ${account.credit_limit == null ? 'not set' : formatMinor(account.credit_limit)}`
-                            : TYPE_LABELS[account.account_type] +
-                              (account.is_default ? ' · default' : '')}
+                    <MetalCard key={account.id} className="space-y-4 p-4">
+                      <header className="flex items-center justify-between gap-3">
+                        <Link
+                          to={`/accounts/${account.id}`}
+                          className="flex min-w-0 flex-1 items-center gap-3"
+                        >
+                          <MetalBadge label={account.name} />
+                          <div className="min-w-0">
+                            <div className="truncate font-semibold">{account.name}</div>
+                            <div className="truncate text-xs text-muted-foreground">
+                              {card
+                                ? `Credit card · limit ${account.credit_limit == null ? 'not set' : formatMinor(account.credit_limit)}`
+                                : TYPE_LABELS[account.account_type] +
+                                  (account.is_default ? ' · default' : '')}
+                            </div>
+                          </div>
+                        </Link>
+                        <div className="flex shrink-0 items-center gap-1.5">
+                          <MetalActionButton
+                            label={`Edit ${account.name}`}
+                            onClick={() => edit(account.id)}
+                          >
+                            <Pencil size={15} />
+                          </MetalActionButton>
+                          <MetalActionButton
+                            label={`Delete ${account.name}`}
+                            onClick={() => void remove(account.id, account.name)}
+                            destructive
+                          >
+                            <Trash2 size={15} />
+                          </MetalActionButton>
                         </div>
-                        <div className="money mt-1 text-sm font-semibold">
+                      </header>
+                      <Link to={`/accounts/${account.id}`} className="block">
+                        <div className="money truncate text-[26px] leading-tight font-bold tracking-tight text-white">
                           {liability
                             ? `${formatMinor(summary.balance)} owed`
                             : receivable
                               ? `${formatMinor(summary.balance)} owed to you`
                               : formatMinor(summary.balance)}
-                          {card && summary.available != null && (
-                            <span
-                              className={`ml-2 font-normal ${summary.available < 0 ? 'text-destructive' : 'text-muted-foreground'}`}
-                            >
-                              {formatMinor(summary.available)} available
-                            </span>
-                          )}
                         </div>
+                        {card && summary.available != null && (
+                          <div
+                            className={`mt-1 text-sm ${summary.available < 0 ? 'text-destructive' : 'text-muted-foreground'}`}
+                          >
+                            {formatMinor(summary.available)} available
+                          </div>
+                        )}
                       </Link>
-                      <button
-                        type="button"
-                        aria-label={`Edit ${account.name}`}
-                        onClick={() => edit(account.id)}
-                      >
-                        <Pencil size={16} />
-                      </button>
-                      <button
-                        type="button"
-                        aria-label={`Delete ${account.name}`}
-                        className="text-muted-foreground"
-                        onClick={() => void remove(account.id, account.name)}
-                      >
-                        <Trash2 size={16} />
-                      </button>
-                    </div>
+                    </MetalCard>
                   )
                 })}
             </section>

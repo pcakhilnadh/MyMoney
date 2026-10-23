@@ -4,6 +4,7 @@ import { cn } from '@/lib/utils'
 import { toMinor } from '@/lib/money'
 
 export { Button } from '@/components/ui/button'
+export { MetalActionButton, MetalBadge, MetalCard } from './MetalCard'
 
 export function Card({
   children,
