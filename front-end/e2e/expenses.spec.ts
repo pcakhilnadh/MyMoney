@@ -102,6 +102,7 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await page.getByRole('link', { name: 'Add expense' }).click()
   await page.getByRole('button', { name: 'Income' }).click()
   await page.getByPlaceholder('Income source').fill('Payday')
+  await page.getByRole('button', { name: 'Salary' }).click()
   await page.getByPlaceholder('0').fill('2500')
   await page.getByLabel('Received into').selectOption({ label: 'Checking' })
   await page.getByRole('button', { name: 'Save Income' }).click()
@@ -109,6 +110,7 @@ test('capture income and transfers from the add-transaction flow', async ({ page
 
   await page.getByRole('link', { name: 'Add expense' }).click()
   await page.getByRole('button', { name: 'Transfer' }).click()
+  await page.getByRole('button', { name: 'Savings & Investments' }).click()
   await page.getByPlaceholder('Transfer note').fill('Move to savings')
   await page.getByPlaceholder('0').fill('1000')
   await page.getByLabel('From account').selectOption({ label: 'Checking' })
@@ -118,6 +120,7 @@ test('capture income and transfers from the add-transaction flow', async ({ page
 
   await page.getByRole('link', { name: 'Add expense' }).click()
   await page.getByRole('button', { name: 'Transfer' }).click()
+  await page.getByRole('button', { name: 'Money Borrow' }).click()
   await page.getByPlaceholder('Transfer note').fill('Borrow from Alex')
   await page.getByPlaceholder('0').fill('500')
   await page.getByLabel('From account').selectOption({ label: 'Loan — Alex' })
@@ -126,6 +129,7 @@ test('capture income and transfers from the add-transaction flow', async ({ page
 
   await page.getByRole('link', { name: 'Add expense' }).click()
   await page.getByRole('button', { name: 'Transfer' }).click()
+  await page.getByRole('button', { name: 'Loan Repayment' }).click()
   await page.getByPlaceholder('Transfer note').fill('Repay Alex')
   await page.getByPlaceholder('0').fill('100')
   await page.getByLabel('From account').selectOption({ label: 'Checking' })
@@ -134,6 +138,7 @@ test('capture income and transfers from the add-transaction flow', async ({ page
 
   await page.getByRole('link', { name: 'Add expense' }).click()
   await page.getByRole('button', { name: 'Transfer' }).click()
+  await page.getByRole('button', { name: 'Money Lent' }).click()
   await page.getByPlaceholder('Transfer note').fill('Lend to Sam')
   await page.getByPlaceholder('0').fill('300')
   await page.getByLabel('From account').selectOption({ label: 'Checking' })
@@ -142,6 +147,7 @@ test('capture income and transfers from the add-transaction flow', async ({ page
 
   await page.getByRole('link', { name: 'Add expense' }).click()
   await page.getByRole('button', { name: 'Transfer' }).click()
+  await page.getByRole('button', { name: 'Loan Collection' }).click()
   await page.getByPlaceholder('Transfer note').fill('Sam repaid')
   await page.getByPlaceholder('0').fill('50')
   await page.getByLabel('From account').selectOption({ label: 'Money lent — Sam' })

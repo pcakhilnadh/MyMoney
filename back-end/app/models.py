@@ -64,6 +64,7 @@ class Category(Base):
     color: Mapped[str | None] = mapped_column(String)
     transaction_type: Mapped[str] = mapped_column(String, default="expense", index=True)
     is_system: Mapped[bool] = mapped_column(Boolean, default=False)
+    is_hidden: Mapped[bool] = mapped_column(Boolean, default=False)
     status: Mapped[str] = mapped_column(String, default="active")
     version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

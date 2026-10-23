@@ -76,11 +76,17 @@ export default function Transactions() {
                     ? TYPE_STYLE.transfer
                     : TYPE_STYLE.debit
               const { Icon } = kind
+              const categoryName = t.category_id ? names.get(t.category_id) : undefined
               const detail =
                 t.transaction_type === 'transfer'
-                  ? `${accountNames.get(t.account_id) ?? 'Account'} → ${accountNames.get(t.transfer_to_account_id ?? '') ?? 'Account'}`
+                  ? [
+                      categoryName,
+                      `${accountNames.get(t.account_id) ?? 'Account'} → ${accountNames.get(t.transfer_to_account_id ?? '') ?? 'Account'}`,
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')
                   : [
-                      (t.category_id && names.get(t.category_id)) || 'Uncategorised',
+                      categoryName || 'Uncategorised',
                       accountNames.get(t.account_id) ?? 'Account',
                     ].join(' · ')
               const amountPrefix =
@@ -103,6 +109,9 @@ export default function Transactions() {
                       className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] leading-none font-semibold ${kind.surface} ${kind.color}`}
                     >
                       {kind.label}
+                      {t.transaction_type === 'transfer' && categoryName
+                        ? ` · ${categoryName}`
+                        : ''}
                     </span>
                   </div>
                   <div className="flex shrink-0 flex-col items-end gap-1">

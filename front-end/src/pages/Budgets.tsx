@@ -29,11 +29,14 @@ export default function Budgets() {
     txs
       .filter(
         (t) =>
-          t.transaction_type === 'expense' &&
+          (t.transaction_type === 'expense' || t.transaction_type === 'refund') &&
           t.transaction_date.startsWith(month) &&
           (!categoryId || t.category_id === categoryId),
       )
-      .reduce((n, t) => n + t.amount_minor, 0)
+      .reduce(
+        (n, t) => n + (t.transaction_type === 'expense' ? t.amount_minor : -t.amount_minor),
+        0,
+      )
 
   function resetForm() {
     setName('')
@@ -45,7 +48,14 @@ export default function Budgets() {
   async function save() {
     const values = {
       group_id: null,
-      category_id: cats.find((c) => c.name === category)?.id ?? null,
+      category_id:
+        cats.find(
+          (c) =>
+            c.name === category &&
+            c.transaction_type === 'expense' &&
+            c.status === 'active' &&
+            !c.is_hidden,
+        )?.id ?? null,
       name: name.trim() || category || 'Monthly budget',
       amount_minor: amount,
       currency: 'INR',
@@ -66,7 +76,7 @@ export default function Budgets() {
     setEditingId(id)
     setName(budget.name)
     setAmount(budget.amount_minor)
-    setCategory(cats.find((c) => c.id === budget.category_id)?.name ?? null)
+    setCategory(cats.find((c) => c.id === budget.category_id && !c.is_hidden)?.name ?? null)
   }
 
   return (
@@ -118,7 +128,14 @@ export default function Budgets() {
         <CategorySelector
           value={category}
           onChange={setCategory}
-          options={cats.map((c) => c.name)}
+          options={cats
+            .filter(
+              (category) =>
+                category.transaction_type === 'expense' &&
+                category.status === 'active' &&
+                !category.is_hidden,
+            )
+            .map((c) => c.name)}
         />
         <Button className="w-full" disabled={amount <= 0} onClick={() => void save()}>
           {editingId ? 'Save Budget' : 'Add Budget'}

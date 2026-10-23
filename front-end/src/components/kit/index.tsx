@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
 import { cn } from '@/lib/utils'
-import { CATEGORIES, toMinor } from '@/lib/money'
+import { toMinor } from '@/lib/money'
 
 export { Button } from '@/components/ui/button'
 
@@ -98,15 +98,17 @@ export function CurrencyInput({
 export function CategorySelector({
   value,
   onChange,
-  options = CATEGORIES,
+  options = [],
+  label = 'Category',
 }: {
   value: string | null
   onChange: (v: string) => void
   options?: readonly string[]
+  label?: string
 }) {
   return (
     <div className="space-y-1.5">
-      <span className="label">Category</span>
+      <span className="label">{label}</span>
       <div className="flex flex-wrap gap-2">
         {options.map((c) => (
           <button

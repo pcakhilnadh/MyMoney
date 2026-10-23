@@ -1,5 +1,6 @@
 import uuid
 from datetime import date, datetime
+from typing import Literal
 
 from pydantic import BaseModel, ConfigDict, Field
 
@@ -25,7 +26,8 @@ class CategoryIn(BaseModel):
     name: str
     icon: str = "tag"
     color: str | None = None
-    transaction_type: str = "expense"
+    transaction_type: Literal["expense", "income", "transfer"] = "expense"
+    is_hidden: bool = False
 
 
 class CategoryOut(CategoryIn, ORM):

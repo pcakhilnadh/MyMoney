@@ -2,6 +2,7 @@ export type SyncState = 'pending' | 'syncing' | 'synced' | 'failed' | 'conflict'
 export type RecordStatus = 'active' | 'archived' | 'deleted'
 export type ExpenseContext = 'personal' | 'family' | 'group'
 export type TransactionType = 'expense' | 'income' | 'refund' | 'transfer'
+export type CategoryType = Exclude<TransactionType, 'refund'>
 export type SplitMethod = 'equal' | 'exact_amount' | 'percentage' | 'shares'
 export type AccountType =
   | 'bank'
@@ -42,8 +43,9 @@ export interface Category extends Syncable {
   name: string
   icon: string
   color: string | null
-  transaction_type: TransactionType
+  transaction_type: CategoryType
   is_system: boolean
+  is_hidden: boolean
 }
 
 export interface Transaction extends Syncable {

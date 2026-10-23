@@ -7,6 +7,7 @@ copy is returned as a conflict and the client adopts it.
 
 import uuid
 from datetime import date, datetime, timezone
+from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field
@@ -15,6 +16,7 @@ from sqlalchemy.orm import Session
 
 from app.access import audit
 from app.auth import get_current_user
+from app.category_rules import transfer_category_account_error
 from app.db import get_db
 from app.models import Account, Budget, Category, Profile, Transaction
 
@@ -40,7 +42,9 @@ class CategoryRec(Rec):
     name: str
     icon: str = "tag"
     color: str | None = None
-    transaction_type: str = "expense"
+    transaction_type: Literal["expense", "income", "transfer"] = "expense"
+    is_system: bool = False
+    is_hidden: bool = False
 
 
 class TransactionRec(Rec):
@@ -78,7 +82,11 @@ class PushIn(BaseModel):
 
 # entity name -> (model, owner column, fields copied from the record)
 SPECS = {
-    "categories": (Category, "user_id", ["name", "icon", "color", "transaction_type"]),
+    "categories": (
+        Category,
+        "user_id",
+        ["name", "icon", "color", "transaction_type", "is_system", "is_hidden"],
+    ),
     "accounts": (
         Account,
         "user_id",
@@ -150,6 +158,17 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
             raise HTTPException(422, "Unsupported transaction type")
         if not _owned_ref(db, Category, "user_id", rec.category_id, user):
             raise HTTPException(422, "Unknown account or category")
+        if rec.category_id:
+            category = db.get(Category, rec.category_id)
+            expected_type = "expense" if rec.transaction_type == "refund" else rec.transaction_type
+            if category.transaction_type != expected_type:
+                raise HTTPException(422, "Category does not match the transaction type")
+            if rec.transaction_type == "transfer":
+                error = transfer_category_account_error(
+                    category.name, account.account_type, destination.account_type
+                )
+                if error:
+                    raise HTTPException(422, error)
     existing = db.get(model, rec.id)
     if existing is not None and getattr(existing, owner_col) != user.id:
         raise HTTPException(404, "Record not found")

@@ -8,6 +8,7 @@ from sqlalchemy.orm import Session, selectinload
 from app import schemas as s
 from app.access import active_group, audit, require_admin, require_member
 from app.auth import GoogleIdentity, get_current_user, get_identity
+from app.category_rules import transfer_category_account_error
 from app.db import get_db
 from app.mailer import invite_email, send_email
 from app.models import (
@@ -81,6 +82,15 @@ def _validated_splits(db: Session, body: s.TransactionIn, user: Profile):
         account = db.get(Account, body.account_id)
         if account is None or account.user_id != user.id or account.status != "active":
             raise HTTPException(422, "An active account owned by the caller is required")
+        category = db.get(Category, body.category_id) if body.category_id else None
+        if body.category_id and (category is None or category.user_id != user.id):
+            raise HTTPException(422, "Unknown category")
+        if category is not None:
+            expected_type = "expense" if body.transaction_type == "refund" else body.transaction_type
+            if category.transaction_type != expected_type:
+                raise HTTPException(422, "Category does not match the transaction type")
+            if category.is_hidden:
+                raise HTTPException(422, "Hidden categories cannot be used for new transactions")
         if body.transaction_type == "transfer":
             destination = (
                 db.get(Account, body.transfer_to_account_id)
@@ -94,6 +104,12 @@ def _validated_splits(db: Session, body: s.TransactionIn, user: Profile):
                 or destination.status != "active"
             ):
                 raise HTTPException(422, "A different active destination account is required")
+            if category is not None:
+                error = transfer_category_account_error(
+                    category.name, account.account_type, destination.account_type
+                )
+                if error:
+                    raise HTTPException(422, error)
         elif body.transfer_to_account_id is not None:
             raise HTTPException(422, "Only transfers can have a destination account")
         return []

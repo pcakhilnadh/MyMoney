@@ -8,7 +8,7 @@ TX = "aaaaaaaa-0000-0000-0000-000000000003"
 
 def payload(version=1, amount=1000, status="active"):
     return {
-        "categories": [{"id": CAT, "version": 1, "name": "Food"}],
+        "categories": [{"id": CAT, "version": 1, "name": "Food", "is_system": True}],
         "accounts": [{"id": ACC, "version": 1, "name": "Cash"}],
         "transactions": [
             {
@@ -32,6 +32,7 @@ def test_push_then_pull_roundtrip(client):
     pulled = c.get("/sync/pull", headers=H("alice")).json()
     assert pulled["transactions"][0]["id"] == TX
     assert pulled["categories"][0]["name"] == "Food"
+    assert pulled["categories"][0]["is_system"] is True
     # nothing new since server_time
     again = c.get("/sync/pull", params={"since": pulled["server_time"]}, headers=H("alice")).json()
     assert again["transactions"] == []
@@ -89,6 +90,7 @@ def test_transfer_sync_requires_and_persists_destination(client):
     transaction = body["transactions"][0]
     transaction["transaction_type"] = "transfer"
     transaction["transfer_to_account_id"] = ACC_TO
+    body["categories"][0].update({"name": "Other", "transaction_type": "transfer"})
     response = client.post("/sync/push", json=body, headers=H("alice"))
 
     assert response.status_code == 200
@@ -102,3 +104,17 @@ def test_transfer_sync_requires_and_persists_destination(client):
     body["transactions"][0]["id"] = "aaaaaaaa-0000-0000-0000-000000000005"
     body["transactions"][0]["transfer_to_account_id"] = ACC
     assert client.post("/sync/push", json=body, headers=H("alice")).status_code == 422
+
+
+def test_category_hidden_state_syncs_and_category_type_is_enforced(client):
+    body = payload()
+    body["categories"][0]["is_hidden"] = True
+    response = client.post("/sync/push", json=body, headers=H("alice"))
+    assert response.status_code == 200
+    pulled = client.get("/sync/pull", headers=H("alice")).json()
+    assert pulled["categories"][0]["is_hidden"] is True
+
+    mismatched = payload()
+    mismatched["transactions"][0]["id"] = "aaaaaaaa-0000-0000-0000-000000000009"
+    mismatched["transactions"][0]["transaction_type"] = "income"
+    assert client.post("/sync/push", json=mismatched, headers=H("alice")).status_code == 422

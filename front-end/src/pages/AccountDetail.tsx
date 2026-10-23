@@ -1,6 +1,7 @@
 import { Link, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Card, ListItem, PageHeader } from '@/components/kit'
+import { db } from '@/db/db'
 import { accountsRepo, transactionsRepo } from '@/db/repos'
 import { summarizeAccount } from '@/lib/accounts'
 import { formatMinor } from '@/lib/money'
@@ -31,6 +32,7 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
 export default function AccountDetail() {
   const { accountId = '' } = useParams()
   const account = useLiveQuery(() => accountsRepo.get(accountId), [accountId])
+  const categories = useLiveQuery(() => db.categories.toArray(), []) ?? []
   const transactions =
     useLiveQuery(() => transactionsRepo.listByDate(), [])?.filter(
       (transaction) =>
@@ -130,6 +132,7 @@ export default function AccountDetail() {
         </p>
       )}
       {transactions.map((transaction) => {
+        const categoryName = categories.find((item) => item.id === transaction.category_id)?.name
         const kind =
           transaction.transaction_type === 'transfer'
             ? {
@@ -141,7 +144,13 @@ export default function AccountDetail() {
           <ListItem
             key={transaction.id}
             title={transaction.description}
-            subtitle={`${kind.label} · ${new Date(transaction.transaction_date).toLocaleDateString('en-IN')}`}
+            subtitle={[
+              kind.label,
+              categoryName,
+              new Date(transaction.transaction_date).toLocaleDateString('en-IN'),
+            ]
+              .filter(Boolean)
+              .join(' · ')}
             trailing={<span className={kind.style}>{formatMinor(transaction.amount_minor)}</span>}
           />
         )

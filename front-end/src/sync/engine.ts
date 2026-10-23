@@ -5,9 +5,9 @@ import type { Syncable } from '@/db/types'
 type EntityName = 'categories' | 'accounts' | 'transactions' | 'budgets'
 const ENTITIES: EntityName[] = ['categories', 'accounts', 'transactions', 'budgets']
 
-/** Local-only fields the server does not return, used when a record is first pulled. */
+/** Fields the server may omit, used when a record is first pulled. */
 const DEFAULTS: Record<EntityName, object> = {
-  categories: { is_system: false },
+  categories: { is_system: false, is_hidden: false },
   accounts: {},
   transactions: { group_id: null, context: 'personal', is_shared: false, split_method: null },
   budgets: { group_id: null },

@@ -1,6 +1,10 @@
 import { db } from './db'
 import { Repository } from './repository'
 import type { Account, Budget, Category, Transaction } from './types'
+import {
+  categoryTypeForTransaction,
+  transferCategoryAccountError,
+} from '@/lib/transaction-categories'
 
 export const accountsRepo = new Repository<Account>(db.accounts)
 export const categoriesRepo = new Repository<Category>(db.categories)
@@ -24,6 +28,32 @@ class TransactionsRepository extends Repository<Transaction> {
         !(await accountsRepo.get(data.transfer_to_account_id)))
     ) {
       throw new Error('A different destination account is required for a transfer')
+    }
+    if (data.category_id) {
+      const category = await categoriesRepo.get(data.category_id)
+      if (
+        !category ||
+        category.transaction_type !== categoryTypeForTransaction(data.transaction_type)
+      ) {
+        throw new Error('The category must match the transaction type')
+      }
+      if (category.is_hidden)
+        throw new Error('Hidden categories cannot be used for new transactions')
+      if (data.transaction_type === 'transfer') {
+        if (!data.transfer_to_account_id || !account) {
+          throw new Error('A transfer category and two accounts are required')
+        }
+        const destination = await accountsRepo.get(data.transfer_to_account_id)
+        if (!destination) throw new Error('An active destination account is required')
+        const error = transferCategoryAccountError(
+          category.name,
+          account.account_type,
+          destination.account_type,
+        )
+        if (error) throw new Error(error)
+      }
+    } else if (data.transaction_type === 'transfer') {
+      throw new Error('A category is required for transfers')
     }
     return super.create(data)
   }

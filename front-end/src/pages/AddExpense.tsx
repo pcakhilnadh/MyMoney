@@ -15,6 +15,10 @@ import { transactionsRepo } from '@/db/repos'
 import type { TransactionType } from '@/db/types'
 import { useAction, useGroups, useMe, useMembers } from '@/groups/hooks'
 import { memberLabel } from '@/groups/types'
+import {
+  categoryTypeForTransaction,
+  transferCategoryAccountError,
+} from '@/lib/transaction-categories'
 import { toMinor } from '@/lib/money'
 
 const CONTEXTS = ['Personal', 'Group'] as const
@@ -170,6 +174,23 @@ export default function AddExpense() {
   const post = useAction<object>('/transactions', [['gtx'], ['balances']])
 
   const activeAccounts = accounts?.filter((account) => account.status === 'active') ?? []
+  const categoryType = categoryTypeForTransaction(transactionType)
+  const visibleCategories =
+    categories?.filter(
+      (item) =>
+        item.status === 'active' && !item.is_hidden && item.transaction_type === categoryType,
+    ) ?? []
+  const selectedCategory = visibleCategories.find((item) => item.name === category)
+  const sourceAccount = activeAccounts.find((account) => account.id === accountId)
+  const destinationAccount = activeAccounts.find((account) => account.id === transferToAccountId)
+  const transferCategoryError =
+    transactionType === 'transfer' && selectedCategory && sourceAccount && destinationAccount
+      ? transferCategoryAccountError(
+          selectedCategory.name,
+          sourceAccount.account_type,
+          destinationAccount.account_type,
+        )
+      : null
   const valid = amount > 0 && description.trim().length > 0
   const accountSelected = activeAccounts.some((account) => account.id === accountId)
   const transferDestinationSelected =
@@ -179,12 +200,11 @@ export default function AddExpense() {
 
   async function savePersonal() {
     if (!accountSelected || !transferDestinationSelected || !valid) return
-    const cat = categories?.find((c) => c.name === category)
+    if (transactionType === 'transfer' && (!selectedCategory || transferCategoryError)) return
     await transactionsRepo.create({
       account_id: accountId,
       transfer_to_account_id: transactionType === 'transfer' ? transferToAccountId : null,
-      category_id:
-        transactionType === 'expense' || transactionType === 'refund' ? (cat?.id ?? null) : null,
+      category_id: selectedCategory?.id ?? null,
       group_id: null,
       context: 'personal',
       transaction_type: transactionType,
@@ -227,6 +247,7 @@ export default function AddExpense() {
         onChange={(value) => {
           const nextType = value.toLowerCase() as TransactionType
           setTransactionType(nextType)
+          setCategory(null)
           if (nextType !== 'expense') setContext('Personal')
         }}
       />
@@ -247,10 +268,20 @@ export default function AddExpense() {
         value={description}
         onChange={(e) => setDescription(e.target.value)}
       />
-      {context === 'Personal' &&
-        (transactionType === 'expense' || transactionType === 'refund') && (
-          <CategorySelector value={category} onChange={setCategory} />
-        )}
+      {context === 'Personal' && (
+        <CategorySelector
+          value={category}
+          onChange={setCategory}
+          options={visibleCategories.map((item) => item.name)}
+          label={transactionType === 'refund' ? 'Expense category' : 'Category'}
+        />
+      )}
+      {transactionType === 'transfer' && !selectedCategory && (
+        <p className="text-sm text-destructive">
+          Choose a transfer category to record its purpose.
+        </p>
+      )}
+      {transferCategoryError && <p className="text-sm text-destructive">{transferCategoryError}</p>}
       <DatePicker value={date} onChange={setDate} />
       <label className="block">
         <span className="label">
@@ -312,7 +343,12 @@ export default function AddExpense() {
       {context === 'Personal' ? (
         <Button
           className="h-12 w-full rounded-card"
-          disabled={!valid || !accountSelected || !transferDestinationSelected}
+          disabled={
+            !valid ||
+            !accountSelected ||
+            !transferDestinationSelected ||
+            (transactionType === 'transfer' && (!selectedCategory || !!transferCategoryError))
+          }
           onClick={savePersonal}
         >
           Save {TRANSACTION_TYPES.find((option) => option.toLowerCase() === transactionType)}
