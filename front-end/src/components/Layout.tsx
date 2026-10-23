@@ -21,33 +21,33 @@ const tabs = [
   { to: '/settings', label: 'Settings', Icon: SettingsIcon },
 ]
 
+const foodTabs = [
+  { to: '/food', label: 'Home', Icon: House },
+  { to: '/food/diary', label: 'Diary', Icon: CalendarCheck },
+  { to: '/food/insights', label: 'Insights', Icon: Activity },
+  { to: '/food/settings', label: 'Settings', Icon: SettingsIcon },
+]
+
 const apps = [
   { id: 'money', label: 'My Money', Icon: WalletCards },
   { id: 'food', label: 'MyFood', Icon: Utensils },
   { id: 'habit', label: 'MyHabbit', Icon: Heart },
 ] as const
 
-const comingSoonTabs = {
-  food: [{ label: 'Home', Icon: House }],
-  habit: [
-    { label: 'Today', Icon: CalendarCheck },
-    { label: 'Habits', Icon: Heart },
-    { label: 'Progress', Icon: Activity },
-  ],
-}
+const habitTabs = [
+  { label: 'Today', Icon: CalendarCheck },
+  { label: 'Habits', Icon: Heart },
+  { label: 'Progress', Icon: Activity },
+]
 
 export default function Layout() {
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const [selectedApp, setSelectedApp] = useState<'money' | 'food' | 'habit' | null>('money')
-  const comingSoon = selectedApp === 'food' || selectedApp === 'habit'
+  const comingSoon = selectedApp === 'habit'
   const appInfo = apps.find((app) => app.id === selectedApp) ?? apps[0]
   const navigationItems =
-    selectedApp === 'food'
-      ? comingSoonTabs.food
-      : selectedApp === 'habit'
-        ? comingSoonTabs.habit
-        : []
+    selectedApp === 'food' ? foodTabs : selectedApp === 'habit' ? habitTabs : []
 
   return (
     <div data-app={selectedApp ?? 'money'} className="mx-auto min-h-screen max-w-md pb-32">
@@ -65,7 +65,7 @@ export default function Layout() {
               aria-pressed={selected}
               onClick={() => {
                 setSelectedApp(id)
-                navigate('/home')
+                navigate(id === 'money' ? '/home' : id === 'food' ? '/food' : '/home')
               }}
               className={`flex min-w-0 items-center justify-center gap-1.5 rounded-xl px-1.5 py-2 text-xs font-semibold transition-colors ${
                 selected ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted/50'
@@ -126,6 +126,33 @@ export default function Layout() {
               {label}
             </button>
           ))}
+        </nav>
+      ) : selectedApp === 'food' ? (
+        <nav
+          aria-label={`${appInfo.label} navigation`}
+          className="bottom-nav fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+        >
+          {foodTabs.map(({ to, label, Icon }) => (
+            <NavLink
+              key={to}
+              to={to}
+              className={({ isActive }) =>
+                `flex min-w-16 flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 text-[11px] font-medium text-primary transition-colors ${
+                  isActive ? 'bg-primary/20 ring-1 ring-primary/30' : ''
+                }`
+              }
+            >
+              <Icon size={21} className="text-primary" />
+              {label}
+            </NavLink>
+          ))}
+          <Link
+            to="/food/add"
+            aria-label="Add food"
+            className={`gloss flex size-12 shrink-0 items-center justify-center rounded-full text-primary-foreground shadow-lg transition-transform active:scale-95 ${pathname === '/food/add' ? 'ring-2 ring-white/70' : ''}`}
+          >
+            <Plus size={23} strokeWidth={2.5} />
+          </Link>
         </nav>
       ) : (
         <nav className="bottom-nav fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">

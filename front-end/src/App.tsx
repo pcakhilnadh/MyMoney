@@ -16,6 +16,12 @@ import Settings from './pages/Settings'
 import Layout from './components/Layout'
 import AccountDetail from './pages/AccountDetail'
 import BudgetCategoryDetail from './pages/BudgetCategoryDetail'
+import FoodHome from './pages/FoodHome'
+import FoodDiary from './pages/FoodDiary'
+import FoodAdd from './pages/FoodAdd'
+import FoodInsights from './pages/FoodInsights'
+import FoodSettings from './pages/FoodSettings'
+import FoodDatabase from './pages/FoodDatabase'
 
 function Protected() {
   const { user, ready } = useAuth()
@@ -49,6 +55,13 @@ export default function App() {
             <Route path="/settings/categories" element={<SettingsCategories />} />
             <Route path="/groups" element={<Groups />} />
             <Route path="/groups/:groupId" element={<GroupDetail />} />
+            <Route path="/food" element={<FoodHome />} />
+            <Route path="/food/diary" element={<FoodDiary />} />
+            <Route path="/food/diary/:date/:mealType" element={<FoodDiary />} />
+            <Route path="/food/add" element={<FoodAdd />} />
+            <Route path="/food/insights" element={<FoodInsights />} />
+            <Route path="/food/settings" element={<FoodSettings />} />
+            <Route path="/food/settings/database" element={<FoodDatabase />} />
             <Route index element={<Navigate to="/home" replace />} />
           </Route>
         </Route>
