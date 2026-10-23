@@ -1,6 +1,7 @@
 import { useState } from 'react'
-import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
+import { Link } from 'react-router-dom'
 import {
   Button,
   CategorySelector,
@@ -25,19 +26,40 @@ export default function Budgets() {
   const [category, setCategory] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const month = currentMonth()
+  const monthlyTransactions = txs.filter(
+    (transaction) =>
+      (transaction.transaction_type === 'expense' || transaction.transaction_type === 'refund') &&
+      transaction.transaction_date.startsWith(month),
+  )
+  const monthlyCategoryIds = new Set(
+    monthlyTransactions.flatMap((transaction) =>
+      transaction.category_id ? [transaction.category_id] : [],
+    ),
+  )
+  const expenseCategories = cats
+    .filter(
+      (item) =>
+        item.transaction_type === 'expense' &&
+        item.status !== 'deleted' &&
+        ((!item.is_hidden && item.status === 'active') || monthlyCategoryIds.has(item.id)),
+    )
+    .sort((a, b) => a.name.localeCompare(b.name))
+  const matchedBudgetIds = new Set<string>()
 
   const spent = (categoryId: string | null) =>
-    txs
-      .filter(
-        (t) =>
-          (t.transaction_type === 'expense' || t.transaction_type === 'refund') &&
-          t.transaction_date.startsWith(month) &&
-          (!categoryId || t.category_id === categoryId),
-      )
+    monthlyTransactions
+      .filter((transaction) => !categoryId || transaction.category_id === categoryId)
       .reduce(
-        (n, t) => n + (t.transaction_type === 'expense' ? t.amount_minor : -t.amount_minor),
+        (total, transaction) =>
+          total +
+          (transaction.transaction_type === 'expense'
+            ? transaction.amount_minor
+            : -transaction.amount_minor),
         0,
       )
+  const budgetCategories = [...expenseCategories].sort(
+    (a, b) => spent(b.id) - spent(a.id) || a.name.localeCompare(b.name),
+  )
 
   function resetForm() {
     setAmount(0)
@@ -46,9 +68,9 @@ export default function Budgets() {
     setShowForm(false)
   }
 
-  function addBudget() {
+  function addBudget(categoryName: string | null = null) {
     setAmount(0)
-    setCategory(null)
+    setCategory(categoryName)
     setEditingId(null)
     setShowForm(true)
   }
@@ -89,6 +111,120 @@ export default function Budgets() {
     setShowForm(true)
   }
 
+  function renderBudgetCard(b: (typeof budgets)[number]) {
+    const categoryId = b.category_id ?? cats.find((item) => item.name === b.name)?.id
+    const used = spent(categoryId ?? null)
+    const progress = Math.min(Math.max((used / b.amount_minor) * 100, 0), 100)
+    const overBudget = used > b.amount_minor
+    const remaining = Math.max(b.amount_minor - used, 0)
+    const categoryPath = categoryId ? `/budgets/categories/${categoryId}` : null
+    const summary = (
+      <div className="space-y-5 rounded-lg py-1">
+        <div className="flex items-end justify-between gap-3">
+          <div className="min-w-0">
+            <p
+              className={`text-[9px] font-medium tracking-[0.16em] uppercase ${
+                overBudget ? 'text-[#f39da3]' : 'text-white/45'
+              }`}
+            >
+              {overBudget ? 'Over budget by' : 'Left this month'}
+            </p>
+            <p
+              className={`money mt-1 truncate text-sm font-medium ${
+                overBudget ? 'text-[#ffd9dc]' : 'text-white/80'
+              }`}
+            >
+              {formatMinor(overBudget ? used - b.amount_minor : remaining)}
+            </p>
+          </div>
+          <div className="shrink-0 border-l border-white/10 pb-0.5 pl-4 text-right">
+            <p className="text-[9px] font-medium tracking-[0.16em] text-white/45 uppercase">
+              Monthly limit
+            </p>
+            <p className="money mt-1 text-sm font-medium text-white/80">
+              {formatMinor(b.amount_minor)}
+            </p>
+          </div>
+        </div>
+        <div className="space-y-2">
+          <div
+            role="progressbar"
+            aria-label={`${b.name} budget used`}
+            aria-valuemin={0}
+            aria-valuemax={b.amount_minor}
+            aria-valuenow={Math.min(Math.max(used, 0), b.amount_minor)}
+            className="h-1 overflow-hidden bg-white/10"
+          >
+            <div
+              className={`h-full transition-[width] duration-500 ${
+                overBudget ? 'bg-[#f18a91]' : 'bg-[#a7a0ff]'
+              }`}
+              style={{ width: `${progress}%` }}
+            />
+          </div>
+          <div className="flex items-center justify-between gap-3 text-xs">
+            <span className="text-muted-foreground">
+              <span className="font-medium text-foreground">{formatMinor(used)}</span> spent
+            </span>
+            <span className="text-muted-foreground">{Math.round(progress)}% used</span>
+          </div>
+        </div>
+      </div>
+    )
+
+    return (
+      <MetalCard key={b.id} className="space-y-5 p-4">
+        <header className="flex items-center justify-between gap-3">
+          {categoryPath ? (
+            <Link
+              to={categoryPath}
+              aria-label={`Open ${b.name} budget details`}
+              className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            >
+              <MetalBadge label={b.name} />
+              <div className="min-w-0">
+                <h2 className="truncate font-semibold">{b.name}</h2>
+              </div>
+            </Link>
+          ) : (
+            <div className="flex min-w-0 flex-1 items-center gap-3">
+              <MetalBadge label={b.name} />
+              <div className="min-w-0">
+                <h2 className="truncate font-semibold">{b.name}</h2>
+              </div>
+            </div>
+          )}
+          <div className="flex shrink-0 items-center gap-1.5">
+            <MetalActionButton label={`Edit ${b.name}`} onClick={() => edit(b.id)}>
+              <Pencil size={15} />
+            </MetalActionButton>
+            <MetalActionButton
+              label={`Delete ${b.name}`}
+              onClick={() => {
+                if (window.confirm(`Delete the "${b.name}" budget?`)) void budgetsRepo.remove(b.id)
+              }}
+              destructive
+            >
+              <Trash2 size={15} />
+            </MetalActionButton>
+          </div>
+        </header>
+
+        {categoryPath ? (
+          <Link
+            to={categoryPath}
+            aria-label={`View ${b.name} monthly spending`}
+            className="block rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          >
+            {summary}
+          </Link>
+        ) : (
+          summary
+        )}
+      </MetalCard>
+    )
+  }
+
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
@@ -108,16 +244,7 @@ export default function Budgets() {
           <span className="text-sm font-medium text-muted-foreground">
             {editingId ? 'Edit budget' : 'New budget'}
           </span>
-        ) : (
-          <button
-            type="button"
-            aria-label="Add budget"
-            onClick={addBudget}
-            className="gloss flex size-10 items-center justify-center rounded-full text-primary-foreground"
-          >
-            <Plus size={21} />
-          </button>
-        )}
+        ) : null}
       </div>
       {showForm ? (
         <div className="surface space-y-3 rounded-card p-5">
@@ -126,15 +253,7 @@ export default function Budgets() {
           <CategorySelector
             value={category}
             onChange={setCategory}
-            options={cats
-              .filter(
-                (category) =>
-                  category.transaction_type === 'expense' &&
-                  category.status === 'active' &&
-                  !category.is_hidden,
-              )
-              .sort((a, b) => a.name.localeCompare(b.name))
-              .map((c) => c.name)}
+            options={expenseCategories.map((item) => item.name)}
           />
           <Button
             className="w-full"
@@ -151,80 +270,58 @@ export default function Budgets() {
         </div>
       ) : (
         <>
-          {budgets.map((b) => {
-            const used = spent(b.category_id)
-            const progress = Math.min(Math.max((used / b.amount_minor) * 100, 0), 100)
-            const overBudget = used > b.amount_minor
-            const remaining = Math.max(b.amount_minor - used, 0)
+          {budgetCategories.map((item) => {
+            const budget = budgets.find(
+              (entry) =>
+                entry.category_id === item.id || (!entry.category_id && entry.name === item.name),
+            )
+            if (budget) {
+              matchedBudgetIds.add(budget.id)
+              return renderBudgetCard(budget)
+            }
+            const categoryTransactions = monthlyTransactions.filter(
+              (transaction) => transaction.category_id === item.id,
+            )
+            const canSetBudget = item.status === 'active' && !item.is_hidden
+
             return (
-              <MetalCard key={b.id} className="space-y-5 p-4">
-                <header className="flex items-center justify-between gap-3">
-                  <div className="flex min-w-0 items-center gap-3">
-                    <MetalBadge label={b.name} />
-                    <div className="min-w-0">
-                      <h2 className="truncate font-semibold">{b.name}</h2>
-                    </div>
-                  </div>
-                  <div className="flex shrink-0 items-center gap-1.5">
-                    <MetalActionButton label={`Edit ${b.name}`} onClick={() => edit(b.id)}>
-                      <Pencil size={15} />
-                    </MetalActionButton>
-                    <MetalActionButton
-                      label={`Delete ${b.name}`}
-                      onClick={() => {
-                        if (window.confirm(`Delete the "${b.name}" budget?`))
-                          void budgetsRepo.remove(b.id)
-                      }}
-                      destructive
-                    >
-                      <Trash2 size={15} />
-                    </MetalActionButton>
-                  </div>
-                </header>
-
-                <div className="flex items-end justify-between gap-3">
-                  <div className="min-w-0">
-                    <p className="text-xs text-muted-foreground">
-                      {overBudget ? 'Over budget by' : 'Available to spend'}
-                    </p>
-                    <p className="money mt-1 truncate text-[30px] leading-none font-bold tracking-tight text-white">
-                      {formatMinor(overBudget ? used - b.amount_minor : remaining)}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="space-y-2">
-                  <div
-                    role="progressbar"
-                    aria-label={`${b.name} budget used`}
-                    aria-valuemin={0}
-                    aria-valuemax={b.amount_minor}
-                    aria-valuenow={Math.min(Math.max(used, 0), b.amount_minor)}
-                    className="h-1.5 overflow-hidden rounded-full bg-white/10"
+              <MetalCard key={item.id} className="p-0">
+                <div className="flex w-full items-center justify-between gap-3 p-4">
+                  <Link
+                    to={`/budgets/categories/${item.id}`}
+                    aria-label={`Open ${item.name} budget details`}
+                    className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
-                    <div
-                      className={`h-full rounded-full transition-[width] duration-500 ${
-                        overBudget
-                          ? 'bg-gradient-to-r from-[#f18a91] to-[#ff5967]'
-                          : 'bg-gradient-to-r from-[#a7a0ff] via-[#7768ff] to-[#c2bdff]'
-                      }`}
-                      style={{ width: `${progress}%` }}
-                    />
-                  </div>
-                  <div className="flex items-center justify-between gap-3 text-xs">
-                    <span className="text-muted-foreground">
-                      <span className="text-foreground">{formatMinor(used)}</span> spent
-                    </span>
-                    <span className="text-muted-foreground">
-                      <span className="text-foreground">{formatMinor(b.amount_minor)}</span> limit
-                    </span>
-                  </div>
+                    <MetalBadge label={item.name} />
+                    <div className="min-w-0">
+                      <h2 className="truncate font-semibold">{item.name}</h2>
+                      {categoryTransactions.length > 0 && (
+                        <p className="money mt-1 text-xs text-muted-foreground">
+                          {formatMinor(spent(item.id))} spent this month
+                        </p>
+                      )}
+                    </div>
+                  </Link>
+                  {canSetBudget && (
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="ml-auto shrink-0 whitespace-nowrap"
+                      onClick={() => addBudget(item.name)}
+                      aria-label={`Set ${item.name} budget`}
+                    >
+                      Set budget
+                    </Button>
+                  )}
                 </div>
               </MetalCard>
             )
           })}
-          {budgets.length === 0 && (
-            <p className="py-8 text-center text-sm text-muted-foreground">No budgets yet</p>
+          {budgets.filter((item) => !matchedBudgetIds.has(item.id)).map(renderBudgetCard)}
+          {expenseCategories.length === 0 && budgets.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              No expense categories yet
+            </p>
           )}
         </>
       )}

@@ -14,6 +14,7 @@ import TransactionDetail from './pages/TransactionDetail'
 import Settings from './pages/Settings'
 import Layout from './components/Layout'
 import AccountDetail from './pages/AccountDetail'
+import BudgetCategoryDetail from './pages/BudgetCategoryDetail'
 
 function Protected() {
   const { user, ready } = useAuth()
@@ -40,6 +41,7 @@ export default function App() {
             <Route path="/expenses/new" element={<AddExpense />} />
             <Route path="/insights" element={<Insights />} />
             <Route path="/budgets" element={<Budgets />} />
+            <Route path="/budgets/categories/:categoryId" element={<BudgetCategoryDetail />} />
             <Route path="/settings/accounts" element={<SettingsAccounts />} />
             <Route path="/accounts/:accountId" element={<AccountDetail />} />
             <Route path="/settings/categories" element={<SettingsCategories />} />
