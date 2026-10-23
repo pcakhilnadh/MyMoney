@@ -119,7 +119,7 @@ export default function Budgets() {
       </div>
       {showForm ? (
         <div className="surface space-y-3 rounded-card p-5">
-          <SectionTitle>{editingId ? 'Edit Budget' : 'Add Budget'}</SectionTitle>
+          {editingId && <SectionTitle>Edit Budget</SectionTitle>}
           <CurrencyInput label="Monthly limit" value={amount} onChange={setAmount} />
           <CategorySelector
             value={category}
@@ -131,6 +131,7 @@ export default function Budgets() {
                   category.status === 'active' &&
                   !category.is_hidden,
               )
+              .sort((a, b) => a.name.localeCompare(b.name))
               .map((c) => c.name)}
           />
           <Button
