@@ -30,21 +30,18 @@ def upgrade() -> None:
     op.create_table(
         "merchants",
         sa.Column("id", sa.Uuid(), nullable=False),
-        sa.Column("user_id", sa.Uuid(), nullable=False),
         sa.Column("name", sa.String(), nullable=False),
+        sa.Column("normalized_name", sa.String(), nullable=False),
         sa.Column("status", sa.String(), nullable=False),
         sa.Column("version", sa.Integer(), nullable=False),
         sa.Column("created_at", sa.DateTime(timezone=True), nullable=False),
         sa.Column("updated_at", sa.DateTime(timezone=True), nullable=False),
-        sa.ForeignKeyConstraint(["user_id"], ["profiles.id"]),
         sa.PrimaryKeyConstraint("id"),
-        sa.UniqueConstraint("user_id", "name"),
+        sa.UniqueConstraint("normalized_name"),
     )
-    op.create_index(op.f("ix_merchants_user_id"), "merchants", ["user_id"], unique=False)
 
 
 def downgrade() -> None:
-    op.drop_index(op.f("ix_merchants_user_id"), table_name="merchants")
     op.drop_table("merchants")
     with op.batch_alter_table("transactions") as batch_op:
         batch_op.drop_column("long_description")
