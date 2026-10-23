@@ -35,6 +35,7 @@ function GroupFields({
   groupId,
   setGroupId,
   accountSelected,
+  categorySelected,
   amount,
   onSubmit,
   busy,
@@ -43,6 +44,7 @@ function GroupFields({
   groupId: string
   setGroupId: (id: string) => void
   accountSelected: boolean
+  categorySelected: boolean
   amount: number
   onSubmit: (
     method: string,
@@ -145,7 +147,14 @@ function GroupFields({
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Button
         className="h-12 w-full rounded-card"
-        disabled={!groupId || !accountSelected || amount <= 0 || chosen.length === 0 || busy}
+        disabled={
+          !groupId ||
+          !accountSelected ||
+          !categorySelected ||
+          amount <= 0 ||
+          chosen.length === 0 ||
+          busy
+        }
         onClick={submit}
       >
         Save and Split
@@ -228,12 +237,14 @@ export default function AddExpense() {
   }
 
   function saveShared(method: string, splits: object[]) {
+    if (!selectedCategory) return
     post.mutate(
       {
         client_id: crypto.randomUUID(),
         context: 'group',
         group_id: groupId,
         account_id: accountId,
+        category_id: selectedCategory.id,
         transaction_type: 'expense',
         title: title.trim(),
         long_description: longDescription.trim() || null,
@@ -293,18 +304,14 @@ export default function AddExpense() {
           className="field min-h-24 resize-y"
         />
       </label>
-      {context === 'Personal' && (
-        <CategorySelector
-          value={category}
-          onChange={setCategory}
-          options={visibleCategories.map((item) => item.name)}
-          label={transactionType === 'refund' ? 'Expense category' : 'Category'}
-        />
-      )}
-      {transactionType === 'transfer' && !selectedCategory && (
-        <p className="text-sm text-destructive">
-          Choose a transfer category to record its purpose.
-        </p>
+      <CategorySelector
+        value={category}
+        onChange={setCategory}
+        options={visibleCategories.map((item) => item.name)}
+        label={transactionType === 'refund' ? 'Expense category' : 'Category'}
+      />
+      {!selectedCategory && (
+        <p className="text-sm text-destructive">Choose a category to save this transaction.</p>
       )}
       {transferCategoryError && <p className="text-sm text-destructive">{transferCategoryError}</p>}
       <DatePicker value={date} onChange={setDate} />
@@ -372,7 +379,8 @@ export default function AddExpense() {
             !valid ||
             !accountSelected ||
             !transferDestinationSelected ||
-            (transactionType === 'transfer' && (!selectedCategory || !!transferCategoryError))
+            !selectedCategory ||
+            !!transferCategoryError
           }
           onClick={savePersonal}
         >
@@ -384,6 +392,7 @@ export default function AddExpense() {
           groupId={groupId}
           setGroupId={setGroupId}
           accountSelected={accountSelected}
+          categorySelected={!!selectedCategory}
           amount={valid ? amount : 0}
           onSubmit={saveShared}
           busy={post.isPending}

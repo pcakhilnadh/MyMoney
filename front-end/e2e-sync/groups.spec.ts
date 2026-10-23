@@ -12,6 +12,11 @@ test('create group, invite by email, join, split expense, see balances, settle',
   await fakeSignIn(a, alice)
   await fakeSignIn(b, bob)
 
+  await a.goto('/settings/accounts')
+  await a.getByRole('button', { name: 'Add payment account' }).click()
+  await a.getByPlaceholder('Account name').fill('Checking')
+  await a.getByRole('button', { name: 'Add Account' }).click()
+
   // Bob signs in once so his profile exists
   await b.goto('/groups')
   await expect(b.getByText('No groups yet')).toBeVisible()
@@ -38,8 +43,12 @@ test('create group, invite by email, join, split expense, see balances, settle',
   // Alice adds a 600 expense split equally
   await a.getByRole('button', { name: 'Expenses' }).click()
   await a.getByRole('button', { name: 'Add Expense' }).click()
+  await a.getByLabel('Paid from').selectOption({ label: 'Checking' })
   await a.getByPlaceholder('0').fill('600')
   await a.getByPlaceholder('Title').fill('Hotel')
+  await expect(a.getByRole('button', { name: 'Save and Split' })).toBeDisabled()
+  await a.getByRole('button', { name: 'Food & Dining' }).click()
+  await expect(a.getByRole('button', { name: 'Save and Split' })).toBeEnabled()
   await a.getByRole('button', { name: 'Save and Split' }).click()
   await expect(a.getByText('Hotel')).toBeVisible()
 

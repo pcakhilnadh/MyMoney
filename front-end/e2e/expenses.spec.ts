@@ -21,14 +21,18 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await page.getByPlaceholder('Title').fill('Lunch')
   await page.getByLabel('Merchant').fill('Amazon')
   await page.getByLabel('Long Description').fill('Lunch during a work break')
+  await expect(page.getByRole('button', { name: 'Save Expense' })).toBeDisabled()
   await page.getByRole('button', { name: 'Food' }).click()
+  await expect(page.getByRole('button', { name: 'Save Expense' })).toBeEnabled()
   await page.getByRole('button', { name: 'Save Expense' }).click()
 
   await expect(page).toHaveURL(/\/transactions/)
   await expect(page.getByText('Lunch', { exact: true })).toBeVisible()
+  await page.getByRole('button', { name: /Expense: Lunch/ }).click()
   await expect(page.getByText('Amazon')).toBeVisible()
   await expect(page.getByText('Lunch during a work break')).toBeVisible()
   await expect(page.getByText('₹250.50')).toBeVisible()
+  await page.getByRole('link', { name: '← Transactions' }).click()
   await page.getByRole('button', { name: 'Add transaction' }).click()
   await expect(page).toHaveURL(/\/expenses\/new/)
   await expect(page.locator('#saved-merchants option')).toHaveAttribute('value', 'Amazon')
@@ -75,16 +79,19 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await expect(page.getByText('₹250.50').first()).toBeVisible()
 
   await page.getByRole('link', { name: 'Transactions' }).click()
+  await page.getByRole('button', { name: /Expense: Lunch/ }).click()
   page.once('dialog', async (dialog) => {
     expect(dialog.type()).toBe('confirm')
     expect(dialog.message()).toContain('Lunch')
     await dialog.accept()
   })
-  await page.getByRole('button', { name: 'Delete Lunch' }).click()
+  await page.getByRole('button', { name: 'Delete transaction' }).click()
   await expect(page.getByText('No transactions yet')).toBeVisible()
 })
 
 test('capture income and transfers from the add-transaction flow', async ({ page, context }) => {
+  await page.route('**/auth/refresh', (route) => route.abort())
+  await page.route('**/auth/login', (route) => route.abort())
   await fakeSignIn(page)
   await page.goto('/home')
   await context.setOffline(true)
@@ -126,7 +133,7 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await expect(page.getByText('Payday')).toBeVisible()
 
   await page.getByRole('link', { name: 'Add expense' }).click()
-  await page.getByRole('button', { name: 'Transfer' }).click()
+  await page.getByRole('button', { name: 'Transfer', exact: true }).click()
   await page.getByRole('button', { name: 'Savings & Investments' }).click()
   await page.getByPlaceholder('Title').fill('Move to savings')
   await page.getByPlaceholder('0').fill('1000')
@@ -136,7 +143,7 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await expect(page.getByText('Move to savings')).toBeVisible()
 
   await page.getByRole('link', { name: 'Add expense' }).click()
-  await page.getByRole('button', { name: 'Transfer' }).click()
+  await page.getByRole('button', { name: 'Transfer', exact: true }).click()
   await page.getByRole('button', { name: 'Money Borrow' }).click()
   await page.getByPlaceholder('Title').fill('Borrow from Alex')
   await page.getByPlaceholder('0').fill('500')
@@ -145,7 +152,7 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await page.getByRole('button', { name: 'Save Transfer' }).click()
 
   await page.getByRole('link', { name: 'Add expense' }).click()
-  await page.getByRole('button', { name: 'Transfer' }).click()
+  await page.getByRole('button', { name: 'Transfer', exact: true }).click()
   await page.getByRole('button', { name: 'Loan Repayment' }).click()
   await page.getByPlaceholder('Title').fill('Repay Alex')
   await page.getByPlaceholder('0').fill('100')
@@ -154,7 +161,7 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await page.getByRole('button', { name: 'Save Transfer' }).click()
 
   await page.getByRole('link', { name: 'Add expense' }).click()
-  await page.getByRole('button', { name: 'Transfer' }).click()
+  await page.getByRole('button', { name: 'Transfer', exact: true }).click()
   await page.getByRole('button', { name: 'Money Lent' }).click()
   await page.getByPlaceholder('Title').fill('Lend to Sam')
   await page.getByPlaceholder('0').fill('300')
@@ -163,7 +170,7 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await page.getByRole('button', { name: 'Save Transfer' }).click()
 
   await page.getByRole('link', { name: 'Add expense' }).click()
-  await page.getByRole('button', { name: 'Transfer' }).click()
+  await page.getByRole('button', { name: 'Transfer', exact: true }).click()
   await page.getByRole('button', { name: 'Loan Collection' }).click()
   await page.getByPlaceholder('Title').fill('Sam repaid')
   await page.getByPlaceholder('0').fill('50')
