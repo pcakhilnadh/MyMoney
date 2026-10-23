@@ -1,74 +1,224 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
-import { decodeIdToken, isExpired, type GoogleUser } from './jwt'
-import { TOKEN_KEY } from './storage'
 import { DB_SUB } from '@/db/db'
+import {
+  AUTH_EXPIRED_EVENT,
+  ApiError,
+  loginWithGoogle,
+  logoutSession,
+  refreshSession,
+  setAccessToken,
+  type AuthResponse,
+} from './api'
+import { decodeIdToken, isExpired, type GoogleUser } from './jwt'
+import {
+  cachedUser,
+  clearStoredSession,
+  clearStoredUser,
+  storeUser,
+  TOKEN_KEY,
+} from './storage'
 
-const KEY = TOKEN_KEY
 export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
 
 interface AuthState {
   user: GoogleUser | null
   token: string | null
-  signIn: (credential: string) => void
-  signOut: () => void
+  ready: boolean
+  signIn: (credential: string) => Promise<void>
+  signOut: () => Promise<void>
+}
+
+interface Session {
+  token: string
+  user: GoogleUser
 }
 
 const Ctx = createContext<AuthState | null>(null)
 
-function load(): { token: string; user: GoogleUser } | null {
-  try {
-    const token = localStorage.getItem(KEY)
-    if (!token) return null
-    const user = decodeIdToken(token)
-    return isExpired(user) ? null : { token, user }
-  } catch {
-    return null
-  }
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
-  const [session, setSession] = useState(load)
+  const [session, setSession] = useState<Session | null>(null)
+  const [ready, setReady] = useState(false)
 
-  const signIn = useCallback((credential: string) => {
-    localStorage.setItem(KEY, credential)
-    // The local database is chosen at load time, so switching accounts needs a fresh load.
-    if (decodeIdToken(credential).sub !== DB_SUB) {
+  const acceptSession = useCallback((auth: AuthResponse) => {
+    setAccessToken(auth.access_token)
+    storeUser(auth.user)
+    localStorage.removeItem(TOKEN_KEY)
+    if (auth.user.sub !== DB_SUB) {
       window.location.assign('/home')
       return
     }
-    setSession({ token: credential, user: decodeIdToken(credential) })
+    setSession({ token: auth.access_token, user: auth.user })
   }, [])
 
-  const signOut = useCallback(() => {
-    localStorage.removeItem(KEY)
+  const signIn = useCallback(
+    async (credential: string) => {
+      acceptSession(await loginWithGoogle(credential))
+    },
+    [acceptSession],
+  )
+
+  const signOut = useCallback(async () => {
+    setAccessToken(null)
+    clearStoredSession()
     window.google?.accounts.id.disableAutoSelect()
     setSession(null)
+    try {
+      await logoutSession()
+    } catch (error) {
+      console.error('Unable to revoke the server session during sign-out', error)
+    }
   }, [])
 
-  // Drop the session when the ID token expires (Google tokens last ~1h).
+  useEffect(() => {
+    let active = true
+    const restore = async () => {
+      try {
+        let refreshError: unknown
+        try {
+          const auth = await refreshSession()
+          if (active) acceptSession(auth)
+          return
+        } catch (error) {
+          refreshError = error
+        }
+
+        const legacyToken = localStorage.getItem(TOKEN_KEY)
+        if (legacyToken) {
+          let legacyUser: GoogleUser | null = null
+          try {
+            legacyUser = decodeIdToken(legacyToken)
+          } catch (error) {
+            localStorage.removeItem(TOKEN_KEY)
+            console.error('Unable to decode the previous Google session', error)
+          }
+          if (legacyUser && isExpired(legacyUser)) {
+            localStorage.removeItem(TOKEN_KEY)
+            legacyUser = null
+          }
+          if (legacyUser) {
+            try {
+              const auth = await loginWithGoogle(legacyToken)
+              if (active) acceptSession(auth)
+              return
+            } catch (error) {
+              if (error instanceof TypeError) {
+                if (active) {
+                  storeUser(legacyUser)
+                  setSession({ token: legacyToken, user: legacyUser })
+                }
+                return
+              }
+              localStorage.removeItem(TOKEN_KEY)
+              console.error('Unable to restore the previous Google session', error)
+            }
+          }
+        }
+
+        if (!(refreshError instanceof ApiError && refreshError.status === 401)) {
+          const user = cachedUser()
+          if (active && user) setSession({ token: '', user })
+        } else {
+          clearStoredUser()
+        }
+      } finally {
+        if (active) setReady(true)
+      }
+    }
+
+    void restore()
+    return () => {
+      active = false
+    }
+  }, [acceptSession])
+
+  useEffect(() => {
+    const expired = () => {
+      setAccessToken(null)
+      clearStoredSession()
+      setSession(null)
+    }
+    window.addEventListener(AUTH_EXPIRED_EVENT, expired)
+    return () => window.removeEventListener(AUTH_EXPIRED_EVENT, expired)
+  }, [])
+
   useEffect(() => {
     if (!session) return
-    const ms = session.user.exp * 1000 - Date.now()
-    const t = setTimeout(signOut, Math.max(ms, 0))
-    return () => clearTimeout(t)
-  }, [session, signOut])
+    const onOnline = () => {
+      void refreshSession()
+        .then((auth) => {
+          storeUser(auth.user)
+          setSession({ token: auth.access_token, user: auth.user })
+        })
+        .catch((error: unknown) => {
+          if (error instanceof ApiError && error.status === 401) {
+            const legacyToken = localStorage.getItem(TOKEN_KEY)
+            if (legacyToken) {
+              try {
+                const legacyUser = decodeIdToken(legacyToken)
+                if (!isExpired(legacyUser)) {
+                  void loginWithGoogle(legacyToken)
+                    .then(acceptSession)
+                    .catch((loginError: unknown) => {
+                      if (loginError instanceof ApiError && loginError.status === 401) {
+                        localStorage.removeItem(TOKEN_KEY)
+                        window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT))
+                      } else {
+                        console.error('Unable to migrate the previous Google session', loginError)
+                      }
+                    })
+                  return
+                }
+              } catch (decodeError) {
+                console.error('Unable to decode the previous Google session', decodeError)
+              }
+            }
+            window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT))
+          } else {
+            console.error('Unable to restore the app session after reconnecting', error)
+          }
+        })
+    }
+    window.addEventListener('online', onOnline)
+    return () => window.removeEventListener('online', onOnline)
+  }, [session, acceptSession])
+
+  useEffect(() => {
+    if (!session) return
+    const delay = Math.max(session.user.exp * 1000 - Date.now() - 60_000, 0)
+    const timer = window.setTimeout(() => {
+      void refreshSession()
+        .then((auth) => {
+          storeUser(auth.user)
+          setSession({ token: auth.access_token, user: auth.user })
+        })
+        .catch((error: unknown) => {
+          if (error instanceof ApiError && error.status === 401) {
+            window.dispatchEvent(new Event(AUTH_EXPIRED_EVENT))
+          } else {
+            console.error('Unable to refresh the app session', error)
+          }
+        })
+    }, delay)
+    return () => window.clearTimeout(timer)
+  }, [session])
 
   const value = useMemo(
     () => ({
       user: session?.user ?? null,
       token: session?.token ?? null,
+      ready,
       signIn,
       signOut,
     }),
-    [session, signIn, signOut],
+    [session, ready, signIn, signOut],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }
 
 // eslint-disable-next-line react-refresh/only-export-components
 export function useAuth(): AuthState {
-  const v = useContext(Ctx)
-  if (!v) throw new Error('useAuth outside AuthProvider')
-  return v
+  const value = useContext(Ctx)
+  if (!value) throw new Error('useAuth outside AuthProvider')
+  return value
 }

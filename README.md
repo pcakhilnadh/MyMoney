@@ -17,9 +17,9 @@ CRED-inspired UI. Data is stored locally first (works offline) and syncs to the 
 │     ▼ (online only)                │                              │
 │   API client ──────── Sync engine ─┘                              │
 └─────────────┬─────────────────────────────────────────────────────┘
-              │ HTTPS + Bearer <Google ID token>
+              │ HTTPS + app access token; HttpOnly refresh cookie
 ┌─────────────▼───────────── FastAPI (monolith) ────────────────────┐
-│ verify Google token → find/create profile (by google_sub)         │
+│ verify Google sign-in → issue renewable app session               │
 │ routes: accounts, categories, transactions, groups, settlements,  │
 │         budgets, insights, /sync/push, /sync/pull                 │
 │ authorization + split/balance rules live here (app/splits.py)     │
@@ -33,9 +33,10 @@ Key ideas
   IndexedDB immediately and marked `pending`. The sync engine pushes them (`POST /sync/push`) and pulls
   changes (`GET /sync/pull`). Records have a client-generated UUID and a `version`; the higher version wins.
 - **Groups need the internet.** Group/family expenses, splits, balances and settlements go straight to the API.
-- **No Supabase Auth / RLS.** FastAPI verifies the Google ID token and enforces all access rules.
-- **Minimal personal data stored.** The server keeps only `google_sub` and `email` per user. A member's Google
-  name is saved on `group_members.display_name` only when they join a group.
+- **No Supabase Auth / RLS.** Google verifies the initial sign-in; FastAPI issues short-lived app access tokens and
+  renews them using a secure, HttpOnly refresh cookie. Sessions remain active for 30 days after the last use.
+- **Minimal personal data stored.** The server keeps `google_sub` and `email` per user, plus session metadata needed
+  to renew sign-in. A member's Google name is saved on `group_members.display_name` only when they join a group.
 - Money is stored as integer **minor units** (paise) everywhere.
 
 ## Data model (summary)
@@ -43,6 +44,7 @@ Key ideas
 | Table | Purpose |
 |---|---|
 | `profiles` | Identity only: `id`, `google_sub`, `email` |
+| `auth_sessions` | Hashed access/refresh credentials and the session's rolling expiry |
 | `accounts` | Cash/bank/UPI/credit card etc. with `opening_balance` and (cards) `credit_limit` |
 | `categories` | Expense/income categories (user-owned) |
 | `transactions` | Expenses, income, refunds; `context` = personal / family / group; `client_id`, `version` |
@@ -105,7 +107,9 @@ Open http://localhost:5173 and sign in with Google.
 | `back-end/.env` | `DATABASE_URL` | **Yes** | `postgresql+psycopg://USER:PASSWORD@HOST:5432/postgres`. URL-encode special characters in the password (`@` → `%40`, `#` → `%23`, `/` → `%2F`) |
 | `back-end/.env` | `GOOGLE_CLIENT_ID` | No | Must match the front-end value |
 | `back-end/.env` | `CORS_ORIGINS` | No | JSON list, e.g. `["http://localhost:5173"]`. Set to your real front-end URL in production |
-| `back-end/.env` | `APP_URL` | No | Used in invite emails |
+| `back-end/.env` | `APP_URL` | No | Used in invite emails and to infer secure session-cookie settings |
+| `back-end/.env` | `SESSION_COOKIE_SECURE` | No | Optional override; defaults to secure for HTTPS requests |
+| `back-end/.env` | `SESSION_COOKIE_SAMESITE` | No | Defaults to `lax`; use `none` with HTTPS only for a separately hosted frontend/API |
 | `back-end/.env` | `SMTP_HOST/PORT/USER/PASSWORD/FROM` | **Yes** (password) | Optional. Without them, invite emails are skipped (a "mailto" link is offered in the UI) |
 | `front-end/.env` | `VITE_GOOGLE_CLIENT_ID` | No (public) | Same client ID |
 | `front-end/.env` | `VITE_API_URL` | No | Defaults to `http://localhost:8000` |
@@ -113,7 +117,8 @@ Open http://localhost:5173 and sign in with Google.
 - **Real secrets live only in `back-end/.env`** (database password, SMTP password). It is git-ignored; never commit it
   or paste it in chat/tickets. Rotate the database password in Supabase (Project Settings → Database) if it is ever exposed.
 - Everything in `front-end/.env` ends up in the browser bundle, so it must **never** hold a secret.
-- The server never trusts the browser for identity: every request is verified against Google's signature.
+- The server never trusts browser-provided identity data: Google credentials are verified when establishing a session,
+  and API requests use server-issued, expiring access tokens.
 
 ## Deploy to Vercel with Services
 
@@ -188,7 +193,7 @@ cd front-end && npm run build && npm run preview   # serves the production build
 | Login page says "Set VITE_GOOGLE_CLIENT_ID…" | `front-end/.env` missing or the dev server wasn't restarted after editing it |
 | Browser shows CORS errors / sync status "Error: Failed to fetch" | Back-end not running, wrong `VITE_API_URL`, or your front-end URL missing from `CORS_ORIGINS` |
 | `Invalid Google token` (401) | `GOOGLE_CLIENT_ID` on the back-end differs from the front-end one, or the machine clock is wrong |
-| Signed out after about an hour | Google ID tokens expire after 1 hour and sessions currently use them directly. Sign in again; local data is kept |
+| Asked to sign in again | App sessions renew automatically and stay active for 30 days after last use. Sign in again if you have not used the app for over 30 days, or explicitly signed out; local data is kept |
 | Port 5173/8000 already in use | Stop the other process, or run on another port (`npm run dev -- --port 5180`, `uvicorn … --port 8010`) and update `VITE_API_URL` / `CORS_ORIGINS` |
 | `npm install` fails on old Node | Upgrade to Node 20.19+ (check with `node -v`) |
 | Playwright: *Executable doesn't exist* | Run `npx playwright install chromium` (Linux may also need `npx playwright install-deps`) |

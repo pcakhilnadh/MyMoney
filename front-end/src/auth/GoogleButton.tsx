@@ -1,4 +1,4 @@
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { GOOGLE_CLIENT_ID, useAuth } from './AuthContext'
 
 const SRC = 'https://accounts.google.com/gsi/client'
@@ -18,6 +18,7 @@ function loadScript(): Promise<void> {
 export default function GoogleButton() {
   const ref = useRef<HTMLDivElement>(null)
   const { signIn } = useAuth()
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
     const clientId = GOOGLE_CLIENT_ID
@@ -28,7 +29,12 @@ export default function GoogleButton() {
         if (cancelled || !ref.current || !window.google) return
         window.google.accounts.id.initialize({
           client_id: clientId,
-          callback: (r) => signIn(r.credential),
+          callback: (r) => {
+            setError(null)
+            void signIn(r.credential).catch((reason: unknown) => {
+              setError(reason instanceof Error ? reason.message : 'Google sign-in failed')
+            })
+          },
         })
         window.google.accounts.id.renderButton(ref.current, {
           theme: 'outline',
@@ -37,7 +43,9 @@ export default function GoogleButton() {
           width: 280,
         })
       })
-      .catch(() => {})
+      .catch((reason: unknown) => {
+        setError(reason instanceof Error ? reason.message : 'Failed to load Google Sign-In')
+      })
     return () => {
       cancelled = true
     }
@@ -49,5 +57,10 @@ export default function GoogleButton() {
         Set VITE_GOOGLE_CLIENT_ID in front-end/.env to enable Google sign-in.
       </p>
     )
-  return <div ref={ref} />
+  return (
+    <>
+      <div ref={ref} />
+      {error && <p className="text-sm text-destructive">{error}</p>}
+    </>
+  )
 }

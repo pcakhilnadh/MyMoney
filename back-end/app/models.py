@@ -38,6 +38,20 @@ class Profile(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class AuthSession(Base):
+    __tablename__ = "auth_sessions"
+
+    id: Mapped[uuid.UUID] = _pk()
+    google_sub: Mapped[str] = mapped_column(String, index=True)
+    email: Mapped[str] = mapped_column(String)
+    name: Mapped[str | None] = mapped_column(String)
+    picture: Mapped[str | None] = mapped_column(String)
+    access_token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    refresh_token_hash: Mapped[str] = mapped_column(String(64), unique=True, index=True)
+    access_expires_at: Mapped[int] = mapped_column(Integer)
+    refresh_expires_at: Mapped[int] = mapped_column(Integer)
+
+
 class Account(Base):
     __tablename__ = "accounts"
 

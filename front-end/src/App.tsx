@@ -15,7 +15,13 @@ import Layout from './components/Layout'
 import AccountDetail from './pages/AccountDetail'
 
 function Protected() {
-  const { user } = useAuth()
+  const { user, ready } = useAuth()
+  if (!ready)
+    return (
+      <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
+        Restoring your session…
+      </div>
+    )
   return user ? <Outlet /> : <Navigate to="/login" replace />
 }
 

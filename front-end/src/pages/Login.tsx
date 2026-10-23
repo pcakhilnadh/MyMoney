@@ -3,7 +3,13 @@ import { useAuth } from '@/auth/AuthContext'
 import GoogleButton from '@/auth/GoogleButton'
 
 export default function Login() {
-  const { user } = useAuth()
+  const { user, ready } = useAuth()
+  if (!ready)
+    return (
+      <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
+        Restoring your session…
+      </div>
+    )
   if (user) return <Navigate to="/home" replace />
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-between px-8 py-14">
@@ -24,7 +30,7 @@ export default function Login() {
       <div className="space-y-3">
         <GoogleButton />
         <p className="text-xs text-muted-foreground">
-          We only keep your Google ID and email. Your name and photo stay with Google.
+          Your sign-in stays active on this device until you sign out.
         </p>
       </div>
     </div>
