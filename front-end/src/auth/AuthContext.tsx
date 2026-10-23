@@ -1,6 +1,8 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useState } from 'react'
 import type { ReactNode } from 'react'
+import { clearLocalDatabase } from '@/db/clear'
 import { DB_SUB } from '@/db/db'
+import { clearSyncState, waitForSync } from '@/sync/engine'
 import {
   AUTH_EXPIRED_EVENT,
   ApiError,
@@ -11,13 +13,7 @@ import {
   type AuthResponse,
 } from './api'
 import { decodeIdToken, isExpired, type GoogleUser } from './jwt'
-import {
-  cachedUser,
-  clearStoredSession,
-  clearStoredUser,
-  storeUser,
-  TOKEN_KEY,
-} from './storage'
+import { cachedUser, clearStoredSession, clearStoredUser, storeUser, TOKEN_KEY } from './storage'
 
 export const GOOGLE_CLIENT_ID = import.meta.env.VITE_GOOGLE_CLIENT_ID as string | undefined
 
@@ -59,16 +55,24 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   )
 
   const signOut = useCallback(async () => {
+    const sub = session?.user.sub ?? DB_SUB
     setAccessToken(null)
     clearStoredSession()
     window.google?.accounts.id.disableAutoSelect()
     setSession(null)
     try {
+      if (sub) await waitForSync(sub)
+      await clearLocalDatabase()
+      if (sub) clearSyncState(sub)
+    } catch (error) {
+      console.error('Unable to clear local app data during sign-out', error)
+    }
+    try {
       await logoutSession()
     } catch (error) {
       console.error('Unable to revoke the server session during sign-out', error)
     }
-  }, [])
+  }, [session])
 
   useEffect(() => {
     let active = true

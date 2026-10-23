@@ -1,7 +1,7 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
 import { cn } from '@/lib/utils'
-import { toMinor } from '@/lib/money'
+import { normalizeMoneyInput, toMinor } from '@/lib/money'
 
 export { Button } from '@/components/ui/button'
 export { MetalActionButton, MetalBadge, MetalCard } from './MetalCard'
@@ -79,6 +79,15 @@ export function CurrencyInput({
   onChange: (minor: number) => void
   label?: string
 }) {
+  const formatValue = (minor: number) => (minor ? (minor / 100).toFixed(2) : '')
+  const [rawValue, setRawValue] = useState(() => formatValue(value))
+  const lastReportedValue = useRef(value)
+
+  useEffect(() => {
+    if (value !== lastReportedValue.current) setRawValue(formatValue(value))
+    lastReportedValue.current = value
+  }, [value])
+
   return (
     <label className="block space-y-1.5">
       <span className="label">{label}</span>
@@ -87,9 +96,15 @@ export function CurrencyInput({
         <input
           inputMode="decimal"
           className="money w-full bg-transparent text-3xl font-bold outline-none placeholder:text-[#3d3d4a]"
-          value={value ? String(value / 100) : ''}
+          value={rawValue}
           placeholder="0"
-          onChange={(e) => onChange(toMinor(e.target.value))}
+          onChange={(e) => {
+            const next = normalizeMoneyInput(e.target.value)
+            const minor = toMinor(next)
+            setRawValue(next)
+            lastReportedValue.current = minor
+            onChange(minor)
+          }}
         />
       </div>
     </label>

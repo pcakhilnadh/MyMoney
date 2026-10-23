@@ -70,6 +70,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     window.addEventListener('offline', onOffline)
     const timer = setInterval(() => void syncNow(), 60_000)
     return () => {
+      again.current = false
       off()
       clearTimeout(debounce)
       clearInterval(timer)

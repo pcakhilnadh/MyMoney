@@ -31,6 +31,17 @@ interface PushResponse {
 const cursorKey = (sub: string) => `exptracker.sync.cursor.${sub}`
 export const lastSyncKey = (sub: string) => `exptracker.sync.last.${sub}`
 
+const activeSyncs = new Map<string, Promise<void>>()
+
+export function clearSyncState(sub: string): void {
+  localStorage.removeItem(cursorKey(sub))
+  localStorage.removeItem(lastSyncKey(sub))
+}
+
+export async function waitForSync(sub: string): Promise<void> {
+  await activeSyncs.get(sub)
+}
+
 // Dexie tables are generic over their record type; the engine treats them uniformly.
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 const table = (name: EntityName) => db[name] as any
@@ -43,6 +54,16 @@ export async function countPending(): Promise<number> {
 
 /** One full cycle: register profile, push local changes, pull server changes. */
 export async function runSync(token: string, sub: string): Promise<void> {
+  const sync = syncCycle(token, sub)
+  activeSyncs.set(sub, sync)
+  try {
+    await sync
+  } finally {
+    if (activeSyncs.get(sub) === sync) activeSyncs.delete(sub)
+  }
+}
+
+async function syncCycle(token: string, sub: string): Promise<void> {
   await api('/auth/me', token) // creates the profile row on first sign-in
 
   // ---- push ----

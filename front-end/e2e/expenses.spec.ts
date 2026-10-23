@@ -2,6 +2,8 @@ import { expect, test } from '@playwright/test'
 import { fakeSignIn } from './helpers'
 
 test('add, list, budget, delete — works offline', async ({ page, context }) => {
+  await page.route('**/auth/refresh', (route) => route.abort())
+  await page.route('**/auth/login', (route) => route.abort())
   await fakeSignIn(page)
   await page.goto('/home')
   await expect(page.getByText('Spent this month')).toBeVisible()
@@ -14,7 +16,8 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await page.getByRole('button', { name: 'Add Account' }).click()
   await page.goBack()
   await page.getByLabel('Paid from').selectOption({ label: 'Everyday' })
-  await page.getByPlaceholder('0').fill('250.50')
+  await page.getByLabel('Amount').pressSequentially('250.50')
+  await expect(page.getByLabel('Amount')).toHaveValue('250.50')
   await page.getByPlaceholder('Title').fill('Lunch')
   await page.getByLabel('Merchant').fill('Amazon')
   await page.getByLabel('Long Description').fill('Lunch during a work break')
@@ -38,6 +41,7 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await page.getByRole('link', { name: 'Home' }).click()
   await expect(page.getByText('₹250.50').first()).toBeVisible()
 
+  await page.getByRole('link', { name: 'Personal' }).click()
   await page.getByRole('link', { name: 'Budgets' }).click()
   await page.getByRole('button', { name: 'Add budget' }).click()
   await expect(page.getByPlaceholder('Name (optional)')).toHaveCount(0)

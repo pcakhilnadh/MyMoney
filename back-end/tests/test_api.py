@@ -61,6 +61,18 @@ def test_transaction_long_description_and_merchant_are_optional(client):
     assert response.json()["merchant"] is None
 
 
+def test_transaction_amount_uses_minor_units_for_two_decimal_precision(client):
+    response = client.post(
+        "/transactions",
+        json=tx(account_id=make_account(client), amount_minor=1234),
+        headers=H("alice"),
+    )
+
+    assert response.status_code == 201
+    assert response.json()["amount_minor"] == 1234
+    assert client.get("/transactions", headers=H("alice")).json()[0]["amount_minor"] == 1234
+
+
 def test_personal_transaction_requires_owned_active_account(client):
     me(client, "alice")
     missing = client.post("/transactions", json=tx(), headers=H("alice"))

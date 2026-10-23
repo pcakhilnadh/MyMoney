@@ -56,6 +56,17 @@ export const LEGACY_EXPENSE_CATEGORY_NAMES: Record<string, string> = {
 
 /** Parse a user-entered rupee string into minor units; NaN-safe (returns 0). */
 export function toMinor(input: string): number {
-  const n = Number(input.replace(/[^0-9.]/g, ''))
+  const n = Number(normalizeMoneyInput(input))
   return Number.isFinite(n) ? Math.round(n * 100) : 0
+}
+
+/** Keep a money input editable while restricting it to two fractional digits. */
+export function normalizeMoneyInput(input: string): string {
+  const cleaned = input.replace(/[^\d.]/g, '')
+  const decimal = cleaned.indexOf('.')
+  if (decimal === -1) return cleaned
+  return `${cleaned.slice(0, decimal)}.${cleaned
+    .slice(decimal + 1)
+    .replace(/\./g, '')
+    .slice(0, 2)}`
 }

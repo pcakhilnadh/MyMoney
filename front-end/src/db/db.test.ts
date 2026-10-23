@@ -2,9 +2,10 @@ import 'fake-indexeddb/auto'
 import Dexie from 'dexie'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { AppDB, db } from './db'
+import { clearLocalDatabase } from './clear'
 import { accountsRepo, categoriesRepo, merchantsRepo, transactionsRepo } from './repos'
 import { seedIfEmpty } from './seed'
-import { DEFAULT_CATEGORIES, formatMinor, toMinor } from '@/lib/money'
+import { DEFAULT_CATEGORIES, formatMinor, normalizeMoneyInput, toMinor } from '@/lib/money'
 
 const base = {
   account_id: '',
@@ -209,6 +210,85 @@ describe('repository', () => {
   })
 })
 
+describe('local database cleanup', () => {
+  it('clears every local data table', async () => {
+    const timestamp = '2026-10-23T00:00:00.000Z'
+    await db.accounts.add({
+      id: 'account',
+      name: 'Everyday',
+      account_type: 'bank',
+      currency: 'INR',
+      opening_balance: 0,
+      credit_limit: null,
+      is_default: true,
+      version: 1,
+      sync_state: 'synced',
+      status: 'active',
+      created_at: timestamp,
+      updated_at: timestamp,
+    })
+    await db.categories.add({
+      id: 'category',
+      name: 'Food',
+      icon: 'food',
+      color: null,
+      transaction_type: 'expense',
+      is_system: true,
+      is_hidden: false,
+      version: 1,
+      sync_state: 'synced',
+      status: 'active',
+      created_at: timestamp,
+      updated_at: timestamp,
+    })
+    await db.merchants.add({
+      id: 'merchant',
+      name: 'Cafe',
+      normalized_name: 'cafe',
+      version: 1,
+      sync_state: 'synced',
+      status: 'active',
+      created_at: timestamp,
+      updated_at: timestamp,
+    })
+    await db.transactions.add({
+      id: 'transaction',
+      ...base,
+      account_id: 'account',
+      title: 'Tea',
+      amount_minor: 100,
+      transaction_date: timestamp,
+      version: 1,
+      sync_state: 'synced',
+      status: 'active',
+      created_at: timestamp,
+      updated_at: timestamp,
+    })
+    await db.budgets.add({
+      id: 'budget',
+      group_id: null,
+      category_id: 'category',
+      name: 'Food',
+      amount_minor: 10000,
+      currency: 'INR',
+      period: 'monthly',
+      period_start: '2026-10-01',
+      period_end: null,
+      alert_threshold_percent: 80,
+      is_active: true,
+      version: 1,
+      sync_state: 'synced',
+      status: 'active',
+      created_at: timestamp,
+      updated_at: timestamp,
+    })
+
+    await clearLocalDatabase()
+
+    expect(await Promise.all(db.tables.map((table) => table.count()))).toEqual([0, 0, 0, 0, 0])
+  })
+})
+
 it('migrates saved transaction descriptions to titles', async () => {
   const name = `legacy-${crypto.randomUUID()}`
   const legacy = new Dexie(name)
@@ -335,7 +415,10 @@ describe('seed and money', () => {
     expect(await accountsRepo.get(account.id)).toBeDefined()
   })
 
-  it('handles money', () => {
+  it('handles two-decimal money input and stores paise as integers', () => {
+    expect(normalizeMoneyInput('12.3')).toBe('12.3')
+    expect(normalizeMoneyInput('12.345')).toBe('12.34')
+    expect(normalizeMoneyInput('12.3.4')).toBe('12.34')
     expect(toMinor('12.34')).toBe(1234)
     expect(toMinor('abc')).toBe(0)
     expect(formatMinor(123456)).toContain('1,234.56')
