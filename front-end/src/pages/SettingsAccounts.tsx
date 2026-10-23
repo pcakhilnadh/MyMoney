@@ -35,8 +35,7 @@ export default function SettingsAccounts() {
       currency: 'INR',
       opening_balance: opening,
       credit_limit: isCard && limit > 0 ? limit : null,
-      is_default: accounts.find((account) => account.id === editingId)?.is_default ??
-        accounts.length === 0,
+      is_default: accounts.find((account) => account.id === editingId)?.is_default ?? false,
     }
     if (editingId) await accountsRepo.update(editingId, values)
     else await accountsRepo.create(values)

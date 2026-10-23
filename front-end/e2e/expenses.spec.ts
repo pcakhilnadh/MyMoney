@@ -8,6 +8,11 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await context.setOffline(true) // local-first: no network needed from here
 
   await page.getByRole('link', { name: 'Add expense' }).click()
+  await page.getByRole('link', { name: 'Add account' }).click()
+  await page.getByPlaceholder('Account name').fill('Everyday')
+  await page.getByRole('button', { name: 'Add Account' }).click()
+  await page.goBack()
+  await page.getByLabel('Paid from').selectOption({ label: 'Everyday' })
   await page.getByPlaceholder('0').fill('250.50')
   await page.getByPlaceholder('Description').fill('Lunch')
   await page.getByRole('button', { name: 'Food' }).click()
@@ -45,7 +50,7 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
 
   await page.getByRole('link', { name: 'Personal' }).click()
   await page.getByRole('link', { name: 'Accounts and payment methods' }).click()
-  await page.getByRole('link', { name: /Cash/ }).click()
+  await page.getByRole('link', { name: /Everyday/ }).click()
   await expect(page.getByText('Lunch')).toBeVisible()
   await expect(page.getByText('Debit', { exact: true })).toBeVisible()
   await expect(page.getByText('₹250.50').first()).toBeVisible()

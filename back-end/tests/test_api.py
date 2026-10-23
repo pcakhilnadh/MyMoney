@@ -17,6 +17,12 @@ def tx(**kw):
     }
 
 
+def make_account(c, user="alice"):
+    response = c.post("/accounts", json={"name": "Everyday"}, headers=H(user))
+    assert response.status_code == 201
+    return response.json()["id"]
+
+
 def make_group(c):
     a, b = me(c, "alice"), me(c, "bob")
     g = c.post("/groups", json={"name": "Trip"}, headers=H("alice")).json()
@@ -26,7 +32,7 @@ def make_group(c):
 
 def test_personal_private_and_idempotent(client):
     c = client
-    body = tx(client_id="11111111-1111-1111-1111-111111111111")
+    body = tx(account_id=make_account(c), client_id="11111111-1111-1111-1111-111111111111")
     r1 = c.post("/transactions", json=body, headers=H("alice"))
     r2 = c.post("/transactions", json=body, headers=H("alice"))
     assert r1.status_code == 201 and r1.json()["id"] == r2.json()["id"]
@@ -35,15 +41,32 @@ def test_personal_private_and_idempotent(client):
     assert c.delete(f"/transactions/{r1.json()['id']}", headers=H("bob")).status_code == 404
 
 
+def test_personal_transaction_requires_owned_active_account(client):
+    me(client, "alice")
+    missing = client.post("/transactions", json=tx(), headers=H("alice"))
+    assert missing.status_code == 422
+
+    account_id = make_account(client, "bob")
+    foreign = client.post(
+        "/transactions", json=tx(account_id=account_id), headers=H("alice")
+    )
+    assert foreign.status_code == 422
+
+
 def test_personal_rejects_group_fields(client):
     me(client, "alice")
-    r = client.post("/transactions", json=tx(splits=[{"user_id": me(client, "alice")}]), headers=H("alice"))
+    r = client.post(
+        "/transactions",
+        json=tx(account_id=make_account(client), splits=[{"user_id": me(client, "alice")}]),
+        headers=H("alice"),
+    )
     assert r.status_code == 422
 
 
 def test_group_flow_split_balance_settle(client):
     c = client
     gid, a, b = make_group(c)
+    account_id = make_account(c)
     # invited but not yet active: cannot see group
     assert c.get(f"/groups/{gid}/members", headers=H("bob")).status_code == 404
     assert [g["id"] for g in c.get("/groups/invitations", headers=H("bob")).json()] == [gid]
@@ -52,7 +75,7 @@ def test_group_flow_split_balance_settle(client):
 
     r = c.post(
         "/transactions",
-        json=tx(context="group", group_id=gid, split_method="equal", splits=[{"user_id": a}, {"user_id": b}]),
+        json=tx(account_id=account_id, context="group", group_id=gid, split_method="equal", splits=[{"user_id": a}, {"user_id": b}]),
         headers=H("alice"),
     )
     assert r.status_code == 201 and r.json()["is_shared"]
@@ -118,15 +141,16 @@ def test_member_can_leave_and_owner_can_reinvite(client):
 def test_split_validation_and_outsiders(client):
     c = client
     gid, a, b = make_group(c)
+    account_id = make_account(c)
     c.post(f"/groups/{gid}/join", headers=H("bob"))
     carol = me(c, "carol")
-    bad = tx(context="group", group_id=gid, split_method="exact_amount",
+    bad = tx(account_id=account_id, context="group", group_id=gid, split_method="exact_amount",
              splits=[{"user_id": a, "value": 1}, {"user_id": b, "value": 2}])
     assert c.post("/transactions", json=bad, headers=H("alice")).status_code == 422
-    outsider = tx(context="group", group_id=gid, splits=[{"user_id": carol}])
+    outsider = tx(account_id=account_id, context="group", group_id=gid, splits=[{"user_id": carol}])
     assert c.post("/transactions", json=outsider, headers=H("alice")).status_code == 422
     # carol cannot post into or read the group
-    assert c.post("/transactions", json=tx(context="group", group_id=gid), headers=H("carol")).status_code == 404
+    assert c.post("/transactions", json=tx(account_id=account_id, context="group", group_id=gid), headers=H("carol")).status_code == 404
     assert c.get(f"/groups/{gid}/balances", headers=H("carol")).status_code == 404
 
 

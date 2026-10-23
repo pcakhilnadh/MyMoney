@@ -76,11 +76,17 @@ def _validated_splits(db: Session, body: s.TransactionIn, user: Profile):
     if body.context == "personal":
         if body.group_id or body.splits:
             raise HTTPException(422, "Personal transactions cannot have a group or splits")
+        account = db.get(Account, body.account_id)
+        if account is None or account.user_id != user.id or account.status != "active":
+            raise HTTPException(422, "An active account owned by the caller is required")
         return []
     if body.group_id is None:
         raise HTTPException(422, "group_id required for family/group transactions")
     require_member(db, body.group_id, user)
     active_group(db, body.group_id)
+    account = db.get(Account, body.account_id)
+    if account is None or account.user_id != user.id or account.status != "active":
+        raise HTTPException(422, "An active account owned by the caller is required")
     if not body.splits:
         return []
     method = body.split_method or "equal"

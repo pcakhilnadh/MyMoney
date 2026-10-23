@@ -35,7 +35,7 @@ export interface Category extends Syncable {
 }
 
 export interface Transaction extends Syncable {
-  account_id: string | null
+  account_id: string
   category_id: string | null
   group_id: string | null
   context: ExpenseContext

@@ -50,7 +50,7 @@ class TransactionIn(BaseModel):
     context: str = "personal"
     transaction_type: str = "expense"
     group_id: uuid.UUID | None = None
-    account_id: uuid.UUID | None = None
+    account_id: uuid.UUID
     category_id: uuid.UUID | None = None
     description: str
     merchant: str | None = None

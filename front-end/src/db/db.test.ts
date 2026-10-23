@@ -1,12 +1,12 @@
 import 'fake-indexeddb/auto'
 import { beforeEach, describe, expect, it } from 'vitest'
 import { db } from './db'
-import { transactionsRepo } from './repos'
+import { accountsRepo, transactionsRepo } from './repos'
 import { seedIfEmpty } from './seed'
 import { formatMinor, toMinor } from '@/lib/money'
 
 const base = {
-  account_id: null,
+  account_id: '',
   category_id: null,
   group_id: null,
   context: 'personal' as const,
@@ -24,8 +24,17 @@ beforeEach(async () => {
 
 describe('repository', () => {
   it('creates pending records and bumps version on update', async () => {
+    const account = await accountsRepo.create({
+      name: 'Everyday',
+      account_type: 'bank',
+      currency: 'INR',
+      opening_balance: 0,
+      credit_limit: null,
+      is_default: false,
+    })
     const t = await transactionsRepo.create({
       ...base,
+      account_id: account.id,
       description: 'Tea',
       amount_minor: 2000,
       transaction_date: '2026-10-01T00:00:00Z',
@@ -36,8 +45,17 @@ describe('repository', () => {
   })
 
   it('soft-deletes and hides from list', async () => {
+    const account = await accountsRepo.create({
+      name: 'Everyday',
+      account_type: 'bank',
+      currency: 'INR',
+      opening_balance: 0,
+      credit_limit: null,
+      is_default: false,
+    })
     const t = await transactionsRepo.create({
       ...base,
+      account_id: account.id,
       description: 'x',
       amount_minor: 100,
       transaction_date: '2026-10-01T00:00:00Z',
@@ -48,15 +66,35 @@ describe('repository', () => {
   })
 
   it('sorts newest first', async () => {
+    const account = await accountsRepo.create({
+      name: 'Everyday',
+      account_type: 'bank',
+      currency: 'INR',
+      opening_balance: 0,
+      credit_limit: null,
+      is_default: false,
+    })
     for (const d of ['2026-10-01', '2026-10-03', '2026-10-02'])
       await transactionsRepo.create({
         ...base,
+        account_id: account.id,
         description: d,
         amount_minor: 100,
         transaction_date: d,
       })
     const l = await transactionsRepo.listByDate()
     expect(l.map((t) => t.description)).toEqual(['2026-10-03', '2026-10-02', '2026-10-01'])
+  })
+
+  it('requires an active account for transactions', async () => {
+    await expect(
+      transactionsRepo.create({
+        ...base,
+        description: 'Tea',
+        amount_minor: 2000,
+        transaction_date: '2026-10-01T00:00:00Z',
+      }),
+    ).rejects.toThrow('An active account is required')
   })
 })
 
@@ -65,7 +103,7 @@ describe('seed and money', () => {
     await seedIfEmpty()
     await seedIfEmpty()
     expect(await db.categories.count()).toBe(9)
-    expect(await db.accounts.count()).toBe(1)
+    expect(await db.accounts.count()).toBe(0)
   })
 
   it('handles money', () => {

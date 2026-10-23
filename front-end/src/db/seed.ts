@@ -1,6 +1,6 @@
 import { CATEGORIES } from '@/lib/money'
 import { db } from './db'
-import { accountsRepo, categoriesRepo } from './repos'
+import { categoriesRepo } from './repos'
 
 /** Idempotent: safe to call on every app start. */
 export async function seedIfEmpty(): Promise<void> {
@@ -14,15 +14,5 @@ export async function seedIfEmpty(): Promise<void> {
         is_system: true,
       })
     }
-  }
-  if ((await db.accounts.count()) === 0) {
-    await accountsRepo.create({
-      name: 'Cash',
-      account_type: 'cash',
-      currency: 'INR',
-      opening_balance: 0,
-      credit_limit: null,
-      is_default: true,
-    })
   }
 }

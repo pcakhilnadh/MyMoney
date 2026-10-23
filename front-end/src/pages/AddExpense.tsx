@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { useNavigate, useSearchParams } from 'react-router-dom'
+import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Button,
@@ -29,6 +29,7 @@ function GroupFields({
   context,
   groupId,
   setGroupId,
+  accountSelected,
   amount,
   onSubmit,
   busy,
@@ -37,6 +38,7 @@ function GroupFields({
   context: 'family' | 'group'
   groupId: string
   setGroupId: (id: string) => void
+  accountSelected: boolean
   amount: number
   onSubmit: (
     method: string,
@@ -140,7 +142,7 @@ function GroupFields({
       {error && <p className="text-sm text-destructive">{error}</p>}
       <Button
         className="h-12 w-full rounded-card"
-        disabled={!groupId || amount <= 0 || chosen.length === 0 || busy}
+        disabled={!groupId || !accountSelected || amount <= 0 || chosen.length === 0 || busy}
         onClick={submit}
       >
         Save and Split
@@ -166,12 +168,15 @@ export default function AddExpense() {
   const [groupId, setGroupId] = useState(presetGroup)
   const post = useAction<object>('/transactions', [['gtx'], ['balances']])
 
+  const activeAccounts = accounts?.filter((account) => account.status === 'active') ?? []
   const valid = amount > 0 && description.trim().length > 0
+  const accountSelected = activeAccounts.some((account) => account.id === accountId)
 
   async function savePersonal() {
+    if (!accountSelected || !valid) return
     const cat = categories?.find((c) => c.name === category)
     await transactionsRepo.create({
-      account_id: accountId || accounts?.find((a) => a.is_default)?.id || null,
+      account_id: accountId,
       category_id: cat?.id ?? null,
       group_id: null,
       context: 'personal',
@@ -194,6 +199,7 @@ export default function AddExpense() {
         client_id: crypto.randomUUID(),
         context: context.toLowerCase(),
         group_id: groupId,
+        account_id: accountId,
         description: description.trim(),
         amount_minor: amount,
         transaction_date: new Date(date + 'T12:00:00').toISOString(),
@@ -216,26 +222,38 @@ export default function AddExpense() {
       />
       {context === 'Personal' && <CategorySelector value={category} onChange={setCategory} />}
       <DatePicker value={date} onChange={setDate} />
+      <label className="block">
+        <span className="label">Paid from</span>
+        {activeAccounts.length > 0 ? (
+          <select
+            aria-label="Paid from"
+            value={accountId}
+            onChange={(e) => setAccountId(e.target.value)}
+            className="field mt-1 appearance-none normal-case"
+          >
+            <option value="">Select an account…</option>
+            {activeAccounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.name}
+              </option>
+            ))}
+          </select>
+        ) : (
+          <p className="mt-2 text-sm text-muted-foreground">
+            Add an account before creating a transaction.{' '}
+            <Link to="/settings/accounts" className="text-primary underline">
+              Add account
+            </Link>
+          </p>
+        )}
+      </label>
       {context === 'Personal' ? (
         <>
-          <label className="block">
-            <span className="label">Paid from</span>
-            <select
-              value={accountId}
-              onChange={(e) => setAccountId(e.target.value)}
-              className="field mt-1 appearance-none normal-case"
-            >
-              <option value="">Default account</option>
-              {accounts
-                ?.filter((a) => a.status === 'active')
-                .map((a) => (
-                  <option key={a.id} value={a.id}>
-                    {a.name}
-                  </option>
-                ))}
-            </select>
-          </label>
-          <Button className="h-12 w-full rounded-card" disabled={!valid} onClick={savePersonal}>
+          <Button
+            className="h-12 w-full rounded-card"
+            disabled={!valid || !accountSelected}
+            onClick={savePersonal}
+          >
             Save Expense
           </Button>
         </>
@@ -245,6 +263,7 @@ export default function AddExpense() {
           context={context.toLowerCase() as 'family' | 'group'}
           groupId={groupId}
           setGroupId={setGroupId}
+          accountSelected={accountSelected}
           amount={valid ? amount : 0}
           onSubmit={saveShared}
           busy={post.isPending}

@@ -128,9 +128,12 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
     if name == "transactions":
         if rec.context != "personal":  # group data goes through /transactions
             raise HTTPException(422, "Only personal transactions can be synced")
-        if not _owned_ref(db, Category, "user_id", rec.category_id, user) or not _owned_ref(
-            db, Account, "user_id", rec.account_id, user
+        account = db.get(Account, rec.account_id) if rec.account_id else None
+        if rec.account_id and (
+            account is None or account.user_id != user.id or account.status != "active"
         ):
+            raise HTTPException(422, "Unknown account")
+        if not _owned_ref(db, Category, "user_id", rec.category_id, user):
             raise HTTPException(422, "Unknown account or category")
     existing = db.get(model, rec.id)
     if existing is not None and getattr(existing, owner_col) != user.id:
