@@ -47,11 +47,13 @@ export function toCsv(txs: Transaction[], cats: Category[]): string {
   const rows = txs.map((t) =>
     [
       t.transaction_date.slice(0, 10),
-      esc(t.description),
+      esc(t.title),
+      esc(t.merchant ?? ''),
+      esc(t.long_description ?? ''),
       esc((t.category_id && names.get(t.category_id)) || ''),
       (t.amount_minor / 100).toFixed(2),
       t.transaction_type,
     ].join(','),
   )
-  return ['date,description,category,amount,type', ...rows].join('\n')
+  return ['date,title,merchant,long_description,category,amount,type', ...rows].join('\n')
 }

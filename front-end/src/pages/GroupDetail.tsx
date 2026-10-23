@@ -71,9 +71,7 @@ export default function GroupDetail() {
           Delete Group
         </Button>
       )}
-      {removeGroup.error && (
-        <p className="text-sm text-destructive">{removeGroup.error.message}</p>
-      )}
+      {removeGroup.error && <p className="text-sm text-destructive">{removeGroup.error.message}</p>}
       <Card className="grid grid-cols-2 gap-2 text-center">
         <div>
           <div className="text-sm text-muted-foreground">Total expenses</div>
@@ -103,7 +101,7 @@ export default function GroupDetail() {
           {txs.data?.map((t) => (
             <ListItem
               key={t.id}
-              title={t.description}
+              title={t.title}
               subtitle={`Paid by ${label(t.splits.find((s) => s.paid_minor > 0)?.user_id ?? t.owner_user_id)} · ${t.transaction_date.slice(0, 10)}`}
               trailing={formatMinor(t.amount_minor)}
             />
@@ -189,10 +187,7 @@ export default function GroupDetail() {
                 disabled={leaveGroup.isPending}
                 onClick={() => {
                   if (window.confirm(`Leave "${group?.name}"? You will no longer see this group.`))
-                    leaveGroup.mutate(
-                      { id: groupId },
-                      { onSuccess: () => navigate('/groups') },
-                    )
+                    leaveGroup.mutate({ id: groupId }, { onSuccess: () => navigate('/groups') })
                 }}
               >
                 Leave Group

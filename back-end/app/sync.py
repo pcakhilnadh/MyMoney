@@ -10,7 +10,7 @@ from datetime import date, datetime, timezone
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
-from pydantic import BaseModel, Field
+from pydantic import AliasChoices, BaseModel, Field
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
@@ -18,7 +18,7 @@ from app.access import audit
 from app.auth import get_current_user
 from app.category_rules import transfer_category_account_error
 from app.db import get_db
-from app.models import Account, Budget, Category, Profile, Transaction
+from app.models import Account, Budget, Category, Merchant, Profile, Transaction
 
 router = APIRouter(prefix="/sync", tags=["sync"], dependencies=[Depends(get_current_user)])
 
@@ -53,7 +53,8 @@ class TransactionRec(Rec):
     category_id: uuid.UUID | None = None
     context: str = "personal"
     transaction_type: str = "expense"
-    description: str
+    title: str = Field(validation_alias=AliasChoices("title", "description"))
+    long_description: str | None = None
     merchant: str | None = None
     amount_minor: int = Field(gt=0)
     currency: str = "INR"
@@ -73,9 +74,14 @@ class BudgetRec(Rec):
     is_active: bool = True
 
 
+class MerchantSyncRec(Rec):
+    name: str
+
+
 class PushIn(BaseModel):
     categories: list[CategoryRec] = []
     accounts: list[AccountRec] = []
+    merchants: list[MerchantSyncRec] = []
     transactions: list[TransactionRec] = []
     budgets: list[BudgetRec] = []
 
@@ -92,6 +98,7 @@ SPECS = {
         "user_id",
         ["name", "account_type", "currency", "opening_balance", "credit_limit", "is_default"],
     ),
+    "merchants": (Merchant, "user_id", ["name"]),
     "transactions": (
         Transaction,
         "owner_user_id",
@@ -100,7 +107,8 @@ SPECS = {
             "transfer_to_account_id",
             "category_id",
             "transaction_type",
-            "description",
+            "title",
+            "long_description",
             "merchant",
             "amount_minor",
             "currency",
@@ -199,7 +207,7 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
 def push(body: PushIn, user: Profile = Depends(get_current_user), db: Session = Depends(get_db)):
     result: dict = {"accepted": [], "conflicts": []}
     # parents before children so foreign keys resolve
-    for name in ("categories", "accounts", "transactions", "budgets"):
+    for name in ("categories", "accounts", "merchants", "transactions", "budgets"):
         for rec in getattr(body, name):
             _upsert(db, user, name, rec, result)
         db.flush()

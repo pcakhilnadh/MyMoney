@@ -11,7 +11,7 @@ import {
   SegmentedControl,
 } from '@/components/kit'
 import { db } from '@/db/db'
-import { transactionsRepo } from '@/db/repos'
+import { merchantsRepo, transactionsRepo } from '@/db/repos'
 import type { TransactionType } from '@/db/types'
 import { useAction, useGroups, useMe, useMembers } from '@/groups/hooks'
 import { memberLabel } from '@/groups/types'
@@ -160,12 +160,15 @@ export default function AddExpense() {
   const presetGroup = params.get('groupId') ?? ''
   const categories = useLiveQuery(() => db.categories.toArray(), [])
   const accounts = useLiveQuery(() => db.accounts.toArray(), [])
+  const merchants = useLiveQuery(() => merchantsRepo.list(), []) ?? []
   const [context, setContext] = useState<(typeof CONTEXTS)[number]>(
     presetGroup ? 'Group' : 'Personal',
   )
   const [transactionType, setTransactionType] = useState<TransactionType>('expense')
   const [amount, setAmount] = useState(0)
-  const [description, setDescription] = useState('')
+  const [title, setTitle] = useState('')
+  const [longDescription, setLongDescription] = useState('')
+  const [merchant, setMerchant] = useState('')
   const [category, setCategory] = useState<string | null>(null)
   const [date, setDate] = useState(today())
   const [accountId, setAccountId] = useState('')
@@ -191,7 +194,7 @@ export default function AddExpense() {
           destinationAccount.account_type,
         )
       : null
-  const valid = amount > 0 && description.trim().length > 0
+  const valid = amount > 0 && title.trim().length > 0
   const accountSelected = activeAccounts.some((account) => account.id === accountId)
   const transferDestinationSelected =
     transactionType !== 'transfer' ||
@@ -201,6 +204,9 @@ export default function AddExpense() {
   async function savePersonal() {
     if (!accountSelected || !transferDestinationSelected || !valid) return
     if (transactionType === 'transfer' && (!selectedCategory || transferCategoryError)) return
+    const savedMerchant =
+      context === 'Personal' && transactionType === 'expense' ? merchant.trim() : ''
+    if (savedMerchant) await merchantsRepo.ensure(savedMerchant)
     await transactionsRepo.create({
       account_id: accountId,
       transfer_to_account_id: transactionType === 'transfer' ? transferToAccountId : null,
@@ -208,8 +214,9 @@ export default function AddExpense() {
       group_id: null,
       context: 'personal',
       transaction_type: transactionType,
-      description: description.trim(),
-      merchant: null,
+      title: title.trim(),
+      long_description: longDescription.trim() || null,
+      merchant: savedMerchant || null,
       amount_minor: amount,
       currency: 'INR',
       transaction_date: new Date(date + 'T12:00:00').toISOString(),
@@ -228,7 +235,9 @@ export default function AddExpense() {
         group_id: groupId,
         account_id: accountId,
         transaction_type: 'expense',
-        description: description.trim(),
+        title: title.trim(),
+        long_description: longDescription.trim() || null,
+        merchant: null,
         amount_minor: amount,
         transaction_date: new Date(date + 'T12:00:00').toISOString(),
         split_method: method,
@@ -255,19 +264,35 @@ export default function AddExpense() {
         <SegmentedControl options={[...CONTEXTS]} value={context} onChange={setContext} />
       )}
       <CurrencyInput value={amount} onChange={setAmount} />
-      <Input
-        placeholder={
-          transactionType === 'income'
-            ? 'Income source'
-            : transactionType === 'transfer'
-              ? 'Transfer note'
-              : transactionType === 'refund'
-                ? 'Refund description'
-                : 'Description'
-        }
-        value={description}
-        onChange={(e) => setDescription(e.target.value)}
-      />
+      <Input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
+      {context === 'Personal' && transactionType === 'expense' && (
+        <label className="block space-y-1.5">
+          <span className="label">Merchant (optional)</span>
+          <input
+            aria-label="Merchant"
+            list="saved-merchants"
+            placeholder="Choose or enter a merchant"
+            value={merchant}
+            onChange={(e) => setMerchant(e.target.value)}
+            className="field"
+          />
+          <datalist id="saved-merchants">
+            {merchants.map((item) => (
+              <option key={item.id} value={item.name} />
+            ))}
+          </datalist>
+        </label>
+      )}
+      <label className="block space-y-1.5">
+        <span className="label">Long Description (optional)</span>
+        <textarea
+          aria-label="Long Description"
+          rows={4}
+          value={longDescription}
+          onChange={(e) => setLongDescription(e.target.value)}
+          className="field min-h-24 resize-y"
+        />
+      </label>
       {context === 'Personal' && (
         <CategorySelector
           value={category}

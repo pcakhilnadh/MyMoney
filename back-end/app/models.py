@@ -11,6 +11,7 @@ from sqlalchemy import (
     Integer,
     Numeric,
     String,
+    Text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -71,6 +72,19 @@ class Category(Base):
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 
 
+class Merchant(Base):
+    __tablename__ = "merchants"
+    __table_args__ = (UniqueConstraint("user_id", "name"),)
+
+    id: Mapped[uuid.UUID] = _pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), index=True)
+    name: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String, default="active")
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
 class ExpenseGroup(Base):
     __tablename__ = "expense_groups"
 
@@ -121,7 +135,8 @@ class Transaction(Base):
     group_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("expense_groups.id"), index=True)
     context: Mapped[str] = mapped_column(String, default="personal")
     transaction_type: Mapped[str] = mapped_column(String, default="expense")
-    description: Mapped[str] = mapped_column(String)
+    title: Mapped[str] = mapped_column(String)
+    long_description: Mapped[str | None] = mapped_column(Text)
     merchant: Mapped[str | None] = mapped_column(String)
     amount_minor: Mapped[int] = mapped_column(Integer)
     currency: Mapped[str] = mapped_column(String, default="INR")

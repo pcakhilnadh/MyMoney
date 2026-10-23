@@ -39,7 +39,7 @@ test('create group, invite by email, join, split expense, see balances, settle',
   await a.getByRole('button', { name: 'Expenses' }).click()
   await a.getByRole('button', { name: 'Add Expense' }).click()
   await a.getByPlaceholder('0').fill('600')
-  await a.getByPlaceholder('Description').fill('Hotel')
+  await a.getByPlaceholder('Title').fill('Hotel')
   await a.getByRole('button', { name: 'Save and Split' }).click()
   await expect(a.getByText('Hotel')).toBeVisible()
 

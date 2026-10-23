@@ -18,7 +18,9 @@ test('local expense reaches the server, and a fresh device pulls it back', async
   await page.goto('/expenses/new')
   await page.getByLabel('Paid from').selectOption({ label: 'Everyday' })
   await page.getByPlaceholder('0').fill('120')
-  await page.getByPlaceholder('Description').fill('Synced coffee')
+  await page.getByPlaceholder('Title').fill('Synced coffee')
+  await page.getByLabel('Merchant').fill('Amazon')
+  await page.getByLabel('Long Description').fill('Coffee before work')
   await page.getByRole('button', { name: 'Food' }).click()
   await page.getByRole('button', { name: 'Save Expense' }).click()
   await expect(page.getByText('Synced coffee')).toBeVisible()
@@ -32,7 +34,12 @@ test('local expense reaches the server, and a fresh device pulls it back', async
   const rows = await (
     await page.request.get(`${API}/transactions`, { headers: { Authorization: `Bearer ${token}` } })
   ).json()
-  expect(rows.map((r: { description: string }) => r.description)).toContain('Synced coffee')
+  const synced = rows.find((r: { title: string }) => r.title === 'Synced coffee')
+  expect(synced).toMatchObject({
+    title: 'Synced coffee',
+    merchant: 'Amazon',
+    long_description: 'Coffee before work',
+  })
 
   // a brand-new browser profile (empty local DB) pulls it down
   const ctx2 = await browser.newContext()
@@ -40,6 +47,9 @@ test('local expense reaches the server, and a fresh device pulls it back', async
   await page2.addInitScript((t) => localStorage.setItem('exptracker.idtoken', t!), token)
   await page2.goto('/transactions')
   await expect(page2.getByText('Synced coffee')).toBeVisible({ timeout: 15_000 })
+  await page2.goto('/expenses/new')
+  await expect(page2.locator('#saved-merchants option')).toHaveAttribute('value', 'Amazon')
+  await page2.goto('/transactions')
 
   // delete on device 2 propagates back to device 1
   await page2.getByRole('button', { name: 'Delete Synced coffee' }).click()

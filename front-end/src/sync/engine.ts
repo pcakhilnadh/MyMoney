@@ -2,14 +2,21 @@ import { api, ApiError } from '@/auth/api'
 import { db } from '@/db/db'
 import type { Syncable } from '@/db/types'
 
-type EntityName = 'categories' | 'accounts' | 'transactions' | 'budgets'
-const ENTITIES: EntityName[] = ['categories', 'accounts', 'transactions', 'budgets']
+type EntityName = 'categories' | 'accounts' | 'merchants' | 'transactions' | 'budgets'
+const ENTITIES: EntityName[] = ['categories', 'accounts', 'merchants', 'transactions', 'budgets']
 
 /** Fields the server may omit, used when a record is first pulled. */
 const DEFAULTS: Record<EntityName, object> = {
   categories: { is_system: false, is_hidden: false },
   accounts: {},
-  transactions: { group_id: null, context: 'personal', is_shared: false, split_method: null },
+  merchants: {},
+  transactions: {
+    group_id: null,
+    context: 'personal',
+    is_shared: false,
+    split_method: null,
+    long_description: null,
+  },
   budgets: { group_id: null },
 }
 

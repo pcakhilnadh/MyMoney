@@ -16,7 +16,8 @@ export interface Member {
 }
 export interface GroupTx {
   id: string
-  description: string
+  title: string
+  long_description: string | null
   amount_minor: number
   transaction_date: string
   owner_user_id: string

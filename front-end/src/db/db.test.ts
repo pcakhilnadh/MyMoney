@@ -1,7 +1,8 @@
 import 'fake-indexeddb/auto'
+import Dexie from 'dexie'
 import { beforeEach, describe, expect, it } from 'vitest'
-import { db } from './db'
-import { accountsRepo, categoriesRepo, transactionsRepo } from './repos'
+import { AppDB, db } from './db'
+import { accountsRepo, categoriesRepo, merchantsRepo, transactionsRepo } from './repos'
 import { seedIfEmpty } from './seed'
 import { DEFAULT_CATEGORIES, formatMinor, toMinor } from '@/lib/money'
 
@@ -12,6 +13,7 @@ const base = {
   group_id: null,
   context: 'personal' as const,
   transaction_type: 'expense' as const,
+  long_description: null,
   merchant: null,
   currency: 'INR',
   notes: null,
@@ -33,16 +35,23 @@ describe('repository', () => {
       credit_limit: null,
       is_default: false,
     })
+
     const t = await transactionsRepo.create({
       ...base,
       account_id: account.id,
-      description: 'Tea',
+      title: 'Tea',
       amount_minor: 2000,
       transaction_date: '2026-10-01T00:00:00Z',
     })
     expect(t.sync_state).toBe('pending')
     const u = await transactionsRepo.update(t.id, { amount_minor: 2500 })
     expect(u.version).toBe(2)
+  })
+
+  it('stores merchant names once per signed-in user', async () => {
+    await merchantsRepo.ensure('Amazon')
+    await merchantsRepo.ensure(' amazon ')
+    expect((await merchantsRepo.list()).map((merchant) => merchant.name)).toEqual(['Amazon'])
   })
 
   it('soft-deletes and hides from list', async () => {
@@ -57,7 +66,7 @@ describe('repository', () => {
     const t = await transactionsRepo.create({
       ...base,
       account_id: account.id,
-      description: 'x',
+      title: 'x',
       amount_minor: 100,
       transaction_date: '2026-10-01T00:00:00Z',
     })
@@ -79,19 +88,19 @@ describe('repository', () => {
       await transactionsRepo.create({
         ...base,
         account_id: account.id,
-        description: d,
+        title: d,
         amount_minor: 100,
         transaction_date: d,
       })
     const l = await transactionsRepo.listByDate()
-    expect(l.map((t) => t.description)).toEqual(['2026-10-03', '2026-10-02', '2026-10-01'])
+    expect(l.map((t) => t.title)).toEqual(['2026-10-03', '2026-10-02', '2026-10-01'])
   })
 
   it('requires an active account for transactions', async () => {
     await expect(
       transactionsRepo.create({
         ...base,
-        description: 'Tea',
+        title: 'Tea',
         amount_minor: 2000,
         transaction_date: '2026-10-01T00:00:00Z',
       }),
@@ -112,7 +121,7 @@ describe('repository', () => {
         ...base,
         account_id: source.id,
         transaction_type: 'transfer',
-        description: 'Move money',
+        title: 'Move money',
         amount_minor: 2000,
         transaction_date: '2026-10-01T00:00:00Z',
       }),
@@ -152,7 +161,7 @@ describe('repository', () => {
         transfer_to_account_id: otherBank.id,
         category_id: lentCategory.id,
         transaction_type: 'transfer',
-        description: 'Lend money',
+        title: 'Lend money',
         amount_minor: 1000,
         transaction_date: '2026-10-01T00:00:00Z',
       }),
@@ -172,7 +181,7 @@ describe('repository', () => {
       transfer_to_account_id: asset.id,
       category_id: lentCategory.id,
       transaction_type: 'transfer',
-      description: 'Lend money',
+      title: 'Lend money',
       amount_minor: 1000,
       transaction_date: '2026-10-01T00:00:00Z',
     })
@@ -192,12 +201,40 @@ describe('repository', () => {
         account_id: bank.id,
         category_id: incomeCategory.id,
         transaction_type: 'expense',
-        description: 'Invalid category use',
+        title: 'Invalid category use',
         amount_minor: 1000,
         transaction_date: '2026-10-01T00:00:00Z',
       }),
     ).rejects.toThrow('category must match the transaction type')
   })
+})
+
+it('migrates saved transaction descriptions to titles', async () => {
+  const name = `legacy-${crypto.randomUUID()}`
+  const legacy = new Dexie(name)
+  legacy.version(1).stores({
+    accounts: 'id, status, sync_state',
+    categories: 'id, transaction_type, status, sync_state',
+    transactions:
+      'id, transaction_date, context, group_id, category_id, status, sync_state, [status+transaction_date]',
+    budgets: 'id, category_id, status, sync_state',
+  })
+  await legacy.open()
+  await legacy.table('transactions').add({
+    id: 'legacy-transaction',
+    description: 'Old transaction',
+    transaction_date: '2026-10-01T00:00:00Z',
+  })
+  legacy.close()
+
+  const upgraded = new AppDB(name)
+  await upgraded.open()
+  const transaction = await upgraded.transactions.get('legacy-transaction')
+  expect(transaction?.title).toBe('Old transaction')
+  expect(transaction?.long_description).toBeNull()
+  expect('description' in (transaction ?? {})).toBe(false)
+  upgraded.close()
+  await Dexie.delete(name)
 })
 
 describe('seed and money', () => {
@@ -260,7 +297,7 @@ describe('seed and money', () => {
     await transactionsRepo.create({
       ...base,
       account_id: account.id,
-      description: 'Tea',
+      title: 'Tea',
       amount_minor: 2000,
       transaction_date: '2026-10-01T00:00:00Z',
     })

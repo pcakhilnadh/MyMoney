@@ -43,7 +43,9 @@ export default function Transactions() {
     (t) =>
       (filter === 'All' ||
         (filter === 'Personal' ? t.context === 'personal' : t.context !== 'personal')) &&
-      `${t.description} ${t.merchant ?? ''}`.toLowerCase().includes(q.toLowerCase()),
+      `${t.title} ${t.merchant ?? ''} ${t.long_description ?? ''}`
+        .toLowerCase()
+        .includes(q.toLowerCase()),
   )
   const days = [...new Set(shown.map((t) => t.transaction_date.slice(0, 10)))]
 
@@ -98,9 +100,12 @@ export default function Transactions() {
                       .filter(Boolean)
                       .join(' · ')
                   : [
+                      t.merchant,
                       categoryName || 'Uncategorised',
                       accountNames.get(t.account_id) ?? 'Account',
-                    ].join(' · ')
+                    ]
+                      .filter(Boolean)
+                      .join(' · ')
               const amountPrefix =
                 kind === TYPE_STYLE.debit ? '−' : kind === TYPE_STYLE.credit ? '+' : ''
               return (
@@ -115,8 +120,13 @@ export default function Transactions() {
                     <Icon size={19} strokeWidth={2.2} />
                   </span>
                   <div className="min-w-0 flex-1">
-                    <div className="truncate font-semibold">{t.description}</div>
+                    <div className="truncate font-semibold">{t.title}</div>
                     <div className="mt-0.5 truncate text-xs text-muted-foreground">{detail}</div>
+                    {t.long_description && (
+                      <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
+                        {t.long_description}
+                      </div>
+                    )}
                     <span
                       className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] leading-none font-semibold ${kind.surface} ${kind.color}`}
                     >
@@ -132,9 +142,9 @@ export default function Transactions() {
                       {formatMinor(t.amount_minor)}
                     </span>
                     <button
-                      aria-label={`Delete ${t.description}`}
+                      aria-label={`Delete ${t.title}`}
                       onClick={() => {
-                        if (window.confirm(`Delete "${t.description}"?`))
+                        if (window.confirm(`Delete "${t.title}"?`))
                           void transactionsRepo.remove(t.id)
                       }}
                       className="text-muted-foreground"

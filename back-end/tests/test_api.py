@@ -10,7 +10,7 @@ def me(c, u):
 
 def tx(**kw):
     return {
-        "description": "Dinner",
+        "title": "Dinner",
         "amount_minor": 30000,
         "transaction_date": "2026-10-05T12:00:00Z",
         **kw,
@@ -32,13 +32,33 @@ def make_group(c):
 
 def test_personal_private_and_idempotent(client):
     c = client
-    body = tx(account_id=make_account(c), client_id="11111111-1111-1111-1111-111111111111")
+    body = tx(
+        account_id=make_account(c),
+        client_id="11111111-1111-1111-1111-111111111111",
+        long_description="Dinner with friends",
+        merchant="Example Restaurant",
+    )
     r1 = c.post("/transactions", json=body, headers=H("alice"))
     r2 = c.post("/transactions", json=body, headers=H("alice"))
     assert r1.status_code == 201 and r1.json()["id"] == r2.json()["id"]
+    assert r1.json()["title"] == "Dinner"
+    assert r1.json()["long_description"] == "Dinner with friends"
+    assert r1.json()["merchant"] == "Example Restaurant"
     assert len(c.get("/transactions", headers=H("alice")).json()) == 1
     assert c.get("/transactions", headers=H("bob")).json() == []
     assert c.delete(f"/transactions/{r1.json()['id']}", headers=H("bob")).status_code == 404
+
+
+def test_transaction_long_description_and_merchant_are_optional(client):
+    response = client.post(
+        "/transactions",
+        json=tx(account_id=make_account(client)),
+        headers=H("alice"),
+    )
+    assert response.status_code == 201
+    assert response.json()["title"] == "Dinner"
+    assert response.json()["long_description"] is None
+    assert response.json()["merchant"] is None
 
 
 def test_personal_transaction_requires_owned_active_account(client):

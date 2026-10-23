@@ -143,7 +143,7 @@ export default function AccountDetail() {
         return (
           <ListItem
             key={transaction.id}
-            title={transaction.description}
+            title={transaction.title}
             subtitle={[
               kind.label,
               categoryName,

@@ -1,6 +1,6 @@
 import { db } from './db'
 import { Repository } from './repository'
-import type { Account, Budget, Category, Transaction } from './types'
+import type { Account, Budget, Category, Merchant, Transaction } from './types'
 import {
   categoryTypeForTransaction,
   transferCategoryAccountError,
@@ -9,6 +9,19 @@ import {
 export const accountsRepo = new Repository<Account>(db.accounts)
 export const categoriesRepo = new Repository<Category>(db.categories)
 export const budgetsRepo = new Repository<Budget>(db.budgets)
+
+class MerchantsRepository extends Repository<Merchant> {
+  async ensure(name: string): Promise<void> {
+    const normalized = name.trim()
+    if (!normalized) return
+    const existing = (await this.list()).find(
+      (merchant) => merchant.name.toLocaleLowerCase() === normalized.toLocaleLowerCase(),
+    )
+    if (!existing) await this.create({ name: normalized })
+  }
+}
+
+export const merchantsRepo = new MerchantsRepository(db.merchants)
 
 class TransactionsRepository extends Repository<Transaction> {
   async create(

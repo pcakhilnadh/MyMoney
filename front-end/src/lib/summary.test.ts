@@ -8,7 +8,7 @@ const t = (date: string, amount: number, cat: string | null = null, type = 'expe
     amount_minor: amount,
     category_id: cat,
     transaction_type: type,
-    description: 'a "b"',
+    title: 'a "b"',
   }) as Transaction
 const cats = [{ id: 'f', name: 'Food' }] as Category[]
 

@@ -4,6 +4,7 @@ CAT = "aaaaaaaa-0000-0000-0000-000000000001"
 ACC = "aaaaaaaa-0000-0000-0000-000000000002"
 ACC_TO = "aaaaaaaa-0000-0000-0000-000000000004"
 TX = "aaaaaaaa-0000-0000-0000-000000000003"
+MERCHANT = "aaaaaaaa-0000-0000-0000-000000000006"
 
 
 def payload(version=1, amount=1000, status="active"):
@@ -17,7 +18,9 @@ def payload(version=1, amount=1000, status="active"):
                 "status": status,
                 "account_id": ACC,
                 "category_id": CAT,
-                "description": "Tea",
+                "title": "Tea",
+                "long_description": "Chai with a colleague",
+                "merchant": "Tea Shop",
                 "amount_minor": amount,
                 "transaction_date": "2026-10-05T10:00:00Z",
             }
@@ -31,6 +34,9 @@ def test_push_then_pull_roundtrip(client):
     assert r.status_code == 200 and r.json()["conflicts"] == []
     pulled = c.get("/sync/pull", headers=H("alice")).json()
     assert pulled["transactions"][0]["id"] == TX
+    assert pulled["transactions"][0]["title"] == "Tea"
+    assert pulled["transactions"][0]["long_description"] == "Chai with a colleague"
+    assert pulled["transactions"][0]["merchant"] == "Tea Shop"
     assert pulled["categories"][0]["name"] == "Food"
     assert pulled["categories"][0]["is_system"] is True
     # nothing new since server_time
@@ -118,3 +124,19 @@ def test_category_hidden_state_syncs_and_category_type_is_enforced(client):
     mismatched["transactions"][0]["id"] = "aaaaaaaa-0000-0000-0000-000000000009"
     mismatched["transactions"][0]["transaction_type"] = "income"
     assert client.post("/sync/push", json=mismatched, headers=H("alice")).status_code == 422
+
+
+def test_merchants_sync_only_for_their_owner(client):
+    body = {
+        "merchants": [
+            {
+                "id": MERCHANT,
+                "version": 1,
+                "name": "Amazon",
+            }
+        ]
+    }
+    assert client.post("/sync/push", json=body, headers=H("alice")).status_code == 200
+    assert client.get("/sync/pull", headers=H("alice")).json()["merchants"][0]["name"] == "Amazon"
+    assert client.get("/sync/pull", headers=H("bob")).json()["merchants"] == []
+    assert client.post("/sync/push", json=body, headers=H("bob")).status_code == 404

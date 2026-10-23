@@ -2,7 +2,7 @@ import uuid
 from datetime import date, datetime
 from typing import Literal
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import AliasChoices, BaseModel, ConfigDict, Field
 
 
 class ORM(BaseModel):
@@ -55,7 +55,8 @@ class TransactionIn(BaseModel):
     account_id: uuid.UUID
     transfer_to_account_id: uuid.UUID | None = None
     category_id: uuid.UUID | None = None
-    description: str
+    title: str = Field(validation_alias=AliasChoices("title", "description"))
+    long_description: str | None = None
     merchant: str | None = None
     amount_minor: int = Field(gt=0)
     currency: str = "INR"
@@ -75,7 +76,8 @@ class TransactionOut(ORM):
     account_id: uuid.UUID | None
     transfer_to_account_id: uuid.UUID | None
     category_id: uuid.UUID | None
-    description: str
+    title: str
+    long_description: str | None
     merchant: str | None
     amount_minor: int
     currency: str

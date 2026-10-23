@@ -48,6 +48,10 @@ export interface Category extends Syncable {
   is_hidden: boolean
 }
 
+export interface Merchant extends Syncable {
+  name: string
+}
+
 export interface Transaction extends Syncable {
   account_id: string
   transfer_to_account_id: string | null
@@ -55,7 +59,8 @@ export interface Transaction extends Syncable {
   group_id: string | null
   context: ExpenseContext
   transaction_type: TransactionType
-  description: string
+  title: string
+  long_description: string | null
   merchant: string | null
   amount_minor: number
   currency: string
