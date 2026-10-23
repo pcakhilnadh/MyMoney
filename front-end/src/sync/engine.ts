@@ -24,7 +24,7 @@ interface PullResponse extends Record<EntityName, (Syncable & { id: string })[]>
   server_time: string
 }
 interface PushResponse {
-  accepted: { entity: EntityName; id: string }[]
+  accepted: { entity: EntityName; id: string; canonical_id?: string }[]
   conflicts: { entity: EntityName; id: string }[]
 }
 
@@ -54,6 +54,7 @@ export async function runSync(token: string, sub: string): Promise<void> {
     rows.forEach((r) => sent.set(`${e}:${r.id}`, r.version))
   }
   let conflicts = new Set<string>()
+  let merchantMerged = false
   if (sent.size > 0) {
     try {
       const res = await api<PushResponse>('/sync/push', token, {
@@ -61,7 +62,12 @@ export async function runSync(token: string, sub: string): Promise<void> {
         body: JSON.stringify(payload),
       })
       conflicts = new Set(res.conflicts.map((c) => c.id))
-      for (const { entity, id } of res.accepted) {
+      for (const { entity, id, canonical_id } of res.accepted) {
+        if (entity === 'merchants' && canonical_id && canonical_id !== id) {
+          await table(entity).delete(id)
+          merchantMerged = true
+          continue
+        }
         // Only mark synced if the record was not edited again while the request was in flight.
         const row: Syncable | undefined = await table(entity).get(id)
         if (row && row.version === sent.get(`${entity}:${id}`)) {
@@ -79,7 +85,8 @@ export async function runSync(token: string, sub: string): Promise<void> {
 
   // ---- pull ----
   const since = localStorage.getItem(cursorKey(sub))
-  const qs = since && conflicts.size === 0 ? `?since=${encodeURIComponent(since)}` : ''
+  const qs =
+    since && conflicts.size === 0 && !merchantMerged ? `?since=${encodeURIComponent(since)}` : ''
   const pulled = await api<PullResponse>('/sync/pull' + qs, token)
   for (const e of ENTITIES) {
     for (const remote of pulled[e]) {

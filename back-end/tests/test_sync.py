@@ -5,6 +5,7 @@ ACC = "aaaaaaaa-0000-0000-0000-000000000002"
 ACC_TO = "aaaaaaaa-0000-0000-0000-000000000004"
 TX = "aaaaaaaa-0000-0000-0000-000000000003"
 MERCHANT = "aaaaaaaa-0000-0000-0000-000000000006"
+OTHER_MERCHANT = "aaaaaaaa-0000-0000-0000-000000000007"
 
 
 def payload(version=1, amount=1000, status="active"):
@@ -126,7 +127,7 @@ def test_category_hidden_state_syncs_and_category_type_is_enforced(client):
     assert client.post("/sync/push", json=mismatched, headers=H("alice")).status_code == 422
 
 
-def test_merchants_sync_only_for_their_owner(client):
+def test_merchants_are_shared_and_duplicate_names_resolve_to_one_record(client):
     body = {
         "merchants": [
             {
@@ -138,5 +139,22 @@ def test_merchants_sync_only_for_their_owner(client):
     }
     assert client.post("/sync/push", json=body, headers=H("alice")).status_code == 200
     assert client.get("/sync/pull", headers=H("alice")).json()["merchants"][0]["name"] == "Amazon"
-    assert client.get("/sync/pull", headers=H("bob")).json()["merchants"] == []
-    assert client.post("/sync/push", json=body, headers=H("bob")).status_code == 404
+    assert client.get("/sync/pull", headers=H("bob")).json()["merchants"][0]["name"] == "Amazon"
+
+    duplicate = {
+        "merchants": [
+            {
+                "id": OTHER_MERCHANT,
+                "version": 1,
+                "name": "  amazon ",
+            }
+        ]
+    }
+    response = client.post("/sync/push", json=duplicate, headers=H("bob"))
+    assert response.status_code == 200
+    assert response.json()["accepted"] == [
+        {"entity": "merchants", "id": OTHER_MERCHANT, "canonical_id": MERCHANT}
+    ]
+    pulled = client.get("/sync/pull", headers=H("bob")).json()["merchants"]
+    assert len(pulled) == 1
+    assert pulled[0]["id"] == MERCHANT

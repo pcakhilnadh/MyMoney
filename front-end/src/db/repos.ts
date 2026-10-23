@@ -12,12 +12,17 @@ export const budgetsRepo = new Repository<Budget>(db.budgets)
 
 class MerchantsRepository extends Repository<Merchant> {
   async ensure(name: string): Promise<void> {
-    const normalized = name.trim()
-    if (!normalized) return
-    const existing = (await this.list()).find(
-      (merchant) => merchant.name.toLocaleLowerCase() === normalized.toLocaleLowerCase(),
-    )
-    if (!existing) await this.create({ name: normalized })
+    const normalizedName = name.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
+    if (!normalizedName) return
+    const existing = await db.merchants.where('normalized_name').equals(normalizedName).first()
+    if (!existing) {
+      const normalized = name.trim().replace(/\s+/g, ' ')
+      try {
+        await this.create({ name: normalized, normalized_name: normalizedName })
+      } catch (error) {
+        if (!(error instanceof DOMException && error.name === 'ConstraintError')) throw error
+      }
+    }
   }
 }
 

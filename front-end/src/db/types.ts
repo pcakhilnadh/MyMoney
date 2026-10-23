@@ -50,6 +50,7 @@ export interface Category extends Syncable {
 
 export interface Merchant extends Syncable {
   name: string
+  normalized_name: string
 }
 
 export interface Transaction extends Syncable {

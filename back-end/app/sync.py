@@ -12,6 +12,7 @@ from typing import Literal
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import AliasChoices, BaseModel, Field
 from sqlalchemy import select
+from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.access import audit
@@ -98,7 +99,7 @@ SPECS = {
         "user_id",
         ["name", "account_type", "currency", "opening_balance", "credit_limit", "is_default"],
     ),
-    "merchants": (Merchant, "user_id", ["name"]),
+    "merchants": (Merchant, None, ["name", "normalized_name"]),
     "transactions": (
         Transaction,
         "owner_user_id",
@@ -142,6 +143,48 @@ def _owned_ref(db: Session, model, owner_col: str, ref_id, user: Profile) -> boo
 
 def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> None:
     model, owner_col, fields = SPECS[name]
+    if name == "merchants":
+        merchant_rec = rec
+        normalized_name = " ".join(merchant_rec.name.split()).casefold()
+        if not normalized_name:
+            raise HTTPException(422, "Merchant name cannot be empty")
+        existing = db.scalar(
+            select(Merchant).where(Merchant.normalized_name == normalized_name)
+        )
+        if existing is not None:
+            accepted = {"entity": name, "id": str(rec.id)}
+            if existing.id != rec.id:
+                accepted["canonical_id"] = str(existing.id)
+            result["accepted"].append(accepted)
+            return
+        if db.get(Merchant, rec.id) is not None:
+            result["accepted"].append({"entity": name, "id": str(rec.id)})
+            return
+        row = Merchant(
+            id=rec.id,
+            name=" ".join(merchant_rec.name.split()),
+            normalized_name=normalized_name,
+            status="active",
+            version=rec.version,
+        )
+        try:
+            with db.begin_nested():
+                db.add(row)
+                db.flush()
+        except IntegrityError:
+            existing = db.scalar(
+                select(Merchant).where(Merchant.normalized_name == normalized_name)
+            )
+            if existing is None:
+                raise
+            result["accepted"].append(
+                {"entity": name, "id": str(rec.id), "canonical_id": str(existing.id)}
+            )
+            return
+        audit(db, user, name, rec.id, "sync_create")
+        result["accepted"].append({"entity": name, "id": str(rec.id)})
+        return
+
     data = {f: getattr(rec, f) for f in fields}
     if name == "transactions":
         if rec.context != "personal":  # group data goes through /transactions
@@ -229,7 +272,9 @@ def pull(
     server_time = datetime.now(timezone.utc)
     out: dict = {"server_time": server_time}
     for name, (model, owner_col, fields) in SPECS.items():
-        q = select(model).where(getattr(model, owner_col) == user.id)
+        q = select(model)
+        if owner_col is not None:
+            q = q.where(getattr(model, owner_col) == user.id)
         if name == "transactions":
             q = q.where(Transaction.context == "personal")
         if since is not None:

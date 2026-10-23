@@ -18,16 +18,39 @@ export class AppDB extends Dexie {
         'id, transaction_date, context, group_id, category_id, status, sync_state, [status+transaction_date]',
       budgets: 'id, category_id, status, sync_state',
     })
-    this.version(2)
+    this.version(2).stores({
+      accounts: 'id, status, sync_state',
+      categories: 'id, transaction_type, status, sync_state',
+      merchants: 'id, name, status, sync_state',
+      transactions:
+        'id, transaction_date, context, group_id, category_id, status, sync_state, [status+transaction_date]',
+      budgets: 'id, category_id, status, sync_state',
+    })
+    this.version(3)
       .stores({
         accounts: 'id, status, sync_state',
         categories: 'id, transaction_type, status, sync_state',
-        merchants: 'id, name, status, sync_state',
+        merchants: 'id, &normalized_name, name, status, sync_state',
         transactions:
           'id, transaction_date, context, group_id, category_id, status, sync_state, [status+transaction_date]',
         budgets: 'id, category_id, status, sync_state',
       })
       .upgrade(async (tx) => {
+        const merchantsTable = tx.table('merchants')
+        const merchants = await merchantsTable.toArray()
+        const unique = new Map<string, (typeof merchants)[number]>()
+        for (const merchant of merchants) {
+          const normalizedName = merchant.name.trim().replace(/\s+/g, ' ').toLocaleLowerCase()
+          if (!normalizedName) continue
+          if (!unique.has(normalizedName)) {
+            merchant.name = merchant.name.trim().replace(/\s+/g, ' ')
+            merchant.normalized_name = normalizedName
+            unique.set(normalizedName, merchant)
+          }
+        }
+        await merchantsTable.clear()
+        await merchantsTable.bulkPut([...unique.values()])
+
         await tx
           .table('transactions')
           .toCollection()

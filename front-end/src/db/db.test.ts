@@ -237,6 +237,34 @@ it('migrates saved transaction descriptions to titles', async () => {
   await Dexie.delete(name)
 })
 
+it('deduplicates existing merchant suggestions during the database upgrade', async () => {
+  const name = `legacy-merchants-${crypto.randomUUID()}`
+  const legacy = new Dexie(name)
+  legacy.version(2).stores({
+    accounts: 'id, status, sync_state',
+    categories: 'id, transaction_type, status, sync_state',
+    merchants: 'id, name, status, sync_state',
+    transactions:
+      'id, transaction_date, context, group_id, category_id, status, sync_state, [status+transaction_date]',
+    budgets: 'id, category_id, status, sync_state',
+  })
+  await legacy.open()
+  await legacy.table('merchants').bulkAdd([
+    { id: 'merchant-1', name: 'Amazon', version: 1, status: 'active' },
+    { id: 'merchant-2', name: ' amazon ', version: 1, status: 'active' },
+  ])
+  legacy.close()
+
+  const upgraded = new AppDB(name)
+  await upgraded.open()
+  const merchants = await upgraded.merchants.toArray()
+  expect(merchants).toHaveLength(1)
+  expect(merchants[0].name).toBe('Amazon')
+  expect(merchants[0].normalized_name).toBe('amazon')
+  upgraded.close()
+  await Dexie.delete(name)
+})
+
 describe('seed and money', () => {
   it('seeds once', async () => {
     await seedIfEmpty()

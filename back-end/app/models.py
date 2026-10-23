@@ -74,11 +74,11 @@ class Category(Base):
 
 class Merchant(Base):
     __tablename__ = "merchants"
-    __table_args__ = (UniqueConstraint("user_id", "name"),)
+    __table_args__ = (UniqueConstraint("normalized_name"),)
 
     id: Mapped[uuid.UUID] = _pk()
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), index=True)
     name: Mapped[str] = mapped_column(String)
+    normalized_name: Mapped[str] = mapped_column(String)
     status: Mapped[str] = mapped_column(String, default="active")
     version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
