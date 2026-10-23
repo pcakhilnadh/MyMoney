@@ -65,7 +65,7 @@ export default function Layout() {
               aria-pressed={selected}
               onClick={() => {
                 setSelectedApp(id)
-                if (id === 'money' && pathname === '/personal') navigate('/home')
+                navigate('/home')
               }}
               className={`flex min-w-0 items-center justify-center gap-1.5 rounded-xl px-1.5 py-2 text-xs font-semibold transition-colors ${
                 selected ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted/50'
@@ -81,7 +81,9 @@ export default function Layout() {
           aria-label="Personal"
           aria-current={pathname === '/personal' ? 'page' : undefined}
           onClick={() => setSelectedApp(null)}
-          className="flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted/50"
+          className={`flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted/50 ${
+            pathname === '/personal' ? 'bg-muted/50' : ''
+          }`}
         >
           <User size={20} aria-hidden="true" />
         </Link>
@@ -96,7 +98,7 @@ export default function Layout() {
               <appInfo.Icon size={30} aria-hidden="true" />
             </div>
             <h1 id="coming-soon-title" className="text-2xl font-bold">
-              {appInfo.label}
+              {selectedApp === 'habit' ? 'Today' : 'Home'}
             </h1>
             <p className="mt-2 text-sm font-medium text-primary">Coming Soon</p>
             <p className="mt-2 max-w-xs text-sm text-muted-foreground">

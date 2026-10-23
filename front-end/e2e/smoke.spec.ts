@@ -57,9 +57,10 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
     'color',
     'rgb(75, 139, 255)',
   )
-  await page.goto('/home')
+  await page.goto('/transactions')
   await appSelector.getByRole('button', { name: 'MyFood' }).click()
-  await expect(page.getByRole('heading', { name: 'MyFood' })).toBeVisible()
+  await expect(page).toHaveURL(/\/home/)
+  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible()
   await expect(page.getByText('Coming Soon')).toBeVisible()
   await expect(page.locator('[data-app="food"]')).toHaveCSS('background-image', /50vh/)
   await expect(
@@ -78,7 +79,8 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
     'true',
   )
   await appSelector.getByRole('button', { name: 'MyHabbit' }).click()
-  await expect(page.getByRole('heading', { name: 'MyHabbit' })).toBeVisible()
+  await expect(page).toHaveURL(/\/home/)
+  await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible()
   await expect(page.locator('[data-app="habit"]')).toHaveCSS('background-image', /50vh/)
   await expect(
     page.getByRole('navigation', { name: 'MyHabbit navigation' }).locator('svg').first(),
@@ -105,6 +107,7 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
     'false',
   )
   await expect(personalLink).toHaveCSS('color', 'rgb(142, 142, 160)')
+  await expect(personalLink).toHaveClass(/bg-muted\/50/)
   await expect(page.locator('.bottom-nav')).toHaveCount(0)
   await expect(page.getByText('Test User')).toBeVisible()
   await expect(page.getByTestId('sync-state')).toBeVisible()
