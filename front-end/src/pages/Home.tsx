@@ -1,12 +1,9 @@
-import { Link } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ChevronRight } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
-import { BarChartCard, EmptyState, ListItem, SectionTitle } from '@/components/kit'
-import { db } from '@/db/db'
+import { BarChartCard } from '@/components/kit'
 import { transactionsRepo } from '@/db/repos'
 import { formatMinor } from '@/lib/money'
-import { byCategory, currentMonth, monthTotal, monthlySeries } from '@/lib/summary'
+import { currentMonth, monthTotal, monthlySeries } from '@/lib/summary'
 
 const greeting = () => {
   const h = new Date().getHours()
@@ -16,10 +13,8 @@ const greeting = () => {
 export default function Home() {
   const { user } = useAuth()
   const txs = useLiveQuery(() => transactionsRepo.list(), []) ?? []
-  const cats = useLiveQuery(() => db.categories.toArray(), []) ?? []
   const month = currentMonth()
   const total = monthTotal(txs, month)
-  const top = byCategory(txs, cats, month).slice(0, 4)
 
   return (
     <div className="space-y-5">
@@ -42,29 +37,6 @@ export default function Home() {
         title="Last 6 months"
         data={monthlySeries(txs, month).map((p) => ({ ...p, value: p.value / 100 }))}
       />
-
-      <section className="space-y-2.5">
-        <SectionTitle>Top categories</SectionTitle>
-        {top.length === 0 && (
-          <EmptyState>No spending yet. Tap + to add your first expense.</EmptyState>
-        )}
-        {top.map((c) => (
-          <ListItem
-            key={c.name}
-            title={c.name}
-            subtitle={`${Math.round((c.value / total) * 100)}% of spending`}
-            trailing={formatMinor(c.value)}
-          />
-        ))}
-      </section>
-
-      <Link
-        to="/budgets"
-        className="surface flex items-center justify-between rounded-2xl px-4 py-3.5 font-medium"
-      >
-        Budgets
-        <ChevronRight size={18} className="text-muted-foreground" />
-      </Link>
     </div>
   )
 }
