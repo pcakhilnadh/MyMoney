@@ -2,11 +2,37 @@ import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Check } from 'lucide-react'
+import {
+  Bar,
+  BarChart,
+  CartesianGrid,
+  Cell,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import { Button, Card, Input, PageHeader } from '@/components/kit'
 import { TransactionList } from '@/components/TransactionList'
 import { budgetsRepo, categoriesRepo, transactionsRepo } from '@/db/repos'
 import { formatMinor, toMinor } from '@/lib/money'
 import { currentMonth } from '@/lib/summary'
+
+const MONTH_LABELS = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
+  'May',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
+]
 
 export default function BudgetCategoryDetail() {
   const { categoryId = '' } = useParams()
@@ -59,7 +85,50 @@ export default function BudgetCategoryDetail() {
         : -transaction.amount_minor),
     0,
   )
+  const currentYear = month.slice(0, 4)
+  const spentThisYear = transactions
+    .filter(
+      (transaction) =>
+        transaction.category_id === categoryId &&
+        transaction.transaction_date.startsWith(`${currentYear}-`) &&
+        (transaction.transaction_type === 'expense' || transaction.transaction_type === 'refund'),
+    )
+    .reduce(
+      (total, transaction) =>
+        total +
+        (transaction.transaction_type === 'expense'
+          ? transaction.amount_minor
+          : -transaction.amount_minor),
+      0,
+    )
   const remainder = budget ? budget.amount_minor - spent : null
+  const [year, monthNumber] = month.split('-').map(Number)
+  const sixMonthSpending = Array.from({ length: 6 }, (_, index) => {
+    const absoluteMonth = year * 12 + monthNumber - 1 - (5 - index)
+    const monthYear = Math.floor(absoluteMonth / 12)
+    const monthIndex = absoluteMonth % 12
+    const key = `${monthYear}-${String(monthIndex + 1).padStart(2, '0')}`
+    const monthSpend = transactions
+      .filter(
+        (transaction) =>
+          transaction.category_id === categoryId &&
+          transaction.transaction_date.startsWith(key) &&
+          (transaction.transaction_type === 'expense' || transaction.transaction_type === 'refund'),
+      )
+      .reduce(
+        (total, transaction) =>
+          total +
+          (transaction.transaction_type === 'expense'
+            ? transaction.amount_minor
+            : -transaction.amount_minor),
+        0,
+      )
+    return {
+      month: MONTH_LABELS[monthIndex],
+      spending: Math.max(monthSpend, 0),
+      budget: budget?.amount_minor ?? null,
+    }
+  })
 
   async function saveBudget() {
     if (!category || amount <= 0) return
@@ -90,36 +159,44 @@ export default function BudgetCategoryDetail() {
       <Link to="/budgets" className="text-sm text-primary">
         ← Budgets
       </Link>
-      <PageHeader title={categoryName} subtitle="Monthly category breakdown" />
+      <PageHeader title={categoryName} subtitle="Category Breakdown" />
 
       <Card className="space-y-4">
-        <div className="grid grid-cols-2 gap-4">
-          <div>
+        <div className="grid grid-cols-3 gap-3">
+          <div className="min-w-0">
             <p className="text-[9px] font-medium tracking-[0.16em] text-white/45 uppercase">
-              Spent this month
+              This Month
             </p>
-            <p className="money mt-1 text-sm font-medium text-white/80">{formatMinor(spent)}</p>
+            <p className="money mt-1 truncate text-sm font-medium text-white/80">
+              {formatMinor(spent)}
+            </p>
           </div>
-          <div>
+          <div className="min-w-0">
             <p className="text-[9px] font-medium tracking-[0.16em] text-white/45 uppercase">
               Remaining
             </p>
-            <p className="money mt-1 text-sm font-medium text-white/80">
+            <p className="money mt-1 truncate text-sm font-medium text-white/80">
               {budget && remainder !== null ? formatMinor(Math.max(remainder, 0)) : '—'}
             </p>
           </div>
-        </div>
-        <div className="min-w-0">
           <div className="min-w-0">
             <p className="text-[9px] font-medium tracking-[0.16em] text-white/45 uppercase">
-              Monthly limit
+              This Year
             </p>
-            {budget && (
-              <p className="money mt-1 text-sm font-medium text-white/80">
-                {formatMinor(budget.amount_minor)}
-              </p>
-            )}
+            <p className="money mt-1 truncate text-sm font-medium text-white/80">
+              {formatMinor(spentThisYear)}
+            </p>
           </div>
+        </div>
+        <div className="border-t border-white/10 pt-3">
+          <p className="text-[9px] font-medium tracking-[0.16em] text-white/45 uppercase">
+            Monthly limit
+          </p>
+          {budget && (
+            <p className="money mt-1 text-sm font-medium text-white/80">
+              {formatMinor(budget.amount_minor)}
+            </p>
+          )}
           {budget ? null : settingBudget ? (
             <div className="mt-2 flex w-fit items-center gap-2">
               <Input
@@ -158,6 +235,91 @@ export default function BudgetCategoryDetail() {
             Over budget by {formatMinor(Math.abs(remainder))}
           </p>
         )}
+      </Card>
+
+      <Card className="space-y-3">
+        <h2 className="text-sm font-semibold">Last 6 months</h2>
+        <div
+          role="img"
+          aria-label={`Last 6 months spending for ${categoryName} compared with monthly budget`}
+        >
+          <ResponsiveContainer width="100%" height={190}>
+            <BarChart data={sixMonthSpending} margin={{ top: 8, right: 4, bottom: 0, left: 4 }}>
+              <CartesianGrid vertical={false} stroke="rgba(255,255,255,0.08)" />
+              <XAxis
+                dataKey="month"
+                axisLine={false}
+                tickLine={false}
+                tick={{ fill: '#8e8ea0', fontSize: 11 }}
+              />
+              <YAxis
+                axisLine={false}
+                tickLine={false}
+                width={58}
+                tick={{ fill: '#8e8ea0', fontSize: 10 }}
+                tickFormatter={(value: number) => formatMinor(value)}
+              />
+              <Tooltip
+                formatter={(value) => [formatMinor(Number(value)), 'Spent']}
+                cursor={{ fill: 'rgba(255,255,255,0.04)' }}
+                contentStyle={{
+                  background: '#1a1a23',
+                  border: '1px solid rgba(255,255,255,0.1)',
+                  borderRadius: 8,
+                  color: '#f4f4f8',
+                  fontSize: 12,
+                }}
+                labelStyle={{ color: '#a1a1aa' }}
+              />
+              {budget && (
+                <ReferenceLine
+                  y={budget.amount_minor}
+                  stroke="#e6c879"
+                  strokeDasharray="5 4"
+                  label={{
+                    value: 'Budget',
+                    fill: '#e6c879',
+                    fontSize: 10,
+                    position: 'insideTopRight',
+                  }}
+                />
+              )}
+              <Bar dataKey="spending" name="Spent" maxBarSize={28}>
+                {sixMonthSpending.map((entry) => (
+                  <Cell
+                    key={entry.month}
+                    fill={budget && entry.spending > budget.amount_minor ? '#f18a91' : '#a7a0ff'}
+                  />
+                ))}
+              </Bar>
+            </BarChart>
+          </ResponsiveContainer>
+        </div>
+        <div className="flex flex-wrap items-center gap-x-4 gap-y-1 text-[11px] text-muted-foreground">
+          {budget ? (
+            <>
+              <span className="flex items-center gap-1.5">
+                <span className="size-2.5 bg-[#a7a0ff]" />
+                Within budget
+              </span>
+              <span className="flex items-center gap-1.5">
+                <span className="size-2.5 bg-[#f18a91]" />
+                Over budget
+              </span>
+            </>
+          ) : (
+            <span className="flex items-center gap-1.5">
+              <span className="size-2.5 bg-[#a7a0ff]" />
+              Spending
+            </span>
+          )}
+          {budget && (
+            <span className="flex items-center gap-1.5">
+              <span className="w-4 border-t border-dashed border-[#e6c879]" />
+              Budget limit
+            </span>
+          )}
+        </div>
       </Card>
 
       <h2 className="label px-1">Transactions this month</h2>
