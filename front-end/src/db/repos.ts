@@ -1,15 +1,51 @@
 import Dexie from 'dexie'
 import { db } from './db'
 import { Repository } from './repository'
-import type { Account, Budget, Category, Merchant, Transaction } from './types'
+import type { Account, Budget, Category, Merchant, Syncable, Transaction } from './types'
+import { requestSync } from '@/sync/bus'
 import {
   categoryTypeForTransaction,
   transferCategoryAccountError,
 } from '@/lib/transaction-categories'
 
 export const accountsRepo = new Repository<Account>(db.accounts)
-export const categoriesRepo = new Repository<Category>(db.categories)
 export const budgetsRepo = new Repository<Budget>(db.budgets)
+
+class CategoriesRepository extends Repository<Category> {
+  async removeWithTransactions(id: string): Promise<void> {
+    await db.transaction('rw', db.categories, db.transactions, db.budgets, async () => {
+      const category = await db.categories.get(id)
+      if (!category || category.status === 'deleted') return
+      if (category.is_system) throw new Error('Default categories cannot be deleted')
+
+      const now = new Date().toISOString()
+      const deletedRecord = <T extends Syncable>(record: T): T => ({
+        ...record,
+        status: 'deleted',
+        version: record.version + 1,
+        sync_state: 'pending',
+        updated_at: now,
+      })
+
+      const transactions = await db.transactions.where('category_id').equals(id).toArray()
+      const budgets = await db.budgets.where('category_id').equals(id).toArray()
+      await Promise.all([
+        db.categories.put(deletedRecord(category)),
+        db.transactions.bulkPut(
+          transactions
+            .filter((transaction) => transaction.status !== 'deleted')
+            .map(deletedRecord),
+        ),
+        db.budgets.bulkPut(
+          budgets.filter((budget) => budget.status !== 'deleted').map(deletedRecord),
+        ),
+      ])
+    })
+    requestSync()
+  }
+}
+
+export const categoriesRepo = new CategoriesRepository(db.categories)
 
 class MerchantsRepository extends Repository<Merchant> {
   async ensure(name: string): Promise<void> {

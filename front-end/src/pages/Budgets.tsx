@@ -13,7 +13,8 @@ import {
   SectionTitle,
 } from '@/components/kit'
 import { db } from '@/db/db'
-import { budgetsRepo, transactionsRepo } from '@/db/repos'
+import { budgetsRepo, categoriesRepo, transactionsRepo } from '@/db/repos'
+import type { Category } from '@/db/types'
 import { formatMinor } from '@/lib/money'
 import { currentMonth } from '@/lib/summary'
 
@@ -68,6 +69,23 @@ export default function Budgets() {
     setShowForm(false)
   }
 
+  async function deleteCategory(category: Category) {
+    if (
+      !window.confirm(
+        `Delete the "${category.name}" category, all its transactions, and its budgets?`,
+      )
+    ) {
+      return
+    }
+
+    try {
+      await categoriesRepo.removeWithTransactions(category.id)
+    } catch (error) {
+      console.error(`Unable to delete category "${category.name}"`, error)
+      window.alert(`Unable to delete "${category.name}". Please try again.`)
+    }
+  }
+
   function addBudget(categoryName: string | null = null) {
     setAmount(0)
     setCategory(categoryName)
@@ -111,8 +129,22 @@ export default function Budgets() {
     setShowForm(true)
   }
 
+  async function deleteBudget(id: string) {
+    const budget = budgets.find((item) => item.id === id)
+    if (!budget || !window.confirm(`Delete the "${budget.name}" budget?`)) return
+
+    try {
+      await budgetsRepo.remove(id)
+      resetForm()
+    } catch (error) {
+      console.error(`Unable to delete budget "${budget.name}"`, error)
+      window.alert(`Unable to delete the "${budget.name}" budget. Please try again.`)
+    }
+  }
+
   function renderBudgetCard(b: (typeof budgets)[number]) {
     const categoryId = b.category_id ?? cats.find((item) => item.name === b.name)?.id
+    const category = cats.find((item) => item.id === categoryId)
     const used = spent(categoryId ?? null)
     const progress = Math.min(Math.max((used / b.amount_minor) * 100, 0), 100)
     const overBudget = used > b.amount_minor
@@ -198,15 +230,15 @@ export default function Budgets() {
             <MetalActionButton label={`Edit ${b.name}`} onClick={() => edit(b.id)}>
               <Pencil size={15} />
             </MetalActionButton>
-            <MetalActionButton
-              label={`Delete ${b.name}`}
-              onClick={() => {
-                if (window.confirm(`Delete the "${b.name}" budget?`)) void budgetsRepo.remove(b.id)
-              }}
-              destructive
-            >
-              <Trash2 size={15} />
-            </MetalActionButton>
+            {category && !category.is_system && (
+              <MetalActionButton
+                label={`Delete category ${category.name}`}
+                onClick={() => void deleteCategory(category)}
+                destructive
+              >
+                <Trash2 size={15} />
+              </MetalActionButton>
+            )}
           </div>
         </header>
 
@@ -263,9 +295,18 @@ export default function Budgets() {
             {editingId ? 'Save Budget' : 'Add Budget'}
           </Button>
           {editingId && (
-            <Button variant="outline" className="w-full" onClick={resetForm}>
-              Cancel
-            </Button>
+            <>
+              <Button variant="outline" className="w-full" onClick={resetForm}>
+                Cancel
+              </Button>
+              <Button
+                variant="destructive"
+                className="w-full"
+                onClick={() => void deleteBudget(editingId)}
+              >
+                Delete budget
+              </Button>
+            </>
           )}
         </div>
       ) : (
@@ -312,6 +353,15 @@ export default function Budgets() {
                     >
                       Set budget
                     </Button>
+                  )}
+                  {!item.is_system && (
+                    <MetalActionButton
+                      label={`Delete category ${item.name}`}
+                      onClick={() => void deleteCategory(item)}
+                      destructive
+                    >
+                      <Trash2 size={15} />
+                    </MetalActionButton>
                   )}
                 </div>
               </MetalCard>

@@ -30,6 +30,23 @@ export default function SettingsCategories() {
     setShowForm(false)
   }
 
+  async function deleteCategory(id: string, categoryName: string) {
+    if (
+      !window.confirm(
+        `Delete the "${categoryName}" category, all its transactions, and its budgets?`,
+      )
+    ) {
+      return
+    }
+
+    try {
+      await categoriesRepo.removeWithTransactions(id)
+    } catch (error) {
+      console.error(`Unable to delete category "${categoryName}"`, error)
+      window.alert(`Unable to delete "${categoryName}". Please try again.`)
+    }
+  }
+
   const shown = categories
     .filter((category) => category.transaction_type === type)
     .sort((a, b) => a.name.localeCompare(b.name))
@@ -78,8 +95,8 @@ export default function SettingsCategories() {
       />
       <p className="text-sm text-muted-foreground">
         {type === 'expense'
-          ? 'Default expense categories cannot be deleted. Hide unused categories to remove them from transactions and budgets.'
-          : 'Refunds use expense categories. Hide unused categories to remove them from transaction entry.'}
+          ? 'Default categories cannot be deleted. Deleting a custom category also deletes its transactions and budgets.'
+          : 'Refunds use expense categories. Default categories cannot be deleted. Deleting a custom category also deletes its transactions and budgets.'}
       </p>
       {showForm ? (
         <>
@@ -117,7 +134,7 @@ export default function SettingsCategories() {
                   {!category.is_system && (
                     <button
                       aria-label={`Delete ${category.name}`}
-                      onClick={() => void categoriesRepo.remove(category.id)}
+                      onClick={() => void deleteCategory(category.id, category.name)}
                     >
                       <Trash2 size={16} />
                     </button>
