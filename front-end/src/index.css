@@ -34,7 +34,7 @@
   --radius-2xl: calc(var(--radius) * 1.8);
 }
 
-/* CRED-inspired: near-black canvas, soft glass surfaces, one glossy violet accent. */
+/* CRED-inspired: near-black canvas with an app-specific accent and glow. */
 :root {
   color-scheme: dark;
   --radius: 1rem;
@@ -60,17 +60,21 @@
   --ring: #7c6cff;
 }
 
+[data-app='money'] {
+  --primary: #4b8bff;
+  --primary-foreground: #ffffff;
+  --ring: #4b8bff;
+  --app-glow: rgba(75, 139, 255, 0.2);
+  --app-side-glow: rgba(75, 139, 255, 0.07);
+}
+
 [data-app='food'] {
   --primary: #39c98a;
   --primary-foreground: #07150e;
   --positive: #72e7ad;
   --ring: #39c98a;
   --app-glow: rgba(57, 201, 138, 0.18);
-  background-color: var(--background);
-  background-image:
-    radial-gradient(60rem 28rem at 50% -8rem, var(--app-glow), transparent 70%),
-    radial-gradient(34rem 20rem at 100% 30%, rgba(57, 201, 138, 0.06), transparent 70%);
-  background-attachment: fixed;
+  --app-side-glow: rgba(57, 201, 138, 0.06);
 }
 
 [data-app='habit'] {
@@ -79,10 +83,14 @@
   --positive: #ff8b94;
   --ring: #ed2939;
   --app-glow: rgba(237, 41, 57, 0.18);
+  --app-side-glow: rgba(237, 41, 57, 0.06);
+}
+
+[data-app] {
   background-color: var(--background);
   background-image:
-    radial-gradient(60rem 28rem at 50% -8rem, var(--app-glow), transparent 70%),
-    radial-gradient(34rem 20rem at 100% 30%, rgba(237, 41, 57, 0.06), transparent 70%);
+    radial-gradient(80rem 50vh at 50% 0, var(--app-glow), transparent 100%),
+    radial-gradient(34rem 30vh at 100% 35%, var(--app-side-glow), transparent 100%);
   background-attachment: fixed;
 }
 
@@ -131,10 +139,10 @@
     pointer-events: none;
   }
   .gloss {
-    background: linear-gradient(180deg, #8f81ff 0%, #6b5bff 100%);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 82%, white) 0%, var(--primary) 100%);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.4),
-      0 8px 20px -6px rgba(107, 91, 255, 0.7);
+      0 8px 20px -6px color-mix(in srgb, var(--primary) 70%, transparent);
   }
   .glass {
     background: rgba(21, 21, 28, 0.72);

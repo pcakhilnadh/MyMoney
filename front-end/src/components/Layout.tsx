@@ -119,7 +119,9 @@ export default function Layout() {
               to={to}
               className={({ isActive }) =>
                 `flex min-w-16 flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 text-[11px] font-medium transition-colors ${
-                  isActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground'
+                  isActive
+                    ? 'bg-primary/20 text-primary ring-1 ring-primary/30'
+                    : 'text-muted-foreground'
                 }`
               }
             >
@@ -140,7 +142,9 @@ export default function Layout() {
               to={to}
               className={({ isActive }) =>
                 `flex min-w-16 flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 text-[11px] font-medium transition-colors ${
-                  isActive ? 'bg-primary/15 text-primary' : 'text-muted-foreground'
+                  isActive
+                    ? 'bg-primary/20 text-primary ring-1 ring-primary/30'
+                    : 'text-muted-foreground'
                 }`
               }
             >

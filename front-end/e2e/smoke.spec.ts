@@ -25,15 +25,35 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
     'aria-pressed',
     'false',
   )
+  await expect(page.locator('[data-app="money"]')).toHaveCSS('--primary', '#4b8bff')
+  await expect(page.locator('[data-app="money"]')).toHaveCSS('background-image', /50vh/)
+  await expect(page.getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page')
+  await page.getByRole('link', { name: 'Transactions' }).click()
+  await expect(page.getByRole('link', { name: 'Transactions' })).toHaveAttribute(
+    'aria-current',
+    'page',
+  )
+  await expect(page.getByRole('link', { name: 'Transactions' })).toHaveCSS(
+    'color',
+    'rgb(75, 139, 255)',
+  )
+  await page.goto('/home')
   await appSelector.getByRole('button', { name: 'MyFood' }).click()
   await expect(page.getByRole('heading', { name: 'MyFood' })).toBeVisible()
   await expect(page.getByText('Coming Soon')).toBeVisible()
+  await expect(page.locator('[data-app="food"]')).toHaveCSS('background-image', /50vh/)
   await expect(
     page.getByRole('navigation', { name: 'MyFood navigation' }).getByText('Home'),
   ).toBeDisabled()
   await expect(page.locator('[data-app="food"]')).toHaveCSS('--primary', '#39c98a')
+  await page.reload()
+  await expect(appSelector.getByRole('button', { name: 'My Money' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
   await appSelector.getByRole('button', { name: 'MyHabbit' }).click()
   await expect(page.getByRole('heading', { name: 'MyHabbit' })).toBeVisible()
+  await expect(page.locator('[data-app="habit"]')).toHaveCSS('background-image', /50vh/)
   await expect(
     page.getByRole('navigation', { name: 'MyHabbit navigation' }).getByText('Habits'),
   ).toBeDisabled()
