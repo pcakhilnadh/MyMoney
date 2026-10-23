@@ -1,4 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
+import { Link } from 'react-router-dom'
+import { ChevronRight, PiggyBank } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { BarChartCard } from '@/components/kit'
 import { transactionsRepo } from '@/db/repos'
@@ -37,6 +39,16 @@ export default function Home() {
         title="Last 6 months"
         data={monthlySeries(txs, month).map((p) => ({ ...p, value: p.value / 100 }))}
       />
+      <Link
+        to="/budgets"
+        className="surface flex items-center gap-3 rounded-2xl px-4 py-3.5 font-medium"
+      >
+        <span className="flex size-9 items-center justify-center rounded-xl bg-secondary text-primary">
+          <PiggyBank size={18} />
+        </span>
+        <span className="flex-1">View budgets</span>
+        <ChevronRight size={18} className="text-muted-foreground" />
+      </Link>
     </div>
   )
 }

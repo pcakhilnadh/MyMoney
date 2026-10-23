@@ -8,7 +8,13 @@ test('signed-out users are sent to login', async ({ page }) => {
 })
 
 test('signed-in shell shows tabs and settings', async ({ page }) => {
+  await page.route('**/auth/refresh', (route) => route.abort())
+  await page.route('**/auth/login', (route) => route.abort())
   await fakeSignIn(page)
+  await page.goto('/home')
+  await page.getByRole('link', { name: 'View budgets' }).click()
+  await expect(page).toHaveURL(/\/budgets/)
+  await expect(page.getByRole('heading', { name: 'Budgets' })).toBeVisible()
   await page.goto('/home')
   await expect(page.getByRole('link', { name: 'Transactions' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Insights' })).toHaveCount(0)
