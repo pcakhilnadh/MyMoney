@@ -16,7 +16,7 @@ import { useAction, useGroups, useMe, useMembers } from '@/groups/hooks'
 import { memberLabel } from '@/groups/types'
 import { toMinor } from '@/lib/money'
 
-const CONTEXTS = ['Personal', 'Family', 'Group'] as const
+const CONTEXTS = ['Personal', 'Group'] as const
 const METHODS = {
   Equal: 'equal',
   'By Amount': 'exact_amount',
@@ -26,7 +26,6 @@ const METHODS = {
 const today = () => new Date().toISOString().slice(0, 10)
 
 function GroupFields({
-  context,
   groupId,
   setGroupId,
   accountSelected,
@@ -35,7 +34,6 @@ function GroupFields({
   busy,
   error,
 }: {
-  context: 'family' | 'group'
   groupId: string
   setGroupId: (id: string) => void
   accountSelected: boolean
@@ -48,7 +46,6 @@ function GroupFields({
   error: string | null
 }) {
   const groups = useGroups().data ?? []
-  const options = context === 'family' ? groups.filter((g) => g.group_type === 'family') : groups
   const members = (useMembers(groupId).data ?? []).filter((m) => m.status === 'active' && m.user_id)
   const me = useMe().data
   const [method, setMethod] = useState<keyof typeof METHODS>('Equal')
@@ -80,8 +77,8 @@ function GroupFields({
         onChange={(e) => setGroupId(e.target.value)}
         className="field appearance-none"
       >
-        <option value="">Select {context === 'family' ? 'family space' : 'group'}…</option>
-        {options.map((g) => (
+        <option value="">Select group…</option>
+        {groups.map((g) => (
           <option key={g.id} value={g.id}>
             {g.name}
           </option>
@@ -197,7 +194,7 @@ export default function AddExpense() {
     post.mutate(
       {
         client_id: crypto.randomUUID(),
-        context: context.toLowerCase(),
+        context: 'group',
         group_id: groupId,
         account_id: accountId,
         description: description.trim(),
@@ -258,7 +255,6 @@ export default function AddExpense() {
       ) : (
         <GroupFields
           key={context}
-          context={context.toLowerCase() as 'family' | 'group'}
           groupId={groupId}
           setGroupId={setGroupId}
           accountSelected={accountSelected}

@@ -6,8 +6,7 @@ import { db } from '@/db/db'
 import { transactionsRepo } from '@/db/repos'
 import { formatMinor } from '@/lib/money'
 
-const FILTERS = ['All', 'Personal', 'Family', 'Groups'] as const
-const CTX = { Personal: 'personal', Family: 'family', Groups: 'group' } as const
+const FILTERS = ['All', 'Personal', 'Groups'] as const
 
 export default function Transactions() {
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All')
@@ -18,7 +17,8 @@ export default function Transactions() {
 
   const shown = (txs ?? []).filter(
     (t) =>
-      (filter === 'All' || t.context === CTX[filter]) &&
+      (filter === 'All' ||
+        (filter === 'Personal' ? t.context === 'personal' : t.context !== 'personal')) &&
       `${t.description} ${t.merchant ?? ''}`.toLowerCase().includes(q.toLowerCase()),
   )
   const days = [...new Set(shown.map((t) => t.transaction_date.slice(0, 10)))]
