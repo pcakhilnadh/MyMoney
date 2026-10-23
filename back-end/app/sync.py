@@ -218,6 +218,8 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
                 )
                 if error:
                     raise HTTPException(422, error)
+    elif name == "budgets" and not _owned_ref(db, Category, "user_id", rec.category_id, user):
+        raise HTTPException(422, "Unknown category")
     existing = db.get(model, rec.id)
     if existing is not None and getattr(existing, owner_col) != user.id:
         raise HTTPException(404, "Record not found")

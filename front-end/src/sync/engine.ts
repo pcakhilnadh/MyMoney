@@ -1,6 +1,6 @@
 import { api, ApiError } from '@/auth/api'
 import { db } from '@/db/db'
-import type { Syncable } from '@/db/types'
+import type { Budget, Category, Syncable } from '@/db/types'
 
 type EntityName = 'categories' | 'accounts' | 'merchants' | 'transactions' | 'budgets'
 const ENTITIES: EntityName[] = ['categories', 'accounts', 'merchants', 'transactions', 'budgets']
@@ -52,6 +52,22 @@ export async function runSync(token: string, sub: string): Promise<void> {
     const rows: Syncable[] = await table(e).where('sync_state').notEqual('synced').toArray()
     payload[e] = rows
     rows.forEach((r) => sent.set(`${e}:${r.id}`, r.version))
+  }
+  const pendingCategoryIds = new Set(payload.categories.map((category) => category.id))
+  const budgetCategoryIds = [
+    ...new Set(
+      (payload.budgets as Budget[])
+        .map((budget) => budget.category_id)
+        .filter((id): id is string => id !== null),
+    ),
+  ]
+  for (const category of (await db.categories.bulkGet(budgetCategoryIds)).filter(
+    (category): category is Category => category !== undefined,
+  )) {
+    if (!pendingCategoryIds.has(category.id)) {
+      payload.categories.push(category)
+      sent.set(`categories:${category.id}`, category.version)
+    }
   }
   let conflicts = new Set<string>()
   let merchantMerged = false

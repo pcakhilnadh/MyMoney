@@ -127,6 +127,32 @@ def test_category_hidden_state_syncs_and_category_type_is_enforced(client):
     assert client.post("/sync/push", json=mismatched, headers=H("alice")).status_code == 422
 
 
+def test_budget_sync_validates_category_references(client):
+    budget = {
+        "id": "aaaaaaaa-0000-0000-0000-000000000008",
+        "version": 1,
+        "category_id": CAT,
+        "name": "Food",
+        "amount_minor": 10000,
+        "period_start": "2026-10-01",
+    }
+    response = client.post(
+        "/sync/push",
+        json={"categories": payload()["categories"], "budgets": [budget]},
+        headers=H("alice"),
+    )
+
+    assert response.status_code == 200
+    assert client.get("/budgets", headers=H("alice")).json()[0]["category_id"] == CAT
+
+    budget["id"] = "aaaaaaaa-0000-0000-0000-000000000010"
+    budget["category_id"] = "aaaaaaaa-0000-0000-0000-000000000011"
+    response = client.post("/sync/push", json={"budgets": [budget]}, headers=H("alice"))
+
+    assert response.status_code == 422
+    assert response.json()["detail"] == "Unknown category"
+
+
 def test_merchants_are_shared_and_duplicate_names_resolve_to_one_record(client):
     body = {
         "merchants": [
