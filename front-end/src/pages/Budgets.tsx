@@ -5,7 +5,6 @@ import {
   Button,
   CategorySelector,
   CurrencyInput,
-  ListItem,
   PageHeader,
   SectionTitle,
 } from '@/components/kit'
@@ -151,37 +150,90 @@ export default function Budgets() {
         <>
           {budgets.map((b) => {
             const used = spent(b.category_id)
-            const pct = Math.round((used / b.amount_minor) * 100)
+            const progress = Math.min(Math.max((used / b.amount_minor) * 100, 0), 100)
+            const overBudget = used > b.amount_minor
+            const remaining = Math.max(b.amount_minor - used, 0)
             return (
-              <div key={b.id} className="space-y-1">
-                <ListItem
-                  title={b.name}
-                  subtitle={`${formatMinor(used)} of ${formatMinor(b.amount_minor)}`}
-                  trailing={
-                    <span className="flex items-center gap-3">
-                      <span>{pct}%</span>
-                      <button aria-label={`Edit ${b.name}`} onClick={() => edit(b.id)}>
-                        <Pencil size={16} />
+              <article
+                key={b.id}
+                className="relative overflow-hidden rounded-[24px] border border-white/10 bg-gradient-to-br from-[#292b33] via-[#1a1b22] to-[#131419] p-4 shadow-[inset_0_1px_0_rgba(255,255,255,0.12),0_16px_36px_-24px_rgba(0,0,0,0.9)]"
+              >
+                <div className="pointer-events-none absolute -right-12 -top-12 size-36 rounded-full bg-white/5 blur-2xl" />
+                <div className="relative space-y-5">
+                  <header className="flex items-center justify-between gap-3">
+                    <div className="flex min-w-0 items-center gap-3">
+                      <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-gradient-to-br from-[#f1f2f5] via-[#aeb2bd] to-[#737784] text-lg font-bold text-[#202127] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_4px_12px_rgba(0,0,0,0.25)]">
+                        {b.name.charAt(0).toUpperCase()}
+                      </div>
+                      <div className="min-w-0">
+                        <h2 className="truncate font-semibold">{b.name}</h2>
+                      </div>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-1.5">
+                      <button
+                        type="button"
+                        aria-label={`Edit ${b.name}`}
+                        title={`Edit ${b.name}`}
+                        onClick={() => edit(b.id)}
+                        className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-muted-foreground transition hover:border-white/20 hover:bg-white/10 hover:text-foreground"
+                      >
+                        <Pencil size={15} />
                       </button>
                       <button
+                        type="button"
                         aria-label={`Delete ${b.name}`}
+                        title={`Delete ${b.name}`}
                         onClick={() => {
                           if (window.confirm(`Delete the "${b.name}" budget?`))
                             void budgetsRepo.remove(b.id)
                         }}
+                        className="flex size-9 items-center justify-center rounded-xl border border-white/10 bg-white/5 text-muted-foreground transition hover:border-destructive/30 hover:bg-destructive/10 hover:text-destructive"
                       >
-                        <Trash2 size={16} />
+                        <Trash2 size={15} />
                       </button>
-                    </span>
-                  }
-                />
-                <div className="h-2 overflow-hidden rounded-full bg-muted">
-                  <div
-                    className={`h-full ${pct >= 100 ? 'bg-destructive' : 'bg-primary'}`}
-                    style={{ width: `${Math.min(pct, 100)}%` }}
-                  />
+                    </div>
+                  </header>
+
+                  <div className="flex items-end justify-between gap-3">
+                    <div className="min-w-0">
+                      <p className="text-xs text-muted-foreground">
+                        {overBudget ? 'Over budget by' : 'Available to spend'}
+                      </p>
+                      <p className="money mt-1 truncate text-[30px] leading-none font-bold tracking-tight text-white">
+                        {formatMinor(overBudget ? used - b.amount_minor : remaining)}
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="space-y-2">
+                    <div
+                      role="progressbar"
+                      aria-label={`${b.name} budget used`}
+                      aria-valuemin={0}
+                      aria-valuemax={b.amount_minor}
+                      aria-valuenow={Math.min(Math.max(used, 0), b.amount_minor)}
+                      className="h-1.5 overflow-hidden rounded-full bg-white/10"
+                    >
+                      <div
+                        className={`h-full rounded-full transition-[width] duration-500 ${
+                          overBudget
+                            ? 'bg-gradient-to-r from-[#f18a91] to-[#ff5967]'
+                            : 'bg-gradient-to-r from-[#a7a0ff] via-[#7768ff] to-[#c2bdff]'
+                        }`}
+                        style={{ width: `${progress}%` }}
+                      />
+                    </div>
+                    <div className="flex items-center justify-between gap-3 text-xs">
+                      <span className="text-muted-foreground">
+                        <span className="text-foreground">{formatMinor(used)}</span> spent
+                      </span>
+                      <span className="text-muted-foreground">
+                        <span className="text-foreground">{formatMinor(b.amount_minor)}</span> limit
+                      </span>
+                    </div>
+                  </div>
                 </div>
-              </div>
+              </article>
             )
           })}
           {budgets.length === 0 && (

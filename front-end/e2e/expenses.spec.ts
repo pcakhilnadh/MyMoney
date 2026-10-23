@@ -44,13 +44,16 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await page.getByPlaceholder('0').fill('1000')
   await page.getByRole('button', { name: 'Food' }).click()
   await page.getByRole('button', { name: 'Add Budget' }).click()
-  await expect(page.getByText('₹250.50 of ₹1,000.00')).toBeVisible()
-  await expect(page.getByText('25%')).toBeVisible()
+  await expect(page.getByText('₹749.50')).toBeVisible()
+  await expect(page.getByText('₹250.50 spent')).toBeVisible()
+  await expect(page.getByText('₹1,000.00 limit')).toBeVisible()
+  await expect(page.getByText('Monthly budget')).toHaveCount(0)
+  await expect(page.getByText('On track')).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Edit Food' }).click()
   await page.getByPlaceholder('0').fill('2000')
   await page.getByRole('button', { name: 'Save Budget' }).click()
-  await expect(page.getByText('₹250.50 of ₹2,000.00')).toBeVisible()
+  await expect(page.getByText('₹1,749.50')).toBeVisible()
   page.once('dialog', async (dialog) => {
     expect(dialog.type()).toBe('confirm')
     expect(dialog.message()).toContain('Food')
@@ -58,7 +61,7 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   })
 
   await page.getByRole('button', { name: 'Delete Food' }).click()
-  await expect(page.getByText('₹250.50 of ₹2,000.00')).not.toBeVisible()
+  await expect(page.getByText('₹1,749.50')).not.toBeVisible()
 
   await page.getByRole('link', { name: 'Personal' }).click()
   await page.getByRole('link', { name: 'Payment Account' }).click()
