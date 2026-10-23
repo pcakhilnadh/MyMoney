@@ -27,6 +27,13 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   )
   await expect(page.locator('[data-app="money"]')).toHaveCSS('--primary', '#4b8bff')
   await expect(page.locator('[data-app="money"]')).toHaveCSS('background-image', /50vh/)
+  await expect
+    .poll(() => page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight))
+    .toBe(true)
+  await expect(page.locator('html')).toHaveCSS('scrollbar-width', 'none')
+  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
+  await page.evaluate(() => window.scrollTo(0, 0))
   const monthlySpendCard = page.locator('.hero')
   await expect(monthlySpendCard).toHaveText(/Spent this month/)
   await expect(monthlySpendCard).toHaveCSS('background-image', /color\(srgb/)

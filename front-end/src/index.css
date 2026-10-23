@@ -100,9 +100,17 @@
   }
   html {
     -webkit-tap-highlight-color: transparent;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
+  }
+  html::-webkit-scrollbar,
+  body::-webkit-scrollbar {
+    display: none;
   }
   body {
     @apply bg-background font-sans text-foreground antialiased;
+    scrollbar-width: none;
+    -ms-overflow-style: none;
     background-image:
       radial-gradient(60rem 28rem at 50% -8rem, rgba(124, 108, 255, 0.18), transparent 70%),
       radial-gradient(34rem 20rem at 100% 30%, rgba(74, 227, 181, 0.06), transparent 70%);
