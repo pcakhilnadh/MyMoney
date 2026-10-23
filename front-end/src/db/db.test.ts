@@ -97,6 +97,38 @@ describe('repository', () => {
     expect(l.map((t) => t.title)).toEqual(['2026-10-03', '2026-10-02', '2026-10-01'])
   })
 
+  it('lists active transaction ranges and detects older records', async () => {
+    const account = await accountsRepo.create({
+      name: 'Everyday',
+      account_type: 'bank',
+      currency: 'INR',
+      opening_balance: 0,
+      credit_limit: null,
+      is_default: false,
+    })
+    for (const date of [
+      '2026-09-30T00:00:00Z',
+      '2026-10-01T00:00:00Z',
+      '2026-10-31T23:00:00Z',
+      '2026-11-01T00:00:00Z',
+    ])
+      await transactionsRepo.create({
+        ...base,
+        account_id: account.id,
+        title: date,
+        amount_minor: 100,
+        transaction_date: date,
+      })
+
+    const october = await transactionsRepo.listByDateRange('2026-10-01', '2026-11-01')
+    expect(october.map((transaction) => transaction.transaction_date)).toEqual([
+      '2026-10-31T23:00:00Z',
+      '2026-10-01T00:00:00Z',
+    ])
+    expect(await transactionsRepo.hasByDateBefore('2026-10-01')).toBe(true)
+    expect(await transactionsRepo.hasByDateBefore('2026-09-01')).toBe(false)
+  })
+
   it('requires an active account for transactions', async () => {
     await expect(
       transactionsRepo.create({

@@ -1,53 +1,100 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router-dom'
-import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, Plus, Trash2 } from 'lucide-react'
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CornerUpLeft, Plus } from 'lucide-react'
 import { Input, PageHeader, SegmentedControl } from '@/components/kit'
-import { db } from '@/db/db'
 import { transactionsRepo } from '@/db/repos'
 import { formatMinor } from '@/lib/money'
 
 const FILTERS = ['All', 'Personal', 'Groups'] as const
+const PAGE_SIZE_MONTHS = 1
 const TYPE_STYLE = {
-  debit: {
-    label: 'Debit',
+  expense: {
+    label: 'Expense',
     Icon: ArrowUpRight,
     color: 'text-destructive',
     surface: 'bg-destructive/10',
+    prefix: '−',
   },
-  credit: {
-    label: 'Credit',
+  income: {
+    label: 'Income',
     Icon: ArrowDownLeft,
     color: 'text-positive',
     surface: 'bg-positive/10',
+    prefix: '+',
+  },
+  refund: {
+    label: 'Refund',
+    Icon: CornerUpLeft,
+    color: 'text-positive',
+    surface: 'bg-positive/10',
+    prefix: '+',
   },
   transfer: {
     label: 'Transfer',
     Icon: ArrowLeftRight,
     color: 'text-primary',
     surface: 'bg-primary/10',
+    prefix: '',
   },
 } as const
+
+function monthStart(monthsBack: number): string {
+  const date = new Date()
+  date.setDate(1)
+  date.setMonth(date.getMonth() - monthsBack)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`
+}
+
+function nextMonthStart(monthsBack: number): string {
+  const date = new Date()
+  date.setDate(1)
+  date.setMonth(date.getMonth() - monthsBack + 1)
+  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`
+}
 
 export default function Transactions() {
   const navigate = useNavigate()
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All')
   const [q, setQ] = useState('')
-  const txs = useLiveQuery(() => transactionsRepo.listByDate(), [])
-  const cats = useLiveQuery(() => db.categories.toArray(), [])
-  const accounts = useLiveQuery(() => db.accounts.toArray(), [])
-  const names = new Map(cats?.map((c) => [c.id, c.name]))
-  const accountNames = new Map(accounts?.map((account) => [account.id, account.name]))
+  const [monthsBack, setMonthsBack] = useState(0)
+  const loadMoreRef = useRef<HTMLDivElement>(null)
+  const startDate = useMemo(() => monthStart(monthsBack), [monthsBack])
+  const endDate = useMemo(() => nextMonthStart(0), [])
+  const loaded = useLiveQuery(async () => {
+    const [transactions, hasOlder] = await Promise.all([
+      transactionsRepo.listByDateRange(startDate, endDate),
+      transactionsRepo.hasByDateBefore(startDate),
+    ])
+    return { transactions, hasOlder }
+  }, [startDate, endDate])
+  const txs = loaded?.transactions ?? []
 
-  const shown = (txs ?? []).filter(
-    (t) =>
+  useEffect(() => {
+    const target = loadMoreRef.current
+    if (!target || !loaded?.hasOlder) return
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting))
+          setMonthsBack((current) => current + PAGE_SIZE_MONTHS)
+      },
+      { rootMargin: '200px' },
+    )
+    observer.observe(target)
+    return () => observer.disconnect()
+  }, [loaded?.hasOlder, monthsBack])
+
+  const shown = txs.filter(
+    (transaction) =>
       (filter === 'All' ||
-        (filter === 'Personal' ? t.context === 'personal' : t.context !== 'personal')) &&
-      `${t.title} ${t.merchant ?? ''} ${t.long_description ?? ''}`
+        (filter === 'Personal'
+          ? transaction.context === 'personal'
+          : transaction.context !== 'personal')) &&
+      `${transaction.title} ${transaction.merchant ?? ''} ${transaction.long_description ?? ''}`
         .toLowerCase()
         .includes(q.toLowerCase()),
   )
-  const days = [...new Set(shown.map((t) => t.transaction_date.slice(0, 10)))]
+  const days = [...new Set(shown.map((transaction) => transaction.transaction_date.slice(0, 10)))]
 
   return (
     <div className="space-y-4">
@@ -65,14 +112,14 @@ export default function Transactions() {
       <Input
         placeholder="Search transactions or merchants"
         value={q}
-        onChange={(e) => setQ(e.target.value)}
+        onChange={(event) => setQ(event.target.value)}
       />
       <SegmentedControl options={[...FILTERS]} value={filter} onChange={setFilter} />
-      {txs && shown.length === 0 && (
+      {loaded && shown.length === 0 && (
         <p className="py-8 text-center text-muted-foreground">No transactions yet</p>
       )}
       {days.map((day) => (
-        <section key={day} className="space-y-2">
+        <section key={day} className="space-y-1.5">
           <h2 className="label px-1">
             {new Date(day + 'T12:00:00').toLocaleDateString('en-IN', {
               weekday: 'short',
@@ -80,83 +127,43 @@ export default function Transactions() {
               month: 'short',
             })}
           </h2>
-          {shown
-            .filter((t) => t.transaction_date.startsWith(day))
-            .map((t) => {
-              const kind =
-                t.transaction_type === 'income' || t.transaction_type === 'refund'
-                  ? TYPE_STYLE.credit
-                  : t.transaction_type === 'transfer'
-                    ? TYPE_STYLE.transfer
-                    : TYPE_STYLE.debit
-              const { Icon } = kind
-              const categoryName = t.category_id ? names.get(t.category_id) : undefined
-              const detail =
-                t.transaction_type === 'transfer'
-                  ? [
-                      categoryName,
-                      `${accountNames.get(t.account_id) ?? 'Account'} → ${accountNames.get(t.transfer_to_account_id ?? '') ?? 'Account'}`,
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')
-                  : [
-                      t.merchant,
-                      categoryName || 'Uncategorised',
-                      accountNames.get(t.account_id) ?? 'Account',
-                    ]
-                      .filter(Boolean)
-                      .join(' · ')
-              const amountPrefix =
-                kind === TYPE_STYLE.debit ? '−' : kind === TYPE_STYLE.credit ? '+' : ''
-              return (
-                <article
-                  key={t.id}
-                  className="surface flex min-w-0 items-center gap-3 rounded-2xl px-3.5 py-3"
-                >
-                  <span
-                    aria-hidden="true"
-                    className={`flex size-10 shrink-0 items-center justify-center rounded-full ${kind.surface} ${kind.color}`}
+          <div className="surface divide-y divide-border/60 overflow-hidden rounded-2xl">
+            {shown
+              .filter((transaction) => transaction.transaction_date.startsWith(day))
+              .map((transaction) => {
+                const kind = TYPE_STYLE[transaction.transaction_type]
+                const { Icon } = kind
+                return (
+                  <button
+                    key={transaction.id}
+                    type="button"
+                    aria-label={`${kind.label}: ${transaction.title}, ${formatMinor(transaction.amount_minor)}`}
+                    onClick={() => navigate(`/transactions/${transaction.id}`)}
+                    className="flex min-h-12 w-full min-w-0 items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
                   >
-                    <Icon size={19} strokeWidth={2.2} />
-                  </span>
-                  <div className="min-w-0 flex-1">
-                    <div className="truncate font-semibold">{t.title}</div>
-                    <div className="mt-0.5 truncate text-xs text-muted-foreground">{detail}</div>
-                    {t.long_description && (
-                      <div className="mt-1 line-clamp-2 text-xs text-muted-foreground">
-                        {t.long_description}
-                      </div>
-                    )}
                     <span
-                      className={`mt-1 inline-flex items-center rounded-full px-2 py-0.5 text-[10px] leading-none font-semibold ${kind.surface} ${kind.color}`}
+                      aria-hidden="true"
+                      className={`flex size-7 shrink-0 items-center justify-center rounded-full ${kind.surface} ${kind.color}`}
                     >
-                      {kind.label}
-                      {t.transaction_type === 'transfer' && categoryName
-                        ? ` · ${categoryName}`
-                        : ''}
+                      <Icon size={15} strokeWidth={2.2} />
                     </span>
-                  </div>
-                  <div className="flex shrink-0 flex-col items-end gap-1">
-                    <span className={`money text-sm font-bold ${kind.color}`}>
-                      {amountPrefix}
-                      {formatMinor(t.amount_minor)}
+                    <span className="min-w-0 flex-1 truncate text-sm font-medium">
+                      {transaction.title}
                     </span>
-                    <button
-                      aria-label={`Delete ${t.title}`}
-                      onClick={() => {
-                        if (window.confirm(`Delete "${t.title}"?`))
-                          void transactionsRepo.remove(t.id)
-                      }}
-                      className="text-muted-foreground"
-                    >
-                      <Trash2 size={16} />
-                    </button>
-                  </div>
-                </article>
-              )
-            })}
+                    <span className={`money shrink-0 text-sm font-semibold ${kind.color}`}>
+                      {kind.prefix}
+                      {formatMinor(transaction.amount_minor)}
+                    </span>
+                  </button>
+                )
+              })}
+          </div>
         </section>
       ))}
+      {!loaded && <p className="py-8 text-center text-muted-foreground">Loading transactions…</p>}
+      {loaded?.hasOlder && (
+        <div ref={loadMoreRef} aria-label="Loading older transactions" className="h-2" />
+      )}
     </div>
   )
 }

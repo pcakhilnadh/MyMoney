@@ -10,6 +10,7 @@ import SettingsCategories from './pages/SettingsCategories'
 import Insights from './pages/Insights'
 import Login from './pages/Login'
 import Transactions from './pages/Transactions'
+import TransactionDetail from './pages/TransactionDetail'
 import Settings from './pages/Settings'
 import Layout from './components/Layout'
 import AccountDetail from './pages/AccountDetail'
@@ -35,6 +36,7 @@ export default function App() {
             <Route path="/settings" element={<Settings />} />
             <Route path="/home" element={<Home />} />
             <Route path="/transactions" element={<Transactions />} />
+            <Route path="/transactions/:transactionId" element={<TransactionDetail />} />
             <Route path="/expenses/new" element={<AddExpense />} />
             <Route path="/insights" element={<Insights />} />
             <Route path="/budgets" element={<Budgets />} />

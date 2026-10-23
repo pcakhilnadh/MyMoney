@@ -1,3 +1,4 @@
+import Dexie from 'dexie'
 import { db } from './db'
 import { Repository } from './repository'
 import type { Account, Budget, Category, Merchant, Transaction } from './types'
@@ -82,6 +83,33 @@ class TransactionsRepository extends Repository<Transaction> {
     return all
       .filter((t) => !context || t.context === context)
       .sort((a, b) => b.transaction_date.localeCompare(a.transaction_date))
+  }
+
+  async listByDateRange(startDate: string, endDate: string): Promise<Transaction[]> {
+    const statuses = ['active', 'archived'] as const
+    const transactions = await Promise.all(
+      statuses.map((status) =>
+        db.transactions
+          .where('[status+transaction_date]')
+          .between([status, startDate], [status, endDate], true, false)
+          .reverse()
+          .toArray(),
+      ),
+    )
+    return transactions.flat().sort((a, b) => b.transaction_date.localeCompare(a.transaction_date))
+  }
+
+  async hasByDateBefore(date: string): Promise<boolean> {
+    const statuses = ['active', 'archived'] as const
+    const older = await Promise.all(
+      statuses.map((status) =>
+        db.transactions
+          .where('[status+transaction_date]')
+          .between([status, Dexie.minKey], [status, date], true, false)
+          .first(),
+      ),
+    )
+    return older.some(Boolean)
   }
 }
 export const transactionsRepo = new TransactionsRepository(db.transactions)
