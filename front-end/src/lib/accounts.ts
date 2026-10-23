@@ -1,16 +1,15 @@
 import type { Account, Transaction } from '@/db/types'
 
 export interface AccountSummary {
-  /** Cash-like accounts: money available. Credit cards: amount currently owed. */
+  /** Cash-like accounts and receivables: money available or owed to you. */
   balance: number
   /** Credit cards only: limit minus amount owed (can be negative when over the limit). */
   available: number | null
 }
 
 /**
- * Cash-like: opening balance, plus income/refunds, minus expenses.
- * Credit card: `opening_balance` is the amount already owed when tracking began; expenses add to
- * what is owed, refunds/income reduce it.
+ * Assets and cash-like accounts: opening balance, plus inflows, minus outflows.
+ * Liabilities: opening balance is amount owed; outflows increase it and inflows reduce it.
  */
 export function summarizeAccount(account: Account, txs: Transaction[]): AccountSummary {
   let inflow = 0
@@ -27,7 +26,12 @@ export function summarizeAccount(account: Account, txs: Transaction[]): AccountS
     else if (t.transaction_type === 'income' || t.transaction_type === 'refund')
       inflow += t.amount_minor
   }
-  if (account.account_type === 'credit_card') {
+  if (
+    account.account_type === 'credit_card' ||
+    account.account_type === 'loan' ||
+    account.account_type === 'liability' ||
+    account.account_type === 'loan_payable'
+  ) {
     const owed = account.opening_balance + outflow - inflow
     return {
       balance: owed,

@@ -82,7 +82,10 @@ def test_rejects_foreign_references_and_group_context(client):
 
 def test_transfer_sync_requires_and_persists_destination(client):
     body = payload()
-    body["accounts"].append({"id": ACC_TO, "version": 1, "name": "Savings"})
+    body["accounts"][0].update({"name": "Loan — Alex", "account_type": "loan_payable"})
+    body["accounts"].append(
+        {"id": ACC_TO, "version": 1, "name": "Money lent — Sam", "account_type": "money_lent"}
+    )
     transaction = body["transactions"][0]
     transaction["transaction_type"] = "transfer"
     transaction["transfer_to_account_id"] = ACC_TO
@@ -91,6 +94,10 @@ def test_transfer_sync_requires_and_persists_destination(client):
     assert response.status_code == 200
     pulled = client.get("/sync/pull", headers=H("alice")).json()
     assert pulled["transactions"][0]["transfer_to_account_id"] == ACC_TO
+    assert {account["account_type"] for account in pulled["accounts"]} == {
+        "loan_payable",
+        "money_lent",
+    }
 
     body["transactions"][0]["id"] = "aaaaaaaa-0000-0000-0000-000000000005"
     body["transactions"][0]["transfer_to_account_id"] = ACC

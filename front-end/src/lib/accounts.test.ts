@@ -42,4 +42,58 @@ describe('summarizeAccount', () => {
     expect(summarizeAccount(checking, [transfer]).balance).toBe(3800)
     expect(summarizeAccount(savings, [transfer]).balance).toBe(3200)
   })
+
+  it('tracks borrowed balances as liabilities and reduces them on repayment', () => {
+    const loan = acc({ id: 'loan', account_type: 'loan', opening_balance: 10000 })
+    const received = {
+      ...tx(5000, 'transfer', 'loan'),
+      transfer_to_account_id: 'checking',
+    } as Transaction
+    const repayment = {
+      ...tx(2000, 'transfer', 'checking'),
+      transfer_to_account_id: 'loan',
+    } as Transaction
+
+    expect(summarizeAccount(loan, [received, repayment]).balance).toBe(13000)
+  })
+
+  it('tracks liability accounts and legacy loan accounts as amounts owed', () => {
+    const received = {
+      ...tx(5000, 'transfer', 'liability'),
+      transfer_to_account_id: 'checking',
+    } as Transaction
+    const liability = acc({ id: 'liability', account_type: 'liability' })
+    const legacyLoan = acc({ id: 'legacy-loan', account_type: 'loan_payable' })
+    const legacyReceived = {
+      ...tx(5000, 'transfer', 'legacy-loan'),
+      transfer_to_account_id: 'checking',
+    } as Transaction
+
+    expect(summarizeAccount(liability, [received]).balance).toBe(5000)
+    expect(summarizeAccount(legacyLoan, [legacyReceived]).balance).toBe(5000)
+  })
+
+  it('tracks money lent as a receivable and reduces it on repayment', () => {
+    const lent = acc({ id: 'lent', account_type: 'asset', opening_balance: 0 })
+    const loan = {
+      ...tx(5000, 'transfer', 'checking'),
+      transfer_to_account_id: 'lent',
+    } as Transaction
+    const repayment = {
+      ...tx(2000, 'transfer', 'lent'),
+      transfer_to_account_id: 'checking',
+    } as Transaction
+
+    expect(summarizeAccount(lent, [loan, repayment]).balance).toBe(3000)
+  })
+
+  it('keeps legacy money-lent accounts as receivables', () => {
+    const legacyAsset = acc({ id: 'legacy-asset', account_type: 'money_lent' })
+    const lent = {
+      ...tx(5000, 'transfer', 'checking'),
+      transfer_to_account_id: 'legacy-asset',
+    } as Transaction
+
+    expect(summarizeAccount(legacyAsset, [lent]).balance).toBe(5000)
+  })
 })

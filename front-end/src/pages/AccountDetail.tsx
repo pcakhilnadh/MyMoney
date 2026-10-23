@@ -12,6 +12,22 @@ const KIND: Record<string, { label: string; style: string }> = {
   transfer: { label: 'Transfer', style: 'text-primary' },
 }
 
+const ACCOUNT_TYPE_LABELS: Record<string, string> = {
+  bank: 'Bank',
+  cash: 'Bank',
+  credit_card: 'Credit Card',
+  debit_card: 'Credit Card',
+  deposit: 'Deposit',
+  wallet: 'Wallet',
+  upi: 'Wallet',
+  loan: 'Loan',
+  loan_payable: 'Loan',
+  liability: 'Liability (Money You Owe)',
+  asset: 'Asset (Money Owed to You)',
+  money_lent: 'Asset (Money Owed to You)',
+  other: 'Other',
+}
+
 export default function AccountDetail() {
   const { accountId = '' } = useParams()
   const account = useLiveQuery(() => accountsRepo.get(accountId), [accountId])
@@ -39,7 +55,7 @@ export default function AccountDetail() {
     return (
       <div className="space-y-4">
         <Link to="/settings/accounts" className="text-sm text-primary">
-          ← Accounts
+          ← Payment Account
         </Link>
         <p className="text-muted-foreground">Loading account…</p>
       </div>
@@ -49,25 +65,35 @@ export default function AccountDetail() {
     return (
       <div className="space-y-4">
         <Link to="/settings/accounts" className="text-sm text-primary">
-          ← Accounts
+          ← Payment Account
         </Link>
         <p className="text-muted-foreground">Account not found.</p>
       </div>
     )
 
   const balance = summarizeAccount(account, allTransactions).balance
+  const balanceLabel =
+    account.account_type === 'credit_card' ||
+    account.account_type === 'loan' ||
+    account.account_type === 'liability' ||
+    account.account_type === 'loan_payable'
+      ? 'Amount owed'
+      : account.account_type === 'asset' || account.account_type === 'money_lent'
+        ? 'Owed to you'
+        : 'Current balance'
 
   return (
     <div className="space-y-4">
       <Link to="/settings/accounts" className="text-sm text-primary">
-        ← Accounts
+        ← Payment Account
       </Link>
-      <PageHeader title={account.name} subtitle={account.account_type.replace('_', ' ')} />
+      <PageHeader
+        title={account.name}
+        subtitle={ACCOUNT_TYPE_LABELS[account.account_type] ?? 'Other'}
+      />
       <Card className="space-y-4">
         <div className="text-center">
-          <div className="text-sm text-muted-foreground">
-            {account.account_type === 'credit_card' ? 'Amount owed' : 'Current balance'}
-          </div>
+          <div className="text-sm text-muted-foreground">{balanceLabel}</div>
           <div className="money text-3xl font-bold">{formatMinor(balance)}</div>
           {account.account_type === 'credit_card' && account.credit_limit != null && (
             <div className="mt-1 text-sm text-muted-foreground">

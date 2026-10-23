@@ -12,6 +12,7 @@ test('local expense reaches the server, and a fresh device pulls it back', async
   // signing in registers the profile; sync pushes seed data and later the expense
   await page.getByRole('link', { name: 'Add expense' }).click()
   await page.getByRole('link', { name: 'Add account' }).click()
+  await page.getByRole('button', { name: 'Add payment account' }).click()
   await page.getByPlaceholder('Account name').fill('Everyday')
   await page.getByRole('button', { name: 'Add Account' }).click()
   await page.goto('/expenses/new')

@@ -4,7 +4,19 @@ export type ExpenseContext = 'personal' | 'family' | 'group'
 export type TransactionType = 'expense' | 'income' | 'refund' | 'transfer'
 export type SplitMethod = 'equal' | 'exact_amount' | 'percentage' | 'shares'
 export type AccountType =
-  'cash' | 'bank' | 'upi' | 'credit_card' | 'debit_card' | 'wallet' | 'other'
+  | 'bank'
+  | 'credit_card'
+  | 'deposit'
+  | 'wallet'
+  | 'loan'
+  | 'liability'
+  | 'asset'
+  | 'other'
+  | 'cash'
+  | 'upi'
+  | 'debit_card'
+  | 'loan_payable'
+  | 'money_lent'
 
 /** Fields every locally stored, syncable record carries. */
 export interface Syncable {

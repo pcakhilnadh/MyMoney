@@ -13,7 +13,7 @@ const STATE = {
 } as const
 
 const MENU = [
-  { to: '/settings/accounts', label: 'Accounts and payment methods', Icon: CreditCard },
+  { to: '/settings/accounts', label: 'Payment Account', Icon: CreditCard },
   { to: '/settings/categories', label: 'Categories', Icon: Tags },
   { to: '/budgets', label: 'Budgets', Icon: PiggyBank },
 ]
