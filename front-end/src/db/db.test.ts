@@ -97,6 +97,49 @@ describe('repository', () => {
     expect(l.map((t) => t.title)).toEqual(['2026-10-03', '2026-10-02', '2026-10-01'])
   })
 
+  it('sorts transactions saved on the same day by latest save first', async () => {
+    const account = await accountsRepo.create({
+      name: 'Everyday',
+      account_type: 'bank',
+      currency: 'INR',
+      opening_balance: 0,
+      credit_limit: null,
+      is_default: false,
+    })
+    const savedEarlier = await transactionsRepo.create({
+      ...base,
+      account_id: account.id,
+      title: 'Saved earlier',
+      amount_minor: 100,
+      transaction_date: '2026-10-01T12:00:00Z',
+    })
+    const savedLater = await transactionsRepo.create({
+      ...base,
+      account_id: account.id,
+      title: 'Saved later',
+      amount_minor: 100,
+      transaction_date: '2026-10-01T12:00:00Z',
+    })
+    await db.transactions.update(savedEarlier.id, {
+      created_at: '2026-10-01T09:00:00Z',
+      updated_at: '2026-10-01T09:00:00Z',
+    })
+    await db.transactions.update(savedLater.id, {
+      created_at: '2026-10-01T10:00:00Z',
+      updated_at: '2026-10-01T10:00:00Z',
+    })
+
+    expect((await transactionsRepo.listByDate()).map((transaction) => transaction.title)).toEqual([
+      'Saved later',
+      'Saved earlier',
+    ])
+    expect(
+      (await transactionsRepo.listByDateRange('2026-10-01', '2026-11-01')).map(
+        (transaction) => transaction.title,
+      ),
+    ).toEqual(['Saved later', 'Saved earlier'])
+  })
+
   it('lists active transaction ranges and detects older records', async () => {
     const account = await accountsRepo.create({
       name: 'Everyday',

@@ -29,6 +29,15 @@ class MerchantsRepository extends Repository<Merchant> {
 
 export const merchantsRepo = new MerchantsRepository(db.merchants)
 
+function newestTransactionFirst(a: Transaction, b: Transaction): number {
+  return (
+    b.transaction_date.localeCompare(a.transaction_date) ||
+    b.updated_at.localeCompare(a.updated_at) ||
+    b.created_at.localeCompare(a.created_at) ||
+    b.id.localeCompare(a.id)
+  )
+}
+
 class TransactionsRepository extends Repository<Transaction> {
   async create(
     data: Omit<
@@ -80,9 +89,7 @@ class TransactionsRepository extends Repository<Transaction> {
   /** Newest first, optionally filtered by context. */
   async listByDate(context?: Transaction['context']): Promise<Transaction[]> {
     const all = await this.list()
-    return all
-      .filter((t) => !context || t.context === context)
-      .sort((a, b) => b.transaction_date.localeCompare(a.transaction_date))
+    return all.filter((t) => !context || t.context === context).sort(newestTransactionFirst)
   }
 
   async listByDateRange(startDate: string, endDate: string): Promise<Transaction[]> {
@@ -96,7 +103,7 @@ class TransactionsRepository extends Repository<Transaction> {
           .toArray(),
       ),
     )
-    return transactions.flat().sort((a, b) => b.transaction_date.localeCompare(a.transaction_date))
+    return transactions.flat().sort(newestTransactionFirst)
   }
 
   async hasByDateBefore(date: string): Promise<boolean> {
