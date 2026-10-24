@@ -36,7 +36,19 @@ export interface Account extends Syncable {
   opening_balance: number
   /** Credit cards only, in minor units. */
   credit_limit: number | null
+  /** Credit cards and loans: day of the month (1-31) the payment is due. */
+  payment_due_day?: number | null
   is_default: boolean
+}
+
+/** Record that a card/loan due amount was paid. Kept for tracking only. */
+export interface DuePayment extends Syncable {
+  account_id: string
+  amount_minor: number
+  /** Portion of the payment that was interest (loans). */
+  interest_minor: number
+  due_date: string // YYYY-MM-DD
+  paid_on: string // YYYY-MM-DD
 }
 
 export interface Category extends Syncable {

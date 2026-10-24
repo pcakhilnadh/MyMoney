@@ -15,6 +15,7 @@ class AccountIn(BaseModel):
     currency: str = "INR"
     opening_balance: int = 0
     credit_limit: int | None = Field(default=None, ge=0)
+    payment_due_day: int | None = Field(default=None, ge=1, le=31)
     is_default: bool = False
 
 

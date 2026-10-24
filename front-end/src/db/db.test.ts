@@ -360,7 +360,7 @@ describe('local database cleanup', () => {
 
     await clearLocalDatabase()
 
-    expect(await Promise.all(db.tables.map((table) => table.count()))).toEqual([0, 0, 0, 0, 0])
+    expect(await Promise.all(db.tables.map((table) => table.count()))).toEqual([0, 0, 0, 0, 0, 0])
   })
 })
 

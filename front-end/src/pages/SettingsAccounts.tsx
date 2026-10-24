@@ -78,8 +78,10 @@ export default function SettingsAccounts() {
   const [type, setType] = useState<AccountType>('bank')
   const [opening, setOpening] = useState(0)
   const [limit, setLimit] = useState(0)
+  const [dueDay, setDueDay] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const isCard = type === 'credit_card'
+  const hasDueDay = isCard || type === 'loan'
   const isLiability = type === 'loan' || type === 'liability'
   const isAsset = type === 'asset'
 
@@ -88,16 +90,20 @@ export default function SettingsAccounts() {
     setType('bank')
     setOpening(0)
     setLimit(0)
+    setDueDay('')
     setEditingId(null)
   }
 
   async function save() {
+    const day = Number(dueDay)
     const values = {
       name: name.trim(),
       account_type: type,
       currency: 'INR',
       opening_balance: opening,
       credit_limit: isCard && limit > 0 ? limit : null,
+      payment_due_day:
+        hasDueDay && Number.isInteger(day) && day >= 1 && day <= 31 ? day : null,
       is_default: accounts.find((account) => account.id === editingId)?.is_default ?? false,
     }
     if (editingId) await accountsRepo.update(editingId, values)
@@ -114,6 +120,7 @@ export default function SettingsAccounts() {
     setType(currentAccountType(account.account_type))
     setOpening(account.opening_balance)
     setLimit(account.credit_limit ?? 0)
+    setDueDay(account.payment_due_day ? String(account.payment_due_day) : '')
     setShowForm(true)
   }
 
@@ -193,6 +200,18 @@ export default function SettingsAccounts() {
             onChange={setOpening}
           />
           {isCard && <CurrencyInput label="Credit limit" value={limit} onChange={setLimit} />}
+          {hasDueDay && (
+            <Input
+              type="number"
+              inputMode="numeric"
+              min={1}
+              max={31}
+              aria-label="Payment due day of month"
+              placeholder="Payment due day of month, e.g. 10 (optional)"
+              value={dueDay}
+              onChange={(e) => setDueDay(e.target.value)}
+            />
+          )}
           {isLiability && (
             <p className="text-sm text-muted-foreground">
               For money you owe. Record borrowing as a transfer from this account to your bank or
@@ -280,6 +299,11 @@ export default function SettingsAccounts() {
                             className={`mt-1 text-sm ${summary.available < 0 ? 'text-destructive' : 'text-muted-foreground'}`}
                           >
                             {formatMinor(summary.available)} available
+                          </div>
+                        )}
+                        {account.payment_due_day != null && (
+                          <div className="mt-1 text-sm text-muted-foreground">
+                            Due on day {account.payment_due_day} of each month
                           </div>
                         )}
                       </Link>

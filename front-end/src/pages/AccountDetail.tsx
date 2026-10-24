@@ -2,8 +2,8 @@ import { Link, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Card, PageHeader } from '@/components/kit'
 import { TransactionList } from '@/components/TransactionList'
-import { accountsRepo, transactionsRepo } from '@/db/repos'
-import { summarizeAccount } from '@/lib/accounts'
+import { accountsRepo, duePaymentsRepo, transactionsRepo } from '@/db/repos'
+import { interestPaid, summarizeAccount } from '@/lib/accounts'
 import { formatMinor } from '@/lib/money'
 
 const ACCOUNT_TYPE_LABELS: Record<string, string> = {
@@ -31,6 +31,7 @@ export default function AccountDetail() {
         transaction.account_id === accountId || transaction.transfer_to_account_id === accountId,
     ) ?? []
   const allTransactions = useLiveQuery(() => transactionsRepo.list(), []) ?? []
+  const payments = useLiveQuery(() => duePaymentsRepo.list(), []) ?? []
   const totals = transactions.reduce(
     (sum, transaction) => {
       if (transaction.transaction_type === 'expense') sum.debit += transaction.amount_minor
@@ -117,6 +118,40 @@ export default function AccountDetail() {
           </div>
         </div>
       </Card>
+      {(account.account_type === 'loan' || account.account_type === 'loan_payable') && (
+        <Card className="text-center">
+          <div className="text-sm text-muted-foreground">Interest paid</div>
+          <div className="money text-xl font-bold">
+            {formatMinor(interestPaid(account.id, payments))}
+          </div>
+        </Card>
+      )}
+      {account.payment_due_day != null && (
+        <p className="px-1 text-sm text-muted-foreground">
+          Payment due on day {account.payment_due_day} of each month
+        </p>
+      )}
+      {payments.some((p) => p.account_id === accountId) && (
+        <>
+          <h2 className="label px-1">Payments made</h2>
+          <Card className="space-y-2">
+            {payments
+              .filter((p) => p.account_id === accountId)
+              .sort((a, b) => b.paid_on.localeCompare(a.paid_on))
+              .map((p) => (
+                <div key={p.id} className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">
+                    {p.paid_on} (due {p.due_date})
+                  </span>
+                  <span className="money font-medium">
+                    {formatMinor(p.amount_minor)}
+                    {p.interest_minor > 0 && ` · ${formatMinor(p.interest_minor)} interest`}
+                  </span>
+                </div>
+              ))}
+          </Card>
+        </>
+      )}
       <h2 className="label px-1">Transactions</h2>
       {transactions.length === 0 && (
         <p className="py-6 text-center text-sm text-muted-foreground">

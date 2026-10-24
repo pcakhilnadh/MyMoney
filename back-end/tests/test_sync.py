@@ -184,3 +184,33 @@ def test_merchants_are_shared_and_duplicate_names_resolve_to_one_record(client):
     pulled = client.get("/sync/pull", headers=H("bob")).json()["merchants"]
     assert len(pulled) == 1
     assert pulled[0]["id"] == MERCHANT
+
+
+def test_due_day_and_due_payments_sync(client):
+    c = client
+    DP = "aaaaaaaa-0000-0000-0000-000000000009"
+    body = {
+        "accounts": [
+            {"id": ACC, "version": 1, "name": "Card", "account_type": "credit_card", "payment_due_day": 10}
+        ],
+        "due_payments": [
+            {
+                "id": DP,
+                "version": 1,
+                "account_id": ACC,
+                "amount_minor": 5000,
+                "interest_minor": 300,
+                "due_date": "2026-11-10",
+                "paid_on": "2026-11-08",
+            }
+        ],
+    }
+    assert c.post("/sync/push", json=body, headers=H("alice")).status_code == 200
+    pulled = c.get("/sync/pull", headers=H("alice")).json()
+    assert pulled["accounts"][0]["payment_due_day"] == 10
+    assert pulled["due_payments"][0]["interest_minor"] == 300
+    assert c.get("/sync/pull", headers=H("bob")).json()["due_payments"] == []
+    # another user cannot attach a payment to alice's account
+    assert c.post("/sync/push", json={"due_payments": [{**body["due_payments"][0], "id": ACC_TO}]}, headers=H("bob")).status_code == 422
+    bad = {"accounts": [{"id": ACC, "version": 2, "name": "Card", "payment_due_day": 32}]}
+    assert c.post("/sync/push", json=bad, headers=H("alice")).status_code == 422

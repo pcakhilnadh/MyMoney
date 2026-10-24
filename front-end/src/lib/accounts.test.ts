@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import type { Account, Transaction } from '@/db/types'
-import { summarizeAccount } from './accounts'
+import type { Account, DuePayment, Transaction } from '@/db/types'
+import { dueAlerts, interestPaid, nextDueDate, summarizeAccount } from './accounts'
 
 const acc = (o: Partial<Account>) =>
   ({ id: 'a', account_type: 'bank', opening_balance: 0, credit_limit: null, ...o }) as Account
@@ -11,6 +11,40 @@ const tx = (amount: number, type = 'expense', account = 'a') =>
     transaction_type: type,
     status: 'active',
   }) as Transaction
+
+describe('payment due dates', () => {
+  const card = acc({
+    id: 'card',
+    account_type: 'credit_card',
+    status: 'active',
+    payment_due_day: 10,
+    opening_balance: 5000,
+  })
+
+  it('picks the next due date and clamps to short months', () => {
+    expect(nextDueDate(10, new Date(2026, 9, 24))).toEqual(new Date(2026, 10, 10))
+    expect(nextDueDate(10, new Date(2026, 9, 10))).toEqual(new Date(2026, 9, 10))
+    expect(nextDueDate(31, new Date(2026, 1, 5))).toEqual(new Date(2026, 1, 28))
+  })
+
+  it('alerts only within a week of the due date and until paid', () => {
+    expect(dueAlerts([card], [], [], new Date(2026, 9, 2))).toHaveLength(0)
+    const [alert] = dueAlerts([card], [], [], new Date(2026, 9, 3))
+    expect(alert).toMatchObject({ dueDate: '2026-10-10', daysLeft: 7, amount: 5000 })
+    const paid = {
+      account_id: 'card',
+      due_date: '2026-10-10',
+      status: 'active',
+    } as DuePayment
+    expect(dueAlerts([card], [paid], [], new Date(2026, 9, 3))).toHaveLength(0)
+  })
+
+  it('sums interest paid per account', () => {
+    const p = (account_id: string, interest_minor: number) =>
+      ({ account_id, interest_minor, status: 'active' }) as DuePayment
+    expect(interestPaid('loan', [p('loan', 300), p('loan', 200), p('other', 900)])).toBe(500)
+  })
+})
 
 describe('summarizeAccount', () => {
   it('starts from the opening balance', () => {

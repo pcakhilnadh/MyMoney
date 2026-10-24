@@ -61,7 +61,27 @@ class Account(Base):
     currency: Mapped[str] = mapped_column(String, default="INR")
     opening_balance: Mapped[int] = mapped_column(Integer, default=0)
     credit_limit: Mapped[int | None] = mapped_column(Integer)
+    payment_due_day: Mapped[int | None] = mapped_column(Integer)
     is_default: Mapped[bool] = mapped_column(Boolean, default=False)
+    status: Mapped[str] = mapped_column(String, default="active")
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
+class DuePayment(Base):
+    """Record that a credit card / loan due amount was paid on a date."""
+
+    __tablename__ = "due_payments"
+    __table_args__ = (CheckConstraint("amount_minor > 0"), CheckConstraint("interest_minor >= 0"))
+
+    id: Mapped[uuid.UUID] = _pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), index=True)
+    account_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("accounts.id"), index=True)
+    amount_minor: Mapped[int] = mapped_column(Integer)
+    interest_minor: Mapped[int] = mapped_column(Integer, default=0)
+    due_date: Mapped[date] = mapped_column(Date)
+    paid_on: Mapped[date] = mapped_column(Date)
     status: Mapped[str] = mapped_column(String, default="active")
     version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

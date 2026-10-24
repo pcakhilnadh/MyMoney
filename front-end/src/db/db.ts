@@ -1,6 +1,6 @@
 import Dexie, { type EntityTable } from 'dexie'
 import { storedSub } from '@/auth/storage'
-import type { Account, Budget, Category, Merchant, Transaction } from './types'
+import type { Account, Budget, Category, DuePayment, Merchant, Transaction } from './types'
 
 export class AppDB extends Dexie {
   accounts!: EntityTable<Account, 'id'>
@@ -8,6 +8,7 @@ export class AppDB extends Dexie {
   merchants!: EntityTable<Merchant, 'id'>
   transactions!: EntityTable<Transaction, 'id'>
   budgets!: EntityTable<Budget, 'id'>
+  due_payments!: EntityTable<DuePayment, 'id'>
 
   constructor(name = 'exptracker') {
     super(name)
@@ -60,6 +61,15 @@ export class AppDB extends Dexie {
             delete transaction.description
           })
       })
+    this.version(4).stores({
+      accounts: 'id, status, sync_state',
+      categories: 'id, transaction_type, status, sync_state',
+      merchants: 'id, &normalized_name, name, status, sync_state',
+      transactions:
+        'id, transaction_date, context, group_id, category_id, status, sync_state, [status+transaction_date]',
+      budgets: 'id, category_id, status, sync_state',
+      due_payments: 'id, account_id, status, sync_state',
+    })
   }
 }
 

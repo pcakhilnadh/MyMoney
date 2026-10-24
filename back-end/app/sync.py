@@ -18,7 +18,7 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_user
 from app.category_rules import transfer_category_account_error
 from app.db import get_db
-from app.models import Account, Budget, Category, Merchant, Profile, Transaction
+from app.models import Account, Budget, Category, DuePayment, Merchant, Profile, Transaction
 
 router = APIRouter(prefix="/sync", tags=["sync"], dependencies=[Depends(get_current_user)])
 
@@ -35,7 +35,16 @@ class AccountRec(Rec):
     currency: str = "INR"
     opening_balance: int = 0
     credit_limit: int | None = Field(default=None, ge=0)
+    payment_due_day: int | None = Field(default=None, ge=1, le=31)
     is_default: bool = False
+
+
+class DuePaymentRec(Rec):
+    account_id: uuid.UUID
+    amount_minor: int = Field(gt=0)
+    interest_minor: int = Field(default=0, ge=0)
+    due_date: date
+    paid_on: date
 
 
 class CategoryRec(Rec):
@@ -84,6 +93,7 @@ class PushIn(BaseModel):
     merchants: list[MerchantSyncRec] = []
     transactions: list[TransactionRec] = []
     budgets: list[BudgetRec] = []
+    due_payments: list[DuePaymentRec] = []
 
 
 # entity name -> (model, owner column, fields copied from the record)
@@ -96,7 +106,12 @@ SPECS = {
     "accounts": (
         Account,
         "user_id",
-        ["name", "account_type", "currency", "opening_balance", "credit_limit", "is_default"],
+        ["name", "account_type", "currency", "opening_balance", "credit_limit", "payment_due_day", "is_default"],
+    ),
+    "due_payments": (
+        DuePayment,
+        "user_id",
+        ["account_id", "amount_minor", "interest_minor", "due_date", "paid_on"],
     ),
     "merchants": (Merchant, None, ["name", "normalized_name"]),
     "transactions": (
@@ -218,6 +233,10 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
                 )
                 if error:
                     raise HTTPException(422, error)
+    elif name == "due_payments":
+        account = db.get(Account, rec.account_id)
+        if account is None or account.user_id != user.id:
+            raise HTTPException(422, "Unknown account")
     elif name == "budgets" and not _owned_ref(db, Category, "user_id", rec.category_id, user):
         raise HTTPException(422, "Unknown category")
     existing = db.get(model, rec.id)
@@ -248,7 +267,7 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
 def push(body: PushIn, user: Profile = Depends(get_current_user), db: Session = Depends(get_db)):
     result: dict = {"accepted": [], "conflicts": []}
     # parents before children so foreign keys resolve
-    for name in ("categories", "accounts", "merchants", "transactions", "budgets"):
+    for name in ("categories", "accounts", "merchants", "transactions", "budgets", "due_payments"):
         for rec in getattr(body, name):
             _upsert(db, user, name, rec, result)
         db.flush()

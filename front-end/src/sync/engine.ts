@@ -2,13 +2,27 @@ import { api, ApiError } from '@/auth/api'
 import { db } from '@/db/db'
 import type { Budget, Category, Syncable } from '@/db/types'
 
-type EntityName = 'categories' | 'accounts' | 'merchants' | 'transactions' | 'budgets'
-const ENTITIES: EntityName[] = ['categories', 'accounts', 'merchants', 'transactions', 'budgets']
+type EntityName =
+  | 'categories'
+  | 'accounts'
+  | 'merchants'
+  | 'transactions'
+  | 'budgets'
+  | 'due_payments'
+const ENTITIES: EntityName[] = [
+  'categories',
+  'accounts',
+  'merchants',
+  'transactions',
+  'budgets',
+  'due_payments',
+]
 
 /** Fields the server may omit, used when a record is first pulled. */
 const DEFAULTS: Record<EntityName, object> = {
   categories: { is_system: false, is_hidden: false },
-  accounts: {},
+  accounts: { payment_due_day: null },
+  due_payments: {},
   merchants: {},
   transactions: {
     group_id: null,
@@ -126,7 +140,7 @@ async function syncCycle(token: string, sub: string): Promise<void> {
     since && conflicts.size === 0 && !merchantMerged ? `?since=${encodeURIComponent(since)}` : ''
   const pulled = await api<PullResponse>('/sync/pull' + qs, token)
   for (const e of ENTITIES) {
-    for (const remote of pulled[e]) {
+    for (const remote of pulled[e] ?? []) {
       const local: Syncable | undefined = await table(e).get(remote.id)
       const serverWins =
         !local ||

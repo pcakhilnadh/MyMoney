@@ -3,6 +3,7 @@ import { Link } from 'react-router-dom'
 import { ChevronRight, PiggyBank } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { BarChartCard } from '@/components/kit'
+import { DueAlerts } from '@/components/DueAlerts'
 import { transactionsRepo } from '@/db/repos'
 import { formatMinor } from '@/lib/money'
 import { currentMonth, monthTotal, monthlySeries } from '@/lib/summary'
@@ -49,6 +50,7 @@ export default function Home() {
         <span className="flex-1">View budgets</span>
         <ChevronRight size={18} className="text-muted-foreground" />
       </Link>
+      <DueAlerts />
     </div>
   )
 }
