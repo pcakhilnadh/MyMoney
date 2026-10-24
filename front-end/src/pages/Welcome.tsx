@@ -1,78 +1,68 @@
 import { useEffect, useState } from 'react'
-import { Navigate } from 'react-router-dom'
+import { Navigate, useNavigate } from 'react-router-dom'
+import type { NavigateFunction } from 'react-router-dom'
 import type { ReactNode } from 'react'
 import { useAuth } from '@/auth/AuthContext'
 import { cachedUser } from '@/auth/storage'
 import { useSync } from '@/sync/SyncProvider'
 
 const MIN_VISIBLE_MS = 3000
+const OFFLINE_FALLBACK_MS = 20000
 
 // Post-login landing; SyncGate has already waited for the initial sync by the time this renders.
 export default function Welcome() {
   return <Navigate to="/money/home" replace />
 }
 
-// Holds every signed-in route behind the breathing screen until the first sync succeeds.
-export function SyncGate({ children }: { children: ReactNode }) {
-  const { initialSyncDone, state, error, syncNow } = useSync()
-  const { token } = useAuth()
+// Holds signed-in routes behind the breathing screen until the first sync succeeds.
+// If it can't (offline / server unreachable), the app opens on local data after
+// OFFLINE_FALLBACK_MS and SyncProvider syncs once the connection is back.
+export function SyncGate({
+  authReady,
+  children,
+}: {
+  authReady: boolean
+  children: ReactNode
+}) {
+  const { initialSyncDone } = useSync()
+  const navigate = useNavigate()
   const [minElapsed, setMinElapsed] = useState(false)
-  const [skipped, setSkipped] = useState(false)
-  const [online, setOnline] = useState(navigator.onLine)
+  const [timedOut, setTimedOut] = useState(false)
+  const [landed, setLanded] = useState(false)
 
   useEffect(() => {
-    const timer = setTimeout(() => setMinElapsed(true), MIN_VISIBLE_MS)
-    const on = () => setOnline(true)
-    const off = () => setOnline(false)
-    window.addEventListener('online', on)
-    window.addEventListener('offline', off)
+    const minTimer = setTimeout(() => setMinElapsed(true), MIN_VISIBLE_MS)
+    const fallbackTimer = setTimeout(() => setTimedOut(true), OFFLINE_FALLBACK_MS)
     return () => {
-      clearTimeout(timer)
-      window.removeEventListener('online', on)
-      window.removeEventListener('offline', off)
+      clearTimeout(minTimer)
+      clearTimeout(fallbackTimer)
     }
   }, [])
 
-  if (skipped || (initialSyncDone && minElapsed)) return <>{children}</>
+  if (authReady && ((initialSyncDone && minElapsed) || timedOut)) {
+    if (!landed) return <LandHome onLand={() => setLanded(true)} navigate={navigate} />
+    return <>{children}</>
+  }
 
-  const blocked = !online || !token || state === 'offline' || state === 'error'
-  const status = !online || state === 'offline'
-    ? 'You’re offline. We’ll finish setting up once you’re connected.'
-    : state === 'error'
-      ? `Couldn’t fetch your data${error ? ` (${error})` : ''}.`
-      : 'Fetching your latest data…'
-
-  return (
-    <BreathingScreen status={status}>
-      {blocked && (
-        <div className="mt-6 flex gap-3">
-          <button
-            type="button"
-            onClick={() => void syncNow()}
-            className="rounded-xl bg-primary px-4 py-2 text-sm font-semibold text-primary-foreground"
-          >
-            Try again
-          </button>
-          <button
-            type="button"
-            onClick={() => setSkipped(true)}
-            className="rounded-xl bg-secondary px-4 py-2 text-sm font-semibold text-secondary-foreground"
-          >
-            Continue with local data
-          </button>
-        </div>
-      )}
-    </BreathingScreen>
-  )
+  return <BreathingScreen />
 }
 
-export function BreathingScreen({
-  status,
-  children,
+// The welcome screen always hands over to /money/home, whatever URL the app was opened on.
+function LandHome({
+  onLand,
+  navigate,
 }: {
-  status?: string
-  children?: ReactNode
+  onLand: () => void
+  navigate: NavigateFunction
 }) {
+  useEffect(() => {
+    navigate('/money/home', { replace: true })
+    onLand()
+  }, [navigate, onLand])
+  return <BreathingScreen />
+}
+
+export function BreathingScreen() {
   const { user } = useAuth()
   const name = (user ?? cachedUser())?.name
   const firstName = name?.trim().split(/\s+/)[0]
@@ -104,9 +94,8 @@ export function BreathingScreen({
         {firstName ? `Hi ${firstName}, hang tight.` : 'Hang tight.'}
       </p>
       <p className="mt-1 text-sm text-muted-foreground">
-        {status ?? 'Getting your personal tracker ready…'}
+        Getting your personal tracker ready…
       </p>
-      {children}
     </main>
   )
 }

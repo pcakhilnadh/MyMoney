@@ -12,7 +12,7 @@ import Login from './pages/Login'
 import Transactions from './pages/Transactions'
 import TransactionDetail from './pages/TransactionDetail'
 import Personal from './pages/Personal'
-import Welcome, { BreathingScreen, SyncGate } from './pages/Welcome'
+import Welcome, { SyncGate } from './pages/Welcome'
 import Settings from './pages/Settings'
 import CurrencySettings from './pages/CurrencySettings'
 import Layout from './components/Layout'
@@ -24,12 +24,14 @@ import { CurrencyProvider } from './money/CurrencyContext'
 
 function Protected() {
   const { user, ready } = useAuth()
-  if (!ready) return <BreathingScreen />
-  return user ? (
-    <SyncGate>
+  if (ready && !user) return <Navigate to="/login" replace />
+  // One stable tree from session restore through sync keeps the breathing animation uninterrupted.
+  return (
+    <SyncGate authReady={ready}>
       <Outlet />
     </SyncGate>
-  ) : <Navigate to="/login" replace />}
+  )
+}
 
 function LegacyMoneyRedirect() {
   const { pathname, search, hash } = useLocation()
@@ -43,7 +45,7 @@ export default function App() {
         <Routes>
         <Route path="/login" element={<Login />} />
         <Route element={<Protected />}>
-          <Route index element={<Navigate to="/personal" replace />} />
+          <Route index element={<Navigate to="/money/home" replace />} />
           <Route path="/welcome" element={<Welcome />} />
           <Route path="/home" element={<LegacyMoneyRedirect />} />
           <Route path="/transactions/*" element={<LegacyMoneyRedirect />} />
