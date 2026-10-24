@@ -40,8 +40,9 @@ export function useInstall() {
     install: async () => {
       if (!event) return
       await event.prompt()
-      await event.userChoice
+      const choice = await event.userChoice
       setEvent(null)
+      if (choice.outcome === 'accepted') setInstalled(true)
     },
   }
 }

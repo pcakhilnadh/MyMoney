@@ -13,3 +13,22 @@ test('installable and reloads offline from the service worker', async ({ page, c
   await page.reload()
   await expect(page.getByText('Spent this month')).toBeVisible({ timeout: 3000 })
 })
+
+test('offers an install action when Chrome exposes the install prompt', async ({ page }) => {
+  await page.goto('/login')
+  await expect(page.getByText(/Manage your money/)).toBeVisible()
+
+  await page.evaluate(() => {
+    const event = new Event('beforeinstallprompt')
+    Object.defineProperties(event, {
+      prompt: { value: async () => undefined },
+      userChoice: { value: Promise.resolve({ outcome: 'accepted' }) },
+    })
+    window.dispatchEvent(event)
+  })
+
+  const installButton = page.getByRole('button', { name: 'Install MyTracker as an app' })
+  await expect(installButton).toBeVisible()
+  await installButton.click()
+  await expect(installButton).toHaveCount(0)
+})

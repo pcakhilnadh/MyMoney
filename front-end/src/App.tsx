@@ -21,6 +21,39 @@ import BudgetCategoryDetail from './pages/BudgetCategoryDetail'
 import FoodHome from './pages/FoodHome'
 import HabitsHome from './pages/HabitsHome'
 import { CurrencyProvider } from './money/CurrencyContext'
+import { useInstall } from './pwa/useInstall'
+
+function InstallPrompt() {
+  const { canPrompt, installed, install } = useInstall()
+  if (!canPrompt || installed) return null
+
+  return (
+    <aside
+      role="region"
+      aria-label="Install MyTracker"
+      className="fixed inset-x-0 bottom-24 z-50 mx-auto max-w-md px-4"
+    >
+      <div className="surface flex items-center justify-between gap-3 rounded-xl px-4 py-3">
+        <div>
+          <p className="text-sm font-semibold">Install MyTracker</p>
+          <p className="text-xs text-muted-foreground">Quick access, including offline.</p>
+        </div>
+        <button
+          type="button"
+          aria-label="Install MyTracker as an app"
+          onClick={() =>
+            void install().catch((error: unknown) => {
+              console.error('Unable to open the app install prompt', error)
+            })
+          }
+          className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+        >
+          Install
+        </button>
+      </div>
+    </aside>
+  )
+}
 
 function Protected() {
   const { user, ready } = useAuth()
@@ -38,6 +71,7 @@ export default function App() {
   return (
     <BrowserRouter>
       <CurrencyProvider>
+        <InstallPrompt />
         <Routes>
         <Route path="/login" element={<Login />} />
         <Route element={<Protected />}>
