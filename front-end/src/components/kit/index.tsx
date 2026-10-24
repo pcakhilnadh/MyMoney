@@ -1,4 +1,5 @@
 import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { Plus } from 'lucide-react'
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
 import { cn } from '@/lib/utils'
 import { normalizeMoneyInput, toMinor } from '@/lib/money'
@@ -6,6 +7,26 @@ import { normalizeMoneyInput, toMinor } from '@/lib/money'
 export { Button } from '@/components/ui/button'
 export { MetalActionButton, MetalBadge, MetalCard } from './MetalCard'
 export { AccountCard } from './AccountCard'
+
+export function AddIconButton({
+  label,
+  onClick,
+}: {
+  label: string
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      aria-label={label}
+      title={label}
+      onClick={onClick}
+      className="gloss flex size-10 shrink-0 items-center justify-center rounded-full text-primary-foreground transition hover:brightness-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary focus-visible:ring-offset-2 focus-visible:ring-offset-background"
+    >
+      <Plus size={21} />
+    </button>
+  )
+}
 
 export function Card({
   children,

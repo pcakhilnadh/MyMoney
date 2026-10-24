@@ -28,7 +28,7 @@ export function MetalBadge({ label, variant = 'default' }: { label: string; vari
   }
 
   return (
-    <div className="flex size-11 shrink-0 items-center justify-center rounded-2xl border border-white/20 bg-gradient-to-br from-[#f1f2f5] via-[#aeb2bd] to-[#737784] text-lg font-bold text-[#202127] shadow-[inset_0_1px_1px_rgba(255,255,255,0.8),0_4px_12px_rgba(0,0,0,0.25)]">
+    <div className="flex size-10 shrink-0 items-center justify-center rounded-[16px] border border-blue-400/30 bg-gradient-to-br from-blue-500/20 via-blue-500/10 to-blue-600/5 text-xs font-bold text-blue-200 shadow-[inset_0_1px_0_rgba(75,139,255,0.4),0_4px_12px_rgba(75,139,255,0.15)]">
       {label.charAt(0).toUpperCase()}
     </div>
   )

@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowLeft, Eye, EyeOff, Plus, Trash2 } from 'lucide-react'
-import { Button, Input, ListItem, PageHeader, SegmentedControl } from '@/components/kit'
+import { ArrowLeft, Eye, EyeOff, Trash2 } from 'lucide-react'
+import { AddIconButton, Button, Input, ListItem, PageHeader, SegmentedControl } from '@/components/kit'
 import { categoriesRepo } from '@/db/repos'
 import type { CategoryType } from '@/db/types'
 
@@ -75,14 +75,10 @@ export default function SettingsCategories() {
         {showForm ? (
           <span className="text-sm font-medium text-muted-foreground">New category</span>
         ) : (
-          <button
-            type="button"
-            aria-label="Add category"
+          <AddIconButton
+            label="Add category"
             onClick={() => setShowForm(true)}
-            className="gloss flex size-10 items-center justify-center rounded-full text-primary-foreground"
-          >
-            <Plus size={21} />
-          </button>
+          />
         )}
       </div>
       <SegmentedControl

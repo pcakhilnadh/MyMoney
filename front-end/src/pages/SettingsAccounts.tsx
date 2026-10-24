@@ -1,12 +1,13 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Eye, EyeOff, Plus } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Button,
   CurrencyInput,
   Input,
   AccountCard,
+  AddIconButton,
   PageHeader,
 } from '@/components/kit'
 import { accountsRepo, transactionsRepo } from '@/db/repos'
@@ -119,17 +120,13 @@ export default function SettingsAccounts() {
           <PageHeader title="Payment Accounts" />
         )}
         {!showForm && (
-          <button
-            type="button"
+          <AddIconButton
+            label="Add payment account"
             onClick={() => {
               resetForm()
               setShowForm(true)
             }}
-            className="flex items-center justify-center gap-2 rounded-lg border border-blue-400/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 hover:border-blue-400/50 hover:bg-blue-500/20 transition"
-          >
-            <Plus size={16} />
-            Add
-          </button>
+          />
         )}
       </div>
 

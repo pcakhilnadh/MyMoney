@@ -1,8 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router-dom'
-import { Plus } from 'lucide-react'
-import { Input, PageHeader, SegmentedControl } from '@/components/kit'
+import { AddIconButton, Input, PageHeader, SegmentedControl } from '@/components/kit'
 import { TransactionList } from '@/components/TransactionList'
 import { transactionsRepo } from '@/db/repos'
 
@@ -68,14 +67,10 @@ export default function Transactions() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <PageHeader title="Transactions" />
-        <button
-          type="button"
-          aria-label="Add transaction"
+        <AddIconButton
+          label="Add transaction"
           onClick={() => navigate('/expenses/new')}
-          className="gloss flex size-10 items-center justify-center rounded-full text-primary-foreground"
-        >
-          <Plus size={21} />
-        </button>
+        />
       </div>
       <Input
         placeholder="Search transactions or merchants"

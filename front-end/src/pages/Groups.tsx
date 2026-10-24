@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Plus } from 'lucide-react'
-import { Button, Card, Input, ListItem, PageHeader, SectionTitle } from '@/components/kit'
+import { ArrowLeft } from 'lucide-react'
+import { AddIconButton, Button, Card, Input, ListItem, PageHeader, SectionTitle } from '@/components/kit'
 import { useAction, useGroups, useInvitations } from '@/groups/hooks'
 import type { Group } from '@/groups/types'
 
@@ -52,14 +52,10 @@ export default function Groups() {
         {showForm ? (
           <span className="text-sm font-medium text-muted-foreground">New group</span>
         ) : (
-          <button
-            type="button"
-            aria-label="Add group"
+          <AddIconButton
+            label="Add group"
             onClick={() => setShowForm(true)}
-            className="gloss flex size-10 items-center justify-center rounded-full text-primary-foreground"
-          >
-            <Plus size={21} />
-          </button>
+          />
         )}
       </div>
       {!showForm && (
