@@ -48,6 +48,12 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   expect(initialAppTabBounds.every(({ width }) => width === initialAppTabBounds[0].width)).toBe(
     true,
   )
+  const foodAppTab = appSelector.getByRole('button', { name: 'MyFood' })
+  await foodAppTab.hover()
+  await expect(foodAppTab).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
+  const personalLink = appSelector.getByRole('link', { name: 'Personal' })
+  await personalLink.hover()
+  await expect(personalLink).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
   await expect(page.locator('[data-app="money"]')).toHaveCSS('--primary', '#4b8bff')
   const moneyAppTab = appSelector.getByRole('button', { name: 'My Money' })
   await expect(moneyAppTab).toHaveClass(/app-connected-surface/)
@@ -105,7 +111,6 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await expect(page).toHaveURL(/\/food\/home$/)
   await expect(page.getByRole('heading', { name: 'MyFood' })).toBeVisible()
   expect(await getAppTabBounds()).toEqual(initialAppTabBounds)
-  const foodAppTab = appSelector.getByRole('button', { name: 'MyFood' })
   await expect(foodAppTab).toHaveClass(/app-connected-surface/)
   await expect(foodAppTab).toHaveCSS('border-radius', '0px')
   await expect(foodAppTab).toHaveCSS('background-image', 'none')
@@ -196,7 +201,6 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await page.goto('/money/home')
   await expect(page.getByRole('link', { name: 'Transactions' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Insights' })).toHaveCount(0)
-  const personalLink = appSelector.getByRole('link', { name: 'Personal' })
   const personalTabBoundsBeforeSelection = await personalLink.evaluate((element) => {
     const { x, width } = element.getBoundingClientRect()
     return { x, width }
@@ -238,11 +242,23 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
     'color',
     'rgb(75, 139, 255)',
   )
+  await expect(page.locator('.personal-theme-money')).toHaveCSS('color', 'rgb(75, 139, 255)')
+  await expect(page.locator('.personal-theme-food')).toHaveCSS('color', 'rgb(57, 201, 138)')
+  await expect(page.locator('.personal-theme-habit')).toHaveCSS('color', 'rgb(237, 41, 57)')
+  await expect(page.locator('.cyber-greeting__pulse')).toHaveCSS(
+    'background-color',
+    'rgb(237, 41, 57)',
+  )
   await expect(page.getByTestId('personal-greeting-emoji')).toHaveText(/🌅|☀️|🌙/)
   await expect(page.getByText('me@gmail.com')).toHaveCount(0)
   await expect(page.getByText(/track money, food, and habits/i)).toBeVisible()
   await expect(page.getByTestId('sync-state')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Active sessions' })).toBeVisible()
+  await expect(page.locator('.cyber-session-count')).toHaveCSS(
+    'color',
+    'rgb(142, 142, 160)',
+  )
+  await expect(page.locator('.cyber-signout')).toHaveCSS('color', 'rgb(237, 41, 57)')
   await expect(page.locator('.personal-fixed-action')).toHaveCSS('position', 'fixed')
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'My Money Settings' })).toHaveCount(0)

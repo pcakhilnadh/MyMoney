@@ -39,6 +39,9 @@
   color-scheme: dark;
   --radius: 1rem;
   --app-glow: rgba(124, 108, 255, 0.18);
+  --money-primary: #4b8bff;
+  --food-primary: #39c98a;
+  --habit-primary: #ed2939;
   --background: #0a0a0f;
   --foreground: #f4f4f8;
   --card: #15151c;
@@ -61,7 +64,7 @@
 }
 
 [data-app='money'] {
-  --primary: #4b8bff;
+  --primary: var(--money-primary);
   --primary-foreground: #ffffff;
   --ring: #4b8bff;
   --app-glow: rgba(75, 139, 255, 0.2);
@@ -69,7 +72,7 @@
 }
 
 [data-app='food'] {
-  --primary: #39c98a;
+  --primary: var(--food-primary);
   --primary-foreground: #07150e;
   --positive: #72e7ad;
   --ring: #39c98a;
@@ -78,7 +81,7 @@
 }
 
 [data-app='habit'] {
-  --primary: #ed2939;
+  --primary: var(--habit-primary);
   --primary-foreground: #ffffff;
   --positive: #ff8b94;
   --ring: #ed2939;
@@ -286,20 +289,20 @@
   /* Neon cyberpunk greeting banner with clipped corners and animated scanline. */
   .cyber-greeting {
     --neon-cyan: var(--primary);
-    --neon-pink: var(--positive);
+    --neon-pink: var(--habit-primary);
     position: relative;
     isolation: isolate;
     overflow: hidden;
     padding: 1.25rem 1.25rem 1.1rem;
     background:
       linear-gradient(135deg, color-mix(in srgb, var(--primary) 12%, transparent), transparent 45%),
-      linear-gradient(315deg, color-mix(in srgb, var(--positive) 16%, transparent), transparent 50%),
+      linear-gradient(315deg, color-mix(in srgb, var(--habit-primary) 16%, transparent), transparent 50%),
       #07070d;
     border: 1px solid color-mix(in srgb, var(--neon-cyan) 55%, transparent);
     clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 22px 100%, 0 calc(100% - 22px));
     box-shadow:
       inset 0 0 28px color-mix(in srgb, var(--primary) 12%, transparent),
-      inset 0 0 0 1px color-mix(in srgb, var(--positive) 15%, transparent);
+      inset 0 0 0 1px color-mix(in srgb, var(--habit-primary) 15%, transparent);
     animation: cyber-enter 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
   .cyber-greeting::before,
@@ -397,6 +400,15 @@
     font-weight: 600;
     letter-spacing: 0.04em;
   }
+  .personal-theme-money {
+    color: var(--money-primary);
+  }
+  .personal-theme-food {
+    color: var(--food-primary);
+  }
+  .personal-theme-habit {
+    color: var(--habit-primary);
+  }
   .cyber-panel {
     border: 1px solid color-mix(in srgb, var(--primary) 13%, transparent);
     border-radius: 1.125rem;
@@ -425,8 +437,8 @@
     white-space: nowrap;
   }
   .cyber-status--idle {
-    color: var(--positive);
-    background: color-mix(in srgb, var(--positive) 8%, transparent);
+    color: var(--muted-foreground);
+    background: color-mix(in srgb, var(--muted-foreground) 8%, transparent);
   }
   .cyber-status--syncing {
     color: var(--primary);
@@ -487,9 +499,9 @@
     min-width: 1.5rem;
     height: 1.5rem;
     place-items: center;
-    border: 1px solid color-mix(in srgb, var(--positive) 28%, transparent);
-    background: color-mix(in srgb, var(--positive) 8%, transparent);
-    color: var(--positive);
+    border: 1px solid var(--border);
+    background: var(--muted);
+    color: var(--muted-foreground);
     font-size: 0.7rem;
     font-weight: 700;
   }
@@ -504,19 +516,6 @@
     background: linear-gradient(180deg, rgba(16, 19, 26, 0.88), #10131a 45%);
     backdrop-filter: blur(16px);
     -webkit-backdrop-filter: blur(16px);
-  }
-  .cyber-signout {
-    min-height: 2.75rem;
-    justify-content: center;
-    border-color: color-mix(in srgb, var(--destructive) 28%, transparent);
-    background: color-mix(in srgb, var(--destructive) 7%, transparent);
-    color: color-mix(in srgb, var(--destructive) 78%, white);
-    letter-spacing: 0.04em;
-  }
-  button.cyber-signout:hover {
-    border-color: color-mix(in srgb, var(--destructive) 55%, transparent);
-    background: color-mix(in srgb, var(--destructive) 13%, transparent);
-    color: color-mix(in srgb, var(--destructive) 55%, white);
   }
   @keyframes cyber-enter {
     from {
@@ -584,4 +583,18 @@
     font-variant-numeric: tabular-nums;
     letter-spacing: -0.02em;
   }
+}
+
+.cyber-signout {
+  min-height: 2.75rem;
+  justify-content: center;
+  border-color: color-mix(in srgb, var(--habit-primary) 28%, transparent);
+  background-color: color-mix(in srgb, var(--habit-primary) 7%, transparent);
+  color: var(--habit-primary);
+  letter-spacing: 0.04em;
+}
+button.cyber-signout:hover:not(:disabled) {
+  border-color: color-mix(in srgb, var(--habit-primary) 55%, transparent);
+  background-color: color-mix(in srgb, var(--habit-primary) 13%, transparent);
+  color: var(--habit-primary);
 }

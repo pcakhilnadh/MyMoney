@@ -6,7 +6,7 @@ import { Button, Card, SectionTitle } from '@/components/kit'
 import { cachedAuthSessions, useSync } from '@/sync/SyncProvider'
 
 const STATE = {
-  idle: { label: 'Up to date', dot: 'bg-positive' },
+  idle: { label: 'Up to date', dot: 'bg-muted-foreground' },
   syncing: { label: 'Syncing…', dot: 'bg-primary animate-pulse' },
   offline: { label: 'Offline', dot: 'bg-muted-foreground' },
   error: { label: 'Error', dot: 'bg-destructive' },
@@ -109,9 +109,9 @@ export default function Personal() {
             {firstName ? `${firstName}!` : 'Welcome back!'}
           </h1>
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/70">
-            Your personal hub to track <span className="text-primary">money</span>,{' '}
-            <span className="text-positive">food</span>, and{' '}
-            <span className="text-primary">habits</span> — all in one place.
+            Your personal hub to track <span className="personal-theme-money">money</span>,{' '}
+            <span className="personal-theme-food">food</span>, and{' '}
+            <span className="personal-theme-habit">habits</span> — all in one place.
           </p>
           <div className="mt-4 flex flex-wrap gap-2" role="list" aria-label="Things you can track">
             <span className="cyber-feature" role="listitem">

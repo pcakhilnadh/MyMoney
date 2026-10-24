@@ -85,7 +85,7 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
                   ? `app-connected-surface app-selector-tab-active h-16 self-stretch text-primary ${
                       id === 'money' ? 'app-selector-tab-active--edge' : ''
                     }`
-                  : `rounded-xl ${appTheme} hover:bg-muted/50`
+                  : `rounded-xl ${appTheme}`
               }`}
             >
               <Icon size={16} aria-hidden="true" />
@@ -100,7 +100,7 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
           className={`flex items-center justify-center text-muted-foreground transition-colors ${
             isPersonal
               ? 'personal-selector-tab-active h-16 w-10 bg-card hover:bg-card'
-              : 'size-10 rounded-xl hover:bg-muted/50'
+              : 'size-10 rounded-xl'
           }`}
         >
           {picture && picture !== failedPicture ? (
