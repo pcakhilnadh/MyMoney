@@ -77,6 +77,26 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     let active = true
     const restore = async () => {
+      const user = cachedUser()
+      if (user) {
+        if (active) {
+          setSession({ token: '', user })
+          setReady(true)
+        }
+        try {
+          const auth = await refreshSession()
+          if (active) acceptSession(auth)
+        } catch (error) {
+          if (error instanceof ApiError && error.status === 401) {
+            clearStoredUser()
+            if (active) setSession(null)
+          } else {
+            console.error('Unable to refresh the cached app session; continuing with local data', error)
+          }
+        }
+        return
+      }
+
       try {
         let refreshError: unknown
         try {
@@ -119,10 +139,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
           }
         }
 
-        if (!(refreshError instanceof ApiError && refreshError.status === 401)) {
-          const user = cachedUser()
-          if (active && user) setSession({ token: '', user })
-        } else {
+        if (refreshError instanceof ApiError && refreshError.status === 401) {
           clearStoredUser()
         }
       } finally {

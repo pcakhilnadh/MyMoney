@@ -1,7 +1,7 @@
 # MyTracker
 
 An installable personal tracker for money, with MyFood and MyHabbit screens ready to be rebuilt.
-Data is stored locally first (works offline) and syncs to the server when online.
+For a previously signed-in account, cached local data opens immediately, including offline. Changes are queued locally and sync to the server when the connection returns.
 
 - **Front-end:** React + TypeScript + Vite, Tailwind CSS 4, shadcn/ui, TanStack Query, Dexie (IndexedDB), vite-plugin-pwa
 - **Back-end:** FastAPI, SQLAlchemy 2, Alembic, Supabase PostgreSQL (used as a managed database only)

@@ -11,5 +11,5 @@ test('installable and reloads offline from the service worker', async ({ page, c
   await page.reload() // let the SW take control
   await context.setOffline(true)
   await page.reload()
-  await expect(page.getByText('Spent this month')).toBeVisible()
+  await expect(page.getByText('Spent this month')).toBeVisible({ timeout: 3000 })
 })

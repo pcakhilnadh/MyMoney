@@ -30,7 +30,6 @@ export interface SyncStatus {
   state: 'idle' | 'syncing' | 'offline' | 'error'
   pending: number
   lastSyncedAt: string | null
-  initialSyncDone: boolean
   error: string | null
   syncNow: () => Promise<void>
 }
@@ -44,17 +43,17 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [last, setLast] = useState<string | null>(null)
-  const [initialSyncFor, setInitialSyncFor] = useState<string | null>(null)
   const running = useRef(false)
   const again = useRef(false)
 
   const syncNow = useCallback(async () => {
-    if (!token || !sub) return
+    if (!sub) return
     if (!navigator.onLine) {
       setState('offline')
       setPending(await countPending())
       return
     }
+    if (!token) return
     if (running.current) {
       again.current = true
       return
@@ -72,7 +71,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setError(null)
       setState('idle')
       setLast(localStorage.getItem(lastSyncKey(sub)))
-      setInitialSyncFor(sub)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sync failed')
       setState('error')
@@ -113,11 +111,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       state,
       pending,
       lastSyncedAt: last,
-      initialSyncDone: sub !== null && initialSyncFor === sub,
       error,
       syncNow,
     }),
-    [state, pending, last, initialSyncFor, sub, error, syncNow],
+    [state, pending, last, error, syncNow],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

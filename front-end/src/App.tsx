@@ -12,7 +12,7 @@ import Login from './pages/Login'
 import Transactions from './pages/Transactions'
 import TransactionDetail from './pages/TransactionDetail'
 import Personal from './pages/Personal'
-import Welcome, { SyncGate } from './pages/Welcome'
+import Welcome, { BreathingScreen } from './pages/Welcome'
 import Settings from './pages/Settings'
 import CurrencySettings from './pages/CurrencySettings'
 import Layout from './components/Layout'
@@ -24,13 +24,9 @@ import { CurrencyProvider } from './money/CurrencyContext'
 
 function Protected() {
   const { user, ready } = useAuth()
-  if (ready && !user) return <Navigate to="/login" replace />
-  // One stable tree from session restore through sync keeps the breathing animation uninterrupted.
-  return (
-    <SyncGate authReady={ready}>
-      <Outlet />
-    </SyncGate>
-  )
+  if (!ready) return <BreathingScreen />
+  if (!user) return <Navigate to="/login" replace />
+  return <Outlet />
 }
 
 function LegacyMoneyRedirect() {

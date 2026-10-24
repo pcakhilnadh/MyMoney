@@ -1,65 +1,10 @@
-import { useEffect, useState } from 'react'
-import { Navigate, useNavigate } from 'react-router-dom'
-import type { NavigateFunction } from 'react-router-dom'
-import type { ReactNode } from 'react'
+import { Navigate } from 'react-router-dom'
 import { useAuth } from '@/auth/AuthContext'
 import { cachedUser } from '@/auth/storage'
-import { useSync } from '@/sync/SyncProvider'
 
-const MIN_VISIBLE_MS = 3000
-const OFFLINE_FALLBACK_MS = 20000
-
-// Post-login landing; SyncGate has already waited for the initial sync by the time this renders.
+// Keep the old post-login URL working without blocking entry on a network sync.
 export default function Welcome() {
   return <Navigate to="/money/home" replace />
-}
-
-// Holds signed-in routes behind the breathing screen until the first sync succeeds.
-// If it can't (offline / server unreachable), the app opens on local data after
-// OFFLINE_FALLBACK_MS and SyncProvider syncs once the connection is back.
-export function SyncGate({
-  authReady,
-  children,
-}: {
-  authReady: boolean
-  children: ReactNode
-}) {
-  const { initialSyncDone } = useSync()
-  const navigate = useNavigate()
-  const [minElapsed, setMinElapsed] = useState(false)
-  const [timedOut, setTimedOut] = useState(false)
-  const [landed, setLanded] = useState(false)
-
-  useEffect(() => {
-    const minTimer = setTimeout(() => setMinElapsed(true), MIN_VISIBLE_MS)
-    const fallbackTimer = setTimeout(() => setTimedOut(true), OFFLINE_FALLBACK_MS)
-    return () => {
-      clearTimeout(minTimer)
-      clearTimeout(fallbackTimer)
-    }
-  }, [])
-
-  if (authReady && ((initialSyncDone && minElapsed) || timedOut)) {
-    if (!landed) return <LandHome onLand={() => setLanded(true)} navigate={navigate} />
-    return <>{children}</>
-  }
-
-  return <BreathingScreen />
-}
-
-// The welcome screen always hands over to /money/home, whatever URL the app was opened on.
-function LandHome({
-  onLand,
-  navigate,
-}: {
-  onLand: () => void
-  navigate: NavigateFunction
-}) {
-  useEffect(() => {
-    navigate('/money/home', { replace: true })
-    onLand()
-  }, [navigate, onLand])
-  return <BreathingScreen />
 }
 
 export function BreathingScreen() {
