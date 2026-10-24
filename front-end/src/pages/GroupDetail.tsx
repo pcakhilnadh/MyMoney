@@ -61,7 +61,7 @@ export default function GroupDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to="/groups" className="text-sm text-primary">
+      <Link to="/money/groups" className="text-sm text-primary">
         ← Groups
       </Link>
       <PageHeader title={group?.name ?? 'Group'} />
@@ -78,7 +78,7 @@ export default function GroupDetail() {
                   onSuccess: async () => {
                     await db.groups.delete(groupId)
                     await sync.syncNow()
-                    navigate('/groups')
+                    navigate('/money/groups')
                   },
                 },
               )
@@ -104,7 +104,7 @@ export default function GroupDetail() {
           </div>
         </div>
       </Card>
-      <Link to={`/expenses/new?groupId=${groupId}`}>
+      <Link to={`/money/expenses/new?groupId=${groupId}`}>
         <Button className="w-full">Add Expense</Button>
       </Link>
       <SegmentedControl options={[...TABS]} value={tab} onChange={setTab} />
@@ -209,7 +209,7 @@ export default function GroupDetail() {
                         onSuccess: async () => {
                           await db.groups.delete(groupId)
                           await sync.syncNow()
-                          navigate('/groups')
+                          navigate('/money/groups')
                         },
                       },
                     )

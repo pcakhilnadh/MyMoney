@@ -100,7 +100,7 @@ export default function Groups() {
             <p className="py-4 text-center text-muted-foreground">No groups yet</p>
           )}
           {groups.map((g) => (
-            <Link key={g.id} to={`/groups/${g.id}`} className="block">
+            <Link key={g.id} to={`/money/groups/${g.id}`} className="block">
               <ListItem title={g.name} subtitle={g.group_type} />
             </Link>
           ))}

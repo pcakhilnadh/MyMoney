@@ -2,7 +2,7 @@ import { expect, test } from '@playwright/test'
 import { fakeSignIn } from './helpers'
 
 test('signed-out users are sent to login', async ({ page }) => {
-  await page.goto('/home')
+  await page.goto('/money/home')
   await expect(page).toHaveURL(/\/login/)
   await expect(page).toHaveTitle('MyTracker')
   await expect(page.getByText('MyTracker')).toBeVisible()
@@ -15,7 +15,8 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await page.route('**/auth/refresh', (route) => route.abort())
   await page.route('**/auth/login', (route) => route.abort())
   await fakeSignIn(page)
-  await page.goto('/home')
+  await page.goto('/money')
+  await expect(page).toHaveURL(/\/money\/home/)
   const appSelector = page.getByRole('group', { name: 'App selector' })
   await expect(appSelector.getByRole('button', { name: 'My Money' })).toHaveAttribute(
     'aria-pressed',
@@ -61,11 +62,10 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
     'color',
     'rgb(75, 139, 255)',
   )
-  await page.goto('/transactions')
+  await page.goto('/money/transactions')
   await appSelector.getByRole('button', { name: 'MyFood' }).click()
-  await expect(page).toHaveURL(/\/home/)
-  await expect(page.getByRole('heading', { name: 'Home' })).toBeVisible()
-  await expect(page.getByText('Coming Soon')).toBeVisible()
+  await expect(page).toHaveURL(/\/food/)
+  await expect(page.getByText('Current streak')).toBeVisible()
   await expect(page.locator('[data-app="food"]')).toHaveCSS('background-image', /50vh/)
   await expect(
     page.getByRole('navigation', { name: 'MyFood navigation' }).locator('svg').first(),
@@ -75,15 +75,15 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   ).toHaveCSS('color', 'rgb(57, 201, 138)')
   await expect(
     page.getByRole('navigation', { name: 'MyFood navigation' }).getByText('Home'),
-  ).toBeDisabled()
+  ).toBeVisible()
   await expect(page.locator('[data-app="food"]')).toHaveCSS('--primary', '#39c98a')
   await page.reload()
-  await expect(appSelector.getByRole('button', { name: 'My Money' })).toHaveAttribute(
+  await expect(appSelector.getByRole('button', { name: 'MyFood' })).toHaveAttribute(
     'aria-pressed',
     'true',
   )
   await appSelector.getByRole('button', { name: 'MyHabbit' }).click()
-  await expect(page).toHaveURL(/\/home/)
+  await expect(page).toHaveURL(/\/habits/)
   await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible()
   await expect(page.locator('[data-app="habit"]')).toHaveCSS('background-image', /50vh/)
   await expect(
@@ -97,10 +97,11 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   ).toBeDisabled()
   await expect(page.locator('[data-app="habit"]')).toHaveCSS('--primary', '#ed2939')
   await appSelector.getByRole('button', { name: 'My Money' }).click()
+  await expect(page).toHaveURL(/\/money\/home/)
   await page.getByRole('link', { name: 'View budgets' }).click()
-  await expect(page).toHaveURL(/\/budgets/)
+  await expect(page).toHaveURL(/\/money\/budgets/)
   await expect(page.getByRole('heading', { name: 'Budgets' })).toBeVisible()
-  await page.goto('/home')
+  await page.goto('/money/home')
   await expect(page.getByRole('link', { name: 'Transactions' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Insights' })).toHaveCount(0)
   const personalLink = appSelector.getByRole('link', { name: 'Personal' })
@@ -118,11 +119,11 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'My Money Settings' })).toHaveCount(0)
   await appSelector.getByRole('button', { name: 'My Money' }).click()
-  await expect(page).toHaveURL(/\/home/)
+  await expect(page).toHaveURL(/\/money\/home/)
   await expect(page.getByText('Test User')).toHaveCount(0)
   await expect(page.locator('.hero')).toHaveText(/Spent this month/)
   await page.getByRole('link', { name: 'Settings' }).click()
-  await expect(page).toHaveURL(/\/settings/)
+  await expect(page).toHaveURL(/\/money\/settings/)
   await expect(page.getByRole('heading', { name: 'My Money Settings' })).toHaveCount(1)
   await expect(page.getByRole('link', { name: 'Payment Account' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Categories' })).toBeVisible()
@@ -134,4 +135,20 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await appSelector.getByRole('link', { name: 'Personal' }).click()
   await page.getByRole('button', { name: 'Sign out' }).click()
   await expect(page).toHaveURL(/\/login/)
+})
+
+test('legacy /home URL redirects to the MyMoney route', async ({ page }) => {
+  await page.route('**/auth/refresh', (route) => route.abort())
+  await page.route('**/auth/login', (route) => route.abort())
+  await fakeSignIn(page)
+  await page.goto('/home')
+  await expect(page).toHaveURL(/\/money\/home/)
+  await expect(page.getByText('Spent this month')).toBeVisible()
+
+  await page.goto('/transactions?filter=recent#latest')
+  await expect(page).toHaveURL(/\/money\/transactions\?filter=recent#latest$/)
+
+  await page.goto('/settings/accounts')
+  await expect(page).toHaveURL(/\/money\/settings\/accounts/)
+  await expect(page.getByRole('heading', { name: 'Payment Account' })).toBeVisible()
 })

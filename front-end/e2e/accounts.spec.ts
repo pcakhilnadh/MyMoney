@@ -3,7 +3,7 @@ import { fakeSignIn } from './helpers'
 
 test('credit card limit and opening balances', async ({ page }) => {
   await fakeSignIn(page, { sub: 'acc-user', email: 'acc@gmail.com', name: 'Acc User' })
-  await page.goto('/settings/accounts')
+  await page.goto('/money/settings/accounts')
 
   await expect(page.getByRole('heading', { name: 'Payment Account' })).toBeVisible()
   await page.getByRole('button', { name: 'Add payment account' }).click()

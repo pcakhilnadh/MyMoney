@@ -1,4 +1,3 @@
-import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   Activity,
@@ -15,10 +14,10 @@ import {
 } from 'lucide-react'
 
 const tabs = [
-  { to: '/home', label: 'Home', Icon: House },
-  { to: '/transactions', label: 'Transactions', Icon: Receipt },
-  { to: '/groups', label: 'Groups', Icon: Users },
-  { to: '/settings', label: 'Settings', Icon: SettingsIcon },
+  { to: '/money/home', label: 'Home', Icon: House },
+  { to: '/money/transactions', label: 'Transactions', Icon: Receipt },
+  { to: '/money/groups', label: 'Groups', Icon: Users },
+  { to: '/money/settings', label: 'Settings', Icon: SettingsIcon },
 ]
 
 const foodTabs = [
@@ -40,10 +39,10 @@ const habitTabs = [
   { label: 'Progress', Icon: Activity },
 ]
 
-export default function Layout() {
+export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'shared' }) {
   const { pathname } = useLocation()
   const navigate = useNavigate()
-  const [selectedApp, setSelectedApp] = useState<'money' | 'food' | 'habit' | null>('money')
+  const selectedApp = app === 'shared' ? null : app
   const comingSoon = selectedApp === 'habit'
   const appInfo = apps.find((app) => app.id === selectedApp) ?? apps[0]
   const navigationItems =
@@ -63,10 +62,9 @@ export default function Layout() {
               key={label}
               type="button"
               aria-pressed={selected}
-              onClick={() => {
-                setSelectedApp(id)
-                navigate(id === 'money' ? '/home' : id === 'food' ? '/food' : '/home')
-              }}
+              onClick={() =>
+                navigate(id === 'money' ? '/money/home' : id === 'food' ? '/food' : '/habits')
+              }
               className={`flex min-w-0 items-center justify-center gap-1.5 rounded-xl px-1.5 py-2 text-xs font-semibold transition-colors ${
                 selected ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted/50'
               }`}
@@ -80,7 +78,6 @@ export default function Layout() {
           to="/personal"
           aria-label="Personal"
           aria-current={pathname === '/personal' ? 'page' : undefined}
-          onClick={() => setSelectedApp(null)}
           className={`flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted/50 ${
             pathname === '/personal' ? 'bg-muted/50' : ''
           }`}
@@ -89,25 +86,7 @@ export default function Layout() {
         </Link>
       </div>
       <main className="space-y-5 px-5 pt-2">
-        {comingSoon ? (
-          <section
-            aria-labelledby="coming-soon-title"
-            className="flex min-h-[55vh] flex-col items-center justify-center text-center"
-          >
-            <div className="mb-5 flex size-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
-              <appInfo.Icon size={30} aria-hidden="true" />
-            </div>
-            <h1 id="coming-soon-title" className="text-2xl font-bold">
-              {selectedApp === 'habit' ? 'Today' : 'Home'}
-            </h1>
-            <p className="mt-2 text-sm font-medium text-primary">Coming Soon</p>
-            <p className="mt-2 max-w-xs text-sm text-muted-foreground">
-              {selectedApp === 'habit' ? 'Track the habits you do.' : 'More apps coming soon.'}
-            </p>
-          </section>
-        ) : (
-          <Outlet />
-        )}
+        <Outlet />
       </main>
       {pathname === '/personal' ? null : comingSoon ? (
         <nav
@@ -173,9 +152,9 @@ export default function Layout() {
             </NavLink>
           ))}
           <Link
-            to="/expenses/new"
+            to="/money/expenses/new"
             aria-label="Add expense"
-            className={`gloss flex size-12 shrink-0 items-center justify-center rounded-full text-primary-foreground shadow-lg transition-transform active:scale-95 ${pathname === '/expenses/new' ? 'ring-2 ring-white/70' : ''}`}
+            className={`gloss flex size-12 shrink-0 items-center justify-center rounded-full text-primary-foreground shadow-lg transition-transform active:scale-95 ${pathname === '/money/expenses/new' ? 'ring-2 ring-white/70' : ''}`}
           >
             <Plus size={23} strokeWidth={2.5} />
           </Link>

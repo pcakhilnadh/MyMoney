@@ -64,7 +64,7 @@ export function TransactionList({ transactions }: { transactions: Transaction[] 
                     type="button"
                     aria-label={`${kind.label}: ${transaction.title}, ${formatMinor(transaction.amount_minor)}`}
                     onClick={() =>
-                      navigate(`/transactions/${transaction.id}`, {
+                      navigate(`/money/transactions/${transaction.id}`, {
                         state: { from: pathname },
                       })
                     }

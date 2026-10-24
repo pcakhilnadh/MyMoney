@@ -255,7 +255,7 @@ export default function SettingsAccounts() {
                     return (
                       <Link
                         key={account.id}
-                        to={`/accounts/${account.id}`}
+                        to={`/money/accounts/${account.id}`}
                         className="block"
                       >
                         <AccountCard

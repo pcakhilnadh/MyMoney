@@ -154,7 +154,6 @@ export function isoDate(date = new Date()): string {
 }
 
 export async function getEntries(): Promise<FoodEntry[]> {
-  await migrateLegacyFoodStorage()
   return foodEntriesRepo.list()
 }
 
@@ -222,7 +221,6 @@ export function longestStreak(entries: FoodEntry[]): number {
 }
 
 export async function getFoodLibrary(): Promise<string[]> {
-  await migrateLegacyFoodStorage()
   const customFoods = await foodLibraryRepo.list()
   return [
     ...new Set([

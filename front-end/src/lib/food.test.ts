@@ -1,4 +1,5 @@
 import 'fake-indexeddb/auto'
+import { liveQuery } from 'dexie'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { db } from '@/db/db'
 import {
@@ -72,6 +73,43 @@ describe('food local-first storage', () => {
       JSON.stringify({ unexpected: 'object' }),
     )
     expect(await db.food_entries.toArray()).toEqual([])
+  })
+
+  it('updates a read-only live query after legacy migration runs separately', async () => {
+    localStorage.setItem(
+      'myfood.entries.v1',
+      JSON.stringify([
+        {
+          id: 'live-query-entry',
+          date: '2026-10-24',
+          meal: 'breakfast',
+          name: 'Oatmeal',
+          quantity: 1,
+          unit: 'serving',
+        },
+      ]),
+    )
+    let resolveEntries!: (entries: Awaited<ReturnType<typeof getEntries>>) => void
+    let rejectEntries!: (error: unknown) => void
+    const entriesPromise = new Promise<Awaited<ReturnType<typeof getEntries>>>((resolve, reject) => {
+      resolveEntries = resolve
+      rejectEntries = reject
+    })
+    const subscription = liveQuery(() => getEntries()).subscribe({
+      next: (entries) => {
+        if (entries.length > 0) resolveEntries(entries)
+      },
+      error: rejectEntries,
+    })
+
+    try {
+      await migrateLegacyFoodStorage()
+      const entries = await entriesPromise
+      expect(entries[0]?.id).toBe('live-query-entry')
+      expect(localStorage.getItem('myfood.entries.v1')).toBeNull()
+    } finally {
+      subscription.unsubscribe()
+    }
   })
 
   it('computes meal and tracked-date views from the local records', async () => {

@@ -50,15 +50,15 @@ export default function TransactionDetail() {
     'from' in location.state &&
     typeof location.state.from === 'string'
       ? location.state.from
-      : '/transactions'
+    : '/money/transactions'
   const returnTo =
-    origin.startsWith('/accounts/') || origin.startsWith('/budgets/categories/')
+    origin.startsWith('/money/accounts/') || origin.startsWith('/money/budgets/categories/')
       ? origin
-      : '/transactions'
+    : '/money/transactions'
   const returnLabel =
-    returnTo === '/transactions'
+    returnTo === '/money/transactions'
       ? '← Transactions'
-      : returnTo.startsWith('/budgets/categories/')
+    : returnTo.startsWith('/money/budgets/categories/')
         ? '← Category'
         : '← Account'
   const transaction = useLiveQuery(() => transactionsRepo.get(transactionId), [transactionId])

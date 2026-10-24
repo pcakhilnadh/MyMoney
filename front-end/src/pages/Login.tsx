@@ -11,7 +11,7 @@ export default function Login() {
         Restoring your session…
       </div>
     )
-  if (user) return <Navigate to="/home" replace />
+  if (user) return <Navigate to="/money/home" replace />
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-between px-8 py-14">
       <div className="flex items-center gap-3">

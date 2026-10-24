@@ -5,7 +5,7 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await page.route('**/auth/refresh', (route) => route.abort())
   await page.route('**/auth/login', (route) => route.abort())
   await fakeSignIn(page)
-  await page.goto('/home')
+  await page.goto('/money/home')
   await expect(page.getByText('Spent this month')).toBeVisible()
   await context.setOffline(true) // local-first: no network needed from here
 
@@ -26,7 +26,7 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await expect(page.getByRole('button', { name: 'Save Expense' })).toBeEnabled()
   await page.getByRole('button', { name: 'Save Expense' }).click()
 
-  await expect(page).toHaveURL(/\/transactions/)
+  await expect(page).toHaveURL(/\/money\/transactions/)
   await expect(page.getByText('Lunch', { exact: true })).toBeVisible()
   await page.getByRole('button', { name: /Expense: Lunch/ }).click()
   await expect(page.getByText('Amazon')).toBeVisible()
@@ -34,7 +34,7 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await expect(page.getByText('₹250.50')).toBeVisible()
   await page.getByRole('link', { name: '← Transactions' }).click()
   await page.getByRole('button', { name: 'Add transaction' }).click()
-  await expect(page).toHaveURL(/\/expenses\/new/)
+  await expect(page).toHaveURL(/\/money\/expenses\/new/)
   await expect(page.locator('#saved-merchants option')).toHaveAttribute('value', 'Amazon')
   await page.goBack()
   await page.getByPlaceholder('Search transactions or merchants').fill('zzz')
@@ -98,7 +98,7 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await page.route('**/auth/refresh', (route) => route.abort())
   await page.route('**/auth/login', (route) => route.abort())
   await fakeSignIn(page)
-  await page.goto('/home')
+  await page.goto('/money/home')
   await context.setOffline(true)
 
   await page.getByRole('link', { name: 'Add expense' }).click()

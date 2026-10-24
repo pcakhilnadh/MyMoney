@@ -48,7 +48,7 @@ export default function BudgetCategoryDetail() {
   if (category === undefined || budgets === undefined || transactions === undefined)
     return (
       <div className="space-y-4">
-        <Link to="/budgets" className="text-sm text-primary">
+        <Link to="/money/budgets" className="text-sm text-primary">
           ← Budgets
         </Link>
         <p className="text-muted-foreground">Loading category…</p>
@@ -64,7 +64,7 @@ export default function BudgetCategoryDetail() {
   if (!categoryName)
     return (
       <div className="space-y-4">
-        <Link to="/budgets" className="text-sm text-primary">
+        <Link to="/money/budgets" className="text-sm text-primary">
           ← Budgets
         </Link>
         <p className="text-muted-foreground">Category not found.</p>
@@ -156,7 +156,7 @@ export default function BudgetCategoryDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to="/budgets" className="text-sm text-primary">
+      <Link to="/money/budgets" className="text-sm text-primary">
         ← Budgets
       </Link>
       <PageHeader title={categoryName} subtitle="Category Breakdown" />

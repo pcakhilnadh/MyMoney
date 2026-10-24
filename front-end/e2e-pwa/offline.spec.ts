@@ -3,7 +3,7 @@ import { fakeSignIn } from '../e2e/helpers'
 
 test('installable and reloads offline from the service worker', async ({ page, context }) => {
   await fakeSignIn(page)
-  await page.goto('/home')
+  await page.goto('/money/home')
   await page.evaluate(() => navigator.serviceWorker.ready)
   const manifest = await (await page.request.get('/manifest.webmanifest')).json()
   expect(manifest.display).toBe('standalone')

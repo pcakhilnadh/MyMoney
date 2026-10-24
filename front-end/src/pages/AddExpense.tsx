@@ -233,7 +233,7 @@ export default function AddExpense() {
       is_shared: false,
       split_method: null,
     })
-    nav('/transactions')
+    nav('/money/transactions')
   }
 
   function saveShared(method: string, splits: object[]) {
@@ -254,7 +254,7 @@ export default function AddExpense() {
         split_method: method,
         splits,
       },
-      { onSuccess: () => nav(`/groups/${groupId}`) },
+      { onSuccess: () => nav(`/money/groups/${groupId}`) },
     )
   }
 
@@ -346,7 +346,7 @@ export default function AddExpense() {
         ) : (
           <p className="mt-2 text-sm text-muted-foreground">
             Add an account before creating a transaction.{' '}
-            <Link to="/settings/accounts" className="text-primary underline">
+            <Link to="/money/settings/accounts" className="text-primary underline">
               Add account
             </Link>
           </p>

@@ -3,9 +3,9 @@ import { ChevronRight, CreditCard, PiggyBank, Tags } from 'lucide-react'
 import { SectionTitle } from '@/components/kit'
 
 const MENU = [
-  { to: '/settings/accounts', label: 'Payment Account', Icon: CreditCard },
-  { to: '/settings/categories', label: 'Categories', Icon: Tags },
-  { to: '/budgets', label: 'Budgets', Icon: PiggyBank },
+  { to: '/money/settings/accounts', label: 'Payment Account', Icon: CreditCard },
+  { to: '/money/settings/categories', label: 'Categories', Icon: Tags },
+  { to: '/money/budgets', label: 'Budgets', Icon: PiggyBank },
 ]
 
 export default function Settings() {

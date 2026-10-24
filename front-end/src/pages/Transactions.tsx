@@ -69,7 +69,7 @@ export default function Transactions() {
         <PageHeader title="Transactions" />
         <AddIconButton
           label="Add transaction"
-          onClick={() => navigate('/expenses/new')}
+          onClick={() => navigate('/money/expenses/new')}
         />
       </div>
       <Input

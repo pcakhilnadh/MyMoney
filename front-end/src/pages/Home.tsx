@@ -41,7 +41,7 @@ export default function Home() {
         data={monthlySeries(txs, month).map((p) => ({ ...p, value: p.value / 100 }))}
       />
       <Link
-        to="/budgets"
+        to="/money/budgets"
         className="surface flex items-center gap-3 rounded-2xl px-4 py-3.5 font-medium"
       >
         <span className="flex size-9 items-center justify-center rounded-xl bg-secondary text-primary">

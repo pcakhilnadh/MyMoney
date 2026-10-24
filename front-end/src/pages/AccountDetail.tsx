@@ -59,7 +59,7 @@ export default function AccountDetail() {
   if (account === undefined)
     return (
       <div className="space-y-4">
-        <Link to="/settings/accounts" className="text-sm text-primary">
+        <Link to="/money/settings/accounts" className="text-sm text-primary">
           ← Payment Account
         </Link>
         <p className="text-muted-foreground">Loading account…</p>
@@ -69,7 +69,7 @@ export default function AccountDetail() {
   if (!account)
     return (
       <div className="space-y-4">
-        <Link to="/settings/accounts" className="text-sm text-primary">
+        <Link to="/money/settings/accounts" className="text-sm text-primary">
           ← Payment Account
         </Link>
         <p className="text-muted-foreground">Account not found.</p>
@@ -140,12 +140,12 @@ export default function AccountDetail() {
       if (replacement) await accountsRepo.update(replacement.id, { is_default: true })
     }
     await accountsRepo.remove(account.id)
-    navigate('/settings/accounts', { replace: true })
+    navigate('/money/settings/accounts', { replace: true })
   }
 
   return (
     <div className="space-y-4">
-      <Link to="/settings/accounts" className="text-sm text-primary">
+      <Link to="/money/settings/accounts" className="text-sm text-primary">
         ← Payment Account
       </Link>
       <div className="flex items-start justify-between gap-3">

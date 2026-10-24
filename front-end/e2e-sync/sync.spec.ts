@@ -8,7 +8,7 @@ test('local expense reaches the server, and a fresh device pulls it back', async
   browser,
 }) => {
   await fakeSignIn(page)
-  await page.goto('/home')
+  await page.goto('/money/home')
   // signing in registers the profile; sync pushes seed data and later the expense
   await page.getByRole('link', { name: 'Add expense' }).click()
   await page.getByRole('link', { name: 'Add account' }).click()

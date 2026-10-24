@@ -149,7 +149,7 @@ export default function Budgets() {
     const progress = Math.min(Math.max((used / b.amount_minor) * 100, 0), 100)
     const overBudget = used > b.amount_minor
     const remaining = Math.max(b.amount_minor - used, 0)
-    const categoryPath = categoryId ? `/budgets/categories/${categoryId}` : null
+    const categoryPath = categoryId ? `/money/budgets/categories/${categoryId}` : null
     const summary = (
       <div className="space-y-5 rounded-lg py-1">
         <div className="flex items-end justify-between gap-3">
@@ -329,7 +329,7 @@ export default function Budgets() {
               <MetalCard key={item.id} className="p-0">
                 <div className="flex w-full items-center justify-between gap-3 p-4">
                   <Link
-                    to={`/budgets/categories/${item.id}`}
+                    to={`/money/budgets/categories/${item.id}`}
                     aria-label={`Open ${item.name} budget details`}
                     className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
