@@ -2,7 +2,9 @@ import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { Plus } from 'lucide-react'
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
 import { cn } from '@/lib/utils'
-import { normalizeMoneyInput, toMinor } from '@/lib/money'
+import { currencySymbol } from '@/lib/currency'
+import { formatMinor, normalizeMoneyInput, toMinor } from '@/lib/money'
+import { useCurrency } from '@/money/CurrencyContext'
 
 export { Button } from '@/components/ui/button'
 export { MetalActionButton, MetalBadge, MetalCard } from './MetalCard'
@@ -91,7 +93,7 @@ export function SegmentedControl<T extends string>({
   )
 }
 
-/** Controlled amount input. `value` is in minor units (paise). */
+/** Controlled amount input. `value` is stored in minor currency units. */
 export function CurrencyInput({
   value,
   onChange,
@@ -101,6 +103,7 @@ export function CurrencyInput({
   onChange: (minor: number) => void
   label?: string
 }) {
+  const { currency } = useCurrency()
   const formatValue = (minor: number) => (minor ? (minor / 100).toFixed(2) : '')
   const [rawValue, setRawValue] = useState(() => formatValue(value))
   const lastReportedValue = useRef(value)
@@ -114,7 +117,9 @@ export function CurrencyInput({
     <label className="block space-y-1.5">
       <span className="label">{label}</span>
       <div className="field flex items-center gap-2 !py-3">
-        <span className="text-2xl font-semibold text-muted-foreground">₹</span>
+        <span className="text-2xl font-semibold text-muted-foreground">
+          {currencySymbol(currency)}
+        </span>
         <input
           inputMode="decimal"
           className="money w-full bg-transparent text-3xl font-bold outline-none placeholder:text-[#3d3d4a]"
@@ -237,6 +242,7 @@ const TIP = {
 }
 
 export function BarChartCard({ title, data }: { title: string; data: ChartPoint[] }) {
+  const { currency } = useCurrency()
   return (
     <Card>
       <div className="label mb-3">{title}</div>
@@ -249,7 +255,10 @@ export function BarChartCard({ title, data }: { title: string; data: ChartPoint[
             </linearGradient>
           </defs>
           <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} stroke="#8e8ea0" />
-          <Tooltip {...TIP} />
+          <Tooltip
+            {...TIP}
+            formatter={(value) => formatMinor(Math.round(Number(value) * 100), currency)}
+          />
           <Bar dataKey="value" fill="url(#bar)" radius={[8, 8, 3, 3]} />
         </BarChart>
       </ResponsiveContainer>
@@ -258,6 +267,7 @@ export function BarChartCard({ title, data }: { title: string; data: ChartPoint[
 }
 
 export function DonutChartCard({ title, data }: { title: string; data: ChartPoint[] }) {
+  const { currency } = useCurrency()
   return (
     <Card>
       <div className="label mb-3">{title}</div>
@@ -276,7 +286,10 @@ export function DonutChartCard({ title, data }: { title: string; data: ChartPoin
                 <Cell key={i} fill={PALETTE[i % PALETTE.length]} />
               ))}
             </Pie>
-            <Tooltip {...TIP} />
+            <Tooltip
+              {...TIP}
+              formatter={(value) => formatMinor(Math.round(Number(value) * 100), currency)}
+            />
           </PieChart>
         </ResponsiveContainer>
         <ul className="min-w-0 flex-1 space-y-1.5 text-sm">

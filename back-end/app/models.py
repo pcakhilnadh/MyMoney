@@ -27,13 +27,14 @@ def _pk() -> Mapped[uuid.UUID]:
 
 
 class Profile(Base):
-    """Minimal identity record. Name and avatar are never stored here."""
+    """User identity and preferences. Name and avatar are never stored here."""
 
     __tablename__ = "profiles"
 
     id: Mapped[uuid.UUID] = _pk()
     google_sub: Mapped[str] = mapped_column(String, unique=True, index=True)
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
+    preferred_currency: Mapped[str] = mapped_column(String(3), default="INR", server_default="INR")
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
@@ -257,4 +258,3 @@ class Budget(Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
-

@@ -17,8 +17,10 @@ import { budgetsRepo, categoriesRepo, transactionsRepo } from '@/db/repos'
 import type { Category } from '@/db/types'
 import { formatMinor } from '@/lib/money'
 import { currentMonth } from '@/lib/summary'
+import { useCurrency } from '@/money/CurrencyContext'
 
 export default function Budgets() {
+  const { currency } = useCurrency()
   const budgets = useLiveQuery(() => budgetsRepo.list(), []) ?? []
   const txs = useLiveQuery(() => transactionsRepo.list(), []) ?? []
   const cats = useLiveQuery(() => db.categories.toArray(), []) ?? []
@@ -108,7 +110,7 @@ export default function Budgets() {
         )?.id ?? null,
       name: category,
       amount_minor: amount,
-      currency: 'INR',
+      currency,
       period: 'monthly' as const,
       period_start: `${month}-01`,
       period_end: null,
@@ -166,7 +168,7 @@ export default function Budgets() {
                 overBudget ? 'text-[#ffd9dc]' : 'text-white/80'
               }`}
             >
-              {formatMinor(overBudget ? used - b.amount_minor : remaining)}
+              {formatMinor(overBudget ? used - b.amount_minor : remaining, currency)}
             </p>
           </div>
           <div className="shrink-0 border-l border-white/10 pb-0.5 pl-4 text-right">
@@ -174,7 +176,7 @@ export default function Budgets() {
               Monthly limit
             </p>
             <p className="money mt-1 text-sm font-medium text-white/80">
-              {formatMinor(b.amount_minor)}
+              {formatMinor(b.amount_minor, currency)}
             </p>
           </div>
         </div>
@@ -196,7 +198,10 @@ export default function Budgets() {
           </div>
           <div className="flex items-center justify-between gap-3 text-xs">
             <span className="text-muted-foreground">
-              <span className="font-medium text-foreground">{formatMinor(used)}</span> spent
+              <span className="font-medium text-foreground">
+                {formatMinor(used, currency)}
+              </span>{' '}
+              spent
             </span>
             <span className="text-muted-foreground">{Math.round(progress)}% used</span>
           </div>
@@ -338,7 +343,7 @@ export default function Budgets() {
                       <h2 className="truncate font-semibold">{item.name}</h2>
                       {categoryTransactions.length > 0 && (
                         <p className="money mt-1 text-xs text-muted-foreground">
-                          {formatMinor(spent(item.id))} spent this month
+                          {formatMinor(spent(item.id), currency)} spent this month
                         </p>
                       )}
                     </div>

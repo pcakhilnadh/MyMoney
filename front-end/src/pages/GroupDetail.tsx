@@ -15,10 +15,12 @@ import { useAction, useBalances, useGroupTxs, useGroups, useMe, useMembers } fro
 import { memberLabel, type Member } from '@/groups/types'
 import { formatMinor } from '@/lib/money'
 import { useSync } from '@/sync/SyncProvider'
+import { useCurrency } from '@/money/CurrencyContext'
 
 const TABS = ['Expenses', 'Balances', 'Members'] as const
 
 export default function GroupDetail() {
+  const { currency } = useCurrency()
   const navigate = useNavigate()
   const { groupId = '' } = useParams()
   const [tab, setTab] = useState<(typeof TABS)[number]>('Expenses')
@@ -92,7 +94,7 @@ export default function GroupDetail() {
         <div>
           <div className="text-sm text-muted-foreground">Total expenses</div>
           <div className="text-xl font-bold">
-            {formatMinor((txs.data ?? []).reduce((n, t) => n + t.amount_minor, 0))}
+            {formatMinor((txs.data ?? []).reduce((n, t) => n + t.amount_minor, 0), currency)}
           </div>
         </div>
         <div>
@@ -100,7 +102,7 @@ export default function GroupDetail() {
             {myNet < 0 ? 'You owe' : 'You are owed'}
           </div>
           <div className={`text-xl font-bold ${myNet < 0 ? 'text-destructive' : ''}`}>
-            {formatMinor(Math.abs(myNet))}
+            {formatMinor(Math.abs(myNet), currency)}
           </div>
         </div>
       </Card>
@@ -119,7 +121,7 @@ export default function GroupDetail() {
               key={t.id}
               title={t.title}
               subtitle={`Paid by ${label(t.splits.find((s) => s.paid_minor > 0)?.user_id ?? t.owner_user_id)} · ${t.transaction_date.slice(0, 10)}`}
-              trailing={formatMinor(t.amount_minor)}
+              trailing={formatMinor(t.amount_minor, currency)}
             />
           ))}
         </div>
@@ -134,7 +136,7 @@ export default function GroupDetail() {
             <ListItem
               key={i}
               title={`${label(t.from)} ${t.from === me?.id ? 'owe' : 'owes'} ${label(t.to)}`}
-              trailing={formatMinor(t.amount_minor)}
+              trailing={formatMinor(t.amount_minor, currency)}
             />
           ))}
           <div className="surface space-y-3 rounded-card p-5">

@@ -7,6 +7,7 @@ import { DueAlerts } from '@/components/DueAlerts'
 import { transactionsRepo } from '@/db/repos'
 import { formatCompactMinor } from '@/lib/money'
 import { currentDay, currentMonth, dayTotal, monthTotal, monthlySeries } from '@/lib/summary'
+import { useCurrency } from '@/money/CurrencyContext'
 
 const greeting = () => {
   const h = new Date().getHours()
@@ -26,6 +27,7 @@ const spendingPeriod = () => {
 
 export default function Home() {
   const { user } = useAuth()
+  const { currency } = useCurrency()
   const txs = useLiveQuery(() => transactionsRepo.list(), []) ?? []
   const period = spendingPeriod()
   const todayTotal = dayTotal(txs, period.today)
@@ -77,7 +79,7 @@ export default function Home() {
                 Spent today
               </p>
               <p className="money mt-2 truncate text-[25px] leading-tight font-bold tracking-tight text-white">
-                {formatCompactMinor(todayTotal)}
+                {formatCompactMinor(todayTotal, currency)}
               </p>
             </div>
             <span
@@ -90,7 +92,7 @@ export default function Home() {
                 Spent this month
               </p>
               <p className="money mt-2 truncate text-[25px] leading-tight font-bold tracking-tight text-white">
-                {formatCompactMinor(total)}
+                {formatCompactMinor(total, currency)}
               </p>
             </div>
           </div>

@@ -8,6 +8,7 @@ import { accountsRepo, duePaymentsRepo, transactionsRepo } from '@/db/repos'
 import type { AccountType } from '@/db/types'
 import { interestPaid, summarizeAccount } from '@/lib/accounts'
 import { formatMinor } from '@/lib/money'
+import { useCurrency } from '@/money/CurrencyContext'
 
 const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   bank: 'Bank',
@@ -26,6 +27,7 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
 }
 
 export default function AccountDetail() {
+  const { currency } = useCurrency()
   const { accountId = '' } = useParams()
   const navigate = useNavigate()
   const account = useLiveQuery(() => accountsRepo.get(accountId), [accountId])
@@ -121,7 +123,7 @@ export default function AccountDetail() {
     await accountsRepo.update(account.id, {
       name: name.trim(),
       account_type: type,
-      currency: account.currency,
+      currency,
       opening_balance: opening,
       credit_limit: isCreditCard && limit > 0 ? limit : null,
       payment_due_day:
@@ -231,11 +233,11 @@ export default function AccountDetail() {
       <Card className="space-y-4">
         <div className="text-center">
           <div className="text-sm text-muted-foreground">{balanceLabel}</div>
-          <div className="money text-3xl font-bold">{formatMinor(balance)}</div>
+          <div className="money text-3xl font-bold">{formatMinor(balance, currency)}</div>
           {account.account_type === 'credit_card' && account.credit_limit != null && (
             <div className="mt-1 text-sm text-muted-foreground">
-              {formatMinor(account.credit_limit - balance)} available of{' '}
-              {formatMinor(account.credit_limit)}
+              {formatMinor(account.credit_limit - balance, currency)} available of{' '}
+              {formatMinor(account.credit_limit, currency)}
             </div>
           )}
         </div>
@@ -243,19 +245,19 @@ export default function AccountDetail() {
           <div>
             <div className="text-xs text-muted-foreground">Debit</div>
             <div className="money text-sm font-semibold text-destructive">
-              {formatMinor(totals.debit)}
+              {formatMinor(totals.debit, currency)}
             </div>
           </div>
           <div>
             <div className="text-xs text-muted-foreground">Credit</div>
             <div className="money text-sm font-semibold text-positive">
-              {formatMinor(totals.credit)}
+              {formatMinor(totals.credit, currency)}
             </div>
           </div>
           <div>
             <div className="text-xs text-muted-foreground">Transfer</div>
             <div className="money text-sm font-semibold text-primary">
-              {formatMinor(totals.transfer)}
+              {formatMinor(totals.transfer, currency)}
             </div>
           </div>
         </div>
@@ -264,7 +266,7 @@ export default function AccountDetail() {
         <Card className="text-center">
           <div className="text-sm text-muted-foreground">Interest paid</div>
           <div className="money text-xl font-bold">
-            {formatMinor(interestPaid(account.id, payments))}
+            {formatMinor(interestPaid(account.id, payments), currency)}
           </div>
         </Card>
       )}
@@ -286,8 +288,9 @@ export default function AccountDetail() {
                     {p.paid_on} (due {p.due_date})
                   </span>
                   <span className="money font-medium">
-                    {formatMinor(p.amount_minor)}
-                    {p.interest_minor > 0 && ` · ${formatMinor(p.interest_minor)} interest`}
+                    {formatMinor(p.amount_minor, currency)}
+                    {p.interest_minor > 0 &&
+                      ` · ${formatMinor(p.interest_minor, currency)} interest`}
                   </span>
                 </div>
               ))}

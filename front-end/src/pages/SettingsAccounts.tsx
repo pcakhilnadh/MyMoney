@@ -14,6 +14,7 @@ import { accountsRepo, transactionsRepo } from '@/db/repos'
 import type { AccountType } from '@/db/types'
 import { summarizeAccount } from '@/lib/accounts'
 import { formatMinor } from '@/lib/money'
+import { useCurrency } from '@/money/CurrencyContext'
 
 const TYPES: AccountType[] = [
   'bank',
@@ -54,6 +55,7 @@ const ACCOUNT_GROUPS: { label: string; types: AccountType[] }[] = [
 ]
 
 export default function SettingsAccounts() {
+  const { currency } = useCurrency()
   const accounts = useLiveQuery(() => accountsRepo.list(), []) ?? []
   const txs = useLiveQuery(() => transactionsRepo.list(), []) ?? []
   const [showForm, setShowForm] = useState(false)
@@ -84,7 +86,7 @@ export default function SettingsAccounts() {
     const values = {
       name: name.trim(),
       account_type: type,
-      currency: 'INR',
+      currency,
       opening_balance: opening,
       credit_limit: isCard && limit > 0 ? limit : null,
       payment_due_day:
@@ -237,7 +239,7 @@ export default function SettingsAccounts() {
                     {isVisible ? (
                       <>
                         <Eye size={14} />
-                        {formatMinor(groupTotal)}
+                        {formatMinor(groupTotal, currency)}
                       </>
                     ) : (
                       <>

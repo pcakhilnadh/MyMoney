@@ -171,4 +171,8 @@ def revoke_session(
 
 @router.get("/me")
 def me(user: Profile = Depends(get_current_user)) -> dict[str, str]:
-    return {"id": str(user.id), "email": user.email}
+    return {
+        "id": str(user.id),
+        "email": user.email,
+        "preferred_currency": user.preferred_currency,
+    }

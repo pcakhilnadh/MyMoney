@@ -6,17 +6,19 @@ import { db } from '@/db/db'
 import { useAction, useGroups, useInvitations } from '@/groups/hooks'
 import type { Group } from '@/groups/types'
 import { useSync } from '@/sync/SyncProvider'
+import { useCurrency } from '@/money/CurrencyContext'
 
 const TYPES = ['family', 'trip', 'roommates', 'friends', 'other']
 
 export default function Groups() {
+  const { currency } = useCurrency()
   const groups = useGroups()
   const invites = useInvitations()
   const sync = useSync()
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [type, setType] = useState('friends')
-  const create = useAction<{ name: string; group_type: string }, Group>(
+  const create = useAction<{ name: string; group_type: string; currency: string }, Group>(
     '/money/groups',
     [],
   )
@@ -124,7 +126,7 @@ export default function Groups() {
             disabled={!name.trim() || create.isPending}
             onClick={() =>
               create.mutate(
-                { name: name.trim(), group_type: type },
+                { name: name.trim(), group_type: type, currency },
                 {
                   onSuccess: async (group) => {
                     await db.groups.put({ ...group, membership_status: 'active' })

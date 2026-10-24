@@ -31,6 +31,23 @@ router = APIRouter(
 )
 
 
+# ---------- preferences ----------
+@router.get("/preferences", response_model=s.CurrencyPreferenceOut)
+def get_preferences(user: Profile = Depends(get_current_user)):
+    return {"preferred_currency": user.preferred_currency}
+
+
+@router.put("/preferences", response_model=s.CurrencyPreferenceOut)
+def update_preferences(
+    body: s.CurrencyPreferenceIn,
+    user: Profile = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    user.preferred_currency = body.preferred_currency
+    db.commit()
+    return {"preferred_currency": user.preferred_currency}
+
+
 # ---------- accounts & categories ----------
 @router.get("/accounts", response_model=list[s.AccountOut])
 def list_accounts(user: Profile = Depends(get_current_user), db: Session = Depends(get_db)):
@@ -43,7 +60,9 @@ def list_accounts(user: Profile = Depends(get_current_user), db: Session = Depen
 def create_account(
     body: s.AccountIn, user: Profile = Depends(get_current_user), db: Session = Depends(get_db)
 ):
-    acc = Account(user_id=user.id, **body.model_dump())
+    data = body.model_dump()
+    data["currency"] = user.preferred_currency
+    acc = Account(user_id=user.id, **data)
     db.add(acc)
     db.commit()
     return acc
@@ -200,6 +219,8 @@ def create_transaction(
             return existing
     rows = _validated_splits(db, body, user)
     data = body.model_dump(exclude={"splits"})
+    if body.context == "personal":
+        data["currency"] = user.preferred_currency
     tx = Transaction(created_by=user.id, owner_user_id=user.id, is_shared=bool(rows), **data)
     if rows:
         tx.split_method = body.split_method or "equal"
@@ -484,10 +505,13 @@ def create_budget(
         raise HTTPException(422, "period_end precedes period_start")
     if body.group_id:
         require_admin(db, body.group_id, user)
+    data = body.model_dump()
+    if not body.group_id:
+        data["currency"] = user.preferred_currency
     b = Budget(
         created_by=user.id,
         owner_user_id=None if body.group_id else user.id,
-        **body.model_dump(),
+        **data,
     )
     db.add(b)
     db.commit()

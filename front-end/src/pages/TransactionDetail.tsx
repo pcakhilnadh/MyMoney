@@ -6,6 +6,7 @@ import { Button, Card, PageHeader } from '@/components/kit'
 import { db } from '@/db/db'
 import { transactionsRepo } from '@/db/repos'
 import { formatMinor } from '@/lib/money'
+import { useCurrency } from '@/money/CurrencyContext'
 
 const TYPE_STYLE = {
   expense: {
@@ -39,6 +40,7 @@ const TYPE_STYLE = {
 } as const
 
 export default function TransactionDetail() {
+  const { currency } = useCurrency()
   const { transactionId = '' } = useParams()
   const navigate = useNavigate()
   const location = useLocation()
@@ -131,7 +133,7 @@ export default function TransactionDetail() {
           </span>
           <div className={`money text-2xl font-bold ${kind.color}`}>
             {kind.prefix}
-            {formatMinor(selectedTransaction.amount_minor)}
+            {formatMinor(selectedTransaction.amount_minor, currency)}
           </div>
         </div>
         <dl className="divide-y divide-border/60">

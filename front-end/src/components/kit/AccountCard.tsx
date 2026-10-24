@@ -2,6 +2,7 @@ import { useState } from 'react'
 import { Eye, EyeOff } from 'lucide-react'
 import type { Account } from '@/db/types'
 import { formatMinor } from '@/lib/money'
+import { useCurrency } from '@/money/CurrencyContext'
 import { MetalCard, MetalBadge } from './MetalCard'
 
 export interface AccountCardProps {
@@ -19,6 +20,7 @@ export function AccountCard({
   isDefault = false,
   variant = 'list',
 }: AccountCardProps) {
+  const { currency } = useCurrency()
   const [balanceVisible, setBalanceVisible] = useState(false)
   const isCredit = account.account_type === 'credit_card'
   const isLoan = account.account_type === 'loan'
@@ -26,7 +28,7 @@ export function AccountCard({
   const isAsset = account.account_type === 'asset' || account.account_type === 'money_lent'
 
   const balanceLabel = isLiability ? 'Amount Owed' : isAsset ? 'Owed to You' : 'Balance'
-  const balanceDisplay = balanceVisible ? formatMinor(balance) : '●●●●●'
+  const balanceDisplay = balanceVisible ? formatMinor(balance, currency) : '●●●●●'
 
   const toggleVisibility = (e: React.MouseEvent) => {
     e.preventDefault()
@@ -98,7 +100,7 @@ export function AccountCard({
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs text-muted-foreground">Available</span>
                 <span className="money text-xs font-medium text-blue-300">
-                  {balanceVisible ? formatMinor(available) : '●●●'}
+                  {balanceVisible ? formatMinor(available, currency) : '●●●'}
                 </span>
               </div>
             )}
@@ -115,7 +117,9 @@ export function AccountCard({
         {isCredit && account.credit_limit != null && (
           <div className="flex items-center justify-between px-1 pt-1 border-t border-white/5">
             <span className="text-xs text-muted-foreground">Credit Limit</span>
-            <span className="money text-xs font-medium text-foreground">{formatMinor(account.credit_limit)}</span>
+            <span className="money text-xs font-medium text-foreground">
+              {formatMinor(account.credit_limit, currency)}
+            </span>
           </div>
         )}
       </div>

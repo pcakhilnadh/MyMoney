@@ -5,8 +5,10 @@ import { Button, CurrencyInput } from '@/components/kit'
 import { accountsRepo, duePaymentsRepo, transactionsRepo } from '@/db/repos'
 import { dueAlerts, isoDate, type DueAlert } from '@/lib/accounts'
 import { formatMinor } from '@/lib/money'
+import { useCurrency } from '@/money/CurrencyContext'
 
 function AlertRow({ alert }: { alert: DueAlert }) {
+  const { currency } = useCurrency()
   const [open, setOpen] = useState(false)
   const [amount, setAmount] = useState(alert.amount)
   const [interest, setInterest] = useState(0)
@@ -31,7 +33,7 @@ function AlertRow({ alert }: { alert: DueAlert }) {
           <div className="truncate font-medium">{alert.account.name}</div>
           <div className="text-xs text-muted-foreground">Due {when}</div>
         </div>
-        <div className="money font-semibold">{formatMinor(alert.amount)}</div>
+        <div className="money font-semibold">{formatMinor(alert.amount, currency)}</div>
       </div>
       {open ? (
         <div className="space-y-2">

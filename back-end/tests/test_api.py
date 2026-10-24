@@ -69,6 +69,55 @@ def test_category_creation_returns_existing_user_or_default_category(client):
     assert default_duplicate.json()["id"] == str(default_id)
 
 
+def test_currency_preference_is_user_scoped_and_defaults_new_money_records(client):
+    c = client
+    assert c.get("/money/preferences", headers=H("alice")).json() == {
+        "preferred_currency": "INR"
+    }
+
+    updated = c.put(
+        "/money/preferences",
+        json={"preferred_currency": "USD"},
+        headers=H("alice"),
+    )
+    assert updated.status_code == 200
+    assert updated.json() == {"preferred_currency": "USD"}
+    assert c.get("/auth/me", headers=H("alice")).json()["preferred_currency"] == "USD"
+    assert c.get("/money/preferences", headers=H("bob")).json() == {
+        "preferred_currency": "INR"
+    }
+
+    account_id = make_account(c)
+    account = next(
+        item for item in c.get("/money/accounts", headers=H("alice")).json()
+        if item["id"] == account_id
+    )
+    assert account["currency"] == "USD"
+
+    transaction = c.post(
+        "/money/transactions",
+        json=tx(account_id=account_id, currency="INR"),
+        headers=H("alice"),
+    )
+    assert transaction.status_code == 201
+    assert transaction.json()["currency"] == "USD"
+
+    budget = c.post(
+        "/money/budgets",
+        json={"name": "Monthly", "amount_minor": 50000, "period_start": "2026-01-01"},
+        headers=H("alice"),
+    )
+    assert budget.status_code == 201
+    assert budget.json()["currency"] == "USD"
+
+    invalid = c.put(
+        "/money/preferences",
+        json={"preferred_currency": "XYZ"},
+        headers=H("alice"),
+    )
+    assert invalid.status_code == 422
+
+
 def test_personal_private_and_idempotent(client):
     c = client
     body = tx(

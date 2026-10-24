@@ -9,6 +9,17 @@ class ORM(BaseModel):
     model_config = ConfigDict(from_attributes=True)
 
 
+CurrencyCode = Literal["INR", "USD", "EUR", "GBP", "AED", "CAD", "AUD", "SGD", "CHF"]
+
+
+class CurrencyPreferenceIn(BaseModel):
+    preferred_currency: CurrencyCode
+
+
+class CurrencyPreferenceOut(BaseModel):
+    preferred_currency: CurrencyCode
+
+
 class AccountIn(BaseModel):
     name: str
     account_type: str = "cash"
@@ -147,6 +158,7 @@ class BudgetIn(BaseModel):
     category_id: uuid.UUID | None = None
     name: str
     amount_minor: int = Field(gt=0)
+    currency: CurrencyCode = "INR"
     period: str = "monthly"
     period_start: date
     period_end: date | None = None

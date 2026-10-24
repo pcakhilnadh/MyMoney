@@ -18,6 +18,7 @@ import AccountDetail from './pages/AccountDetail'
 import BudgetCategoryDetail from './pages/BudgetCategoryDetail'
 import FoodHome from './pages/FoodHome'
 import HabitsHome from './pages/HabitsHome'
+import { CurrencyProvider } from './money/CurrencyContext'
 
 function Protected() {
   const { user, ready } = useAuth()
@@ -38,7 +39,8 @@ function LegacyMoneyRedirect() {
 export default function App() {
   return (
     <BrowserRouter>
-      <Routes>
+      <CurrencyProvider>
+        <Routes>
         <Route path="/login" element={<Login />} />
         <Route element={<Protected />}>
           <Route index element={<Navigate to="/money/home" replace />} />
@@ -83,7 +85,8 @@ export default function App() {
             <Route path="/personal" element={<Personal />} />
           </Route>
         </Route>
-      </Routes>
+        </Routes>
+      </CurrencyProvider>
     </BrowserRouter>
   )
 }

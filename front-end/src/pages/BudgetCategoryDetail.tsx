@@ -18,6 +18,7 @@ import { TransactionList } from '@/components/TransactionList'
 import { budgetsRepo, categoriesRepo, transactionsRepo } from '@/db/repos'
 import { formatMinor, toMinor } from '@/lib/money'
 import { currentMonth } from '@/lib/summary'
+import { useCurrency } from '@/money/CurrencyContext'
 
 const MONTH_LABELS = [
   'Jan',
@@ -35,6 +36,7 @@ const MONTH_LABELS = [
 ]
 
 export default function BudgetCategoryDetail() {
+  const { currency } = useCurrency()
   const { categoryId = '' } = useParams()
   const [settingBudget, setSettingBudget] = useState(false)
   const [amount, setAmount] = useState(0)
@@ -139,7 +141,7 @@ export default function BudgetCategoryDetail() {
         category_id: category.id,
         name: category.name,
         amount_minor: amount,
-        currency: 'INR',
+        currency,
         period: 'monthly',
         period_start: `${month}-01`,
         period_end: null,
@@ -168,7 +170,7 @@ export default function BudgetCategoryDetail() {
               This Month
             </p>
             <p className="money mt-1 truncate text-sm font-medium text-white/80">
-              {formatMinor(spent)}
+              {formatMinor(spent, currency)}
             </p>
           </div>
           <div className="min-w-0">
@@ -176,7 +178,9 @@ export default function BudgetCategoryDetail() {
               Remaining
             </p>
             <p className="money mt-1 truncate text-sm font-medium text-white/80">
-              {budget && remainder !== null ? formatMinor(Math.max(remainder, 0)) : '—'}
+              {budget && remainder !== null
+                ? formatMinor(Math.max(remainder, 0), currency)
+                : '—'}
             </p>
           </div>
           <div className="min-w-0">
@@ -184,7 +188,7 @@ export default function BudgetCategoryDetail() {
               This Year
             </p>
             <p className="money mt-1 truncate text-sm font-medium text-white/80">
-              {formatMinor(spentThisYear)}
+              {formatMinor(spentThisYear, currency)}
             </p>
           </div>
         </div>
@@ -194,7 +198,7 @@ export default function BudgetCategoryDetail() {
           </p>
           {budget && (
             <p className="money mt-1 text-sm font-medium text-white/80">
-              {formatMinor(budget.amount_minor)}
+              {formatMinor(budget.amount_minor, currency)}
             </p>
           )}
           {budget ? null : settingBudget ? (
@@ -232,7 +236,7 @@ export default function BudgetCategoryDetail() {
         {saveError && <p className="text-sm text-destructive">{saveError}</p>}
         {budget && remainder !== null && remainder < 0 && (
           <p className="text-xs text-destructive">
-            Over budget by {formatMinor(Math.abs(remainder))}
+            Over budget by {formatMinor(Math.abs(remainder), currency)}
           </p>
         )}
       </Card>
@@ -257,10 +261,10 @@ export default function BudgetCategoryDetail() {
                 tickLine={false}
                 width={58}
                 tick={{ fill: '#8e8ea0', fontSize: 10 }}
-                tickFormatter={(value: number) => formatMinor(value)}
+                tickFormatter={(value: number) => formatMinor(value, currency)}
               />
               <Tooltip
-                formatter={(value) => [formatMinor(Number(value)), 'Spent']}
+                formatter={(value) => [formatMinor(Number(value), currency), 'Spent']}
                 cursor={{ fill: 'rgba(255,255,255,0.04)' }}
                 contentStyle={{
                   background: '#1a1a23',

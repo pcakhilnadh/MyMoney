@@ -20,6 +20,8 @@ import {
   transferCategoryAccountError,
 } from '@/lib/transaction-categories'
 import { toMinor } from '@/lib/money'
+import { currencySymbol } from '@/lib/currency'
+import { useCurrency } from '@/money/CurrencyContext'
 
 const CONTEXTS = ['Personal', 'Group'] as const
 const TRANSACTION_TYPES = ['Expense', 'Income', 'Transfer', 'Refund'] as const
@@ -53,6 +55,7 @@ function GroupFields({
   busy: boolean
   error: string | null
 }) {
+  const { currency } = useCurrency()
   const groups = useGroups() ?? []
   const members = (useMembers(groupId).data ?? []).filter((m) => m.status === 'active' && m.user_id)
   const me = useMe().data
@@ -132,7 +135,13 @@ function GroupFields({
                     <input
                       inputMode="decimal"
                       aria-label={`Value for ${memberLabel(m)}`}
-                      placeholder={method === 'By Amount' ? '₹' : method === 'By %' ? '%' : 'units'}
+                      placeholder={
+                        method === 'By Amount'
+                          ? currencySymbol(currency)
+                          : method === 'By %'
+                            ? '%'
+                            : 'units'
+                      }
                       value={values[uid] ?? ''}
                       onChange={(e) => setValues({ ...values, [uid]: e.target.value })}
                       className="w-20 rounded-lg border px-2 py-1 text-right"
@@ -164,6 +173,7 @@ function GroupFields({
 }
 
 export default function AddExpense() {
+  const { currency } = useCurrency()
   const nav = useNavigate()
   const [params] = useSearchParams()
   const presetGroup = params.get('groupId') ?? ''
@@ -227,7 +237,7 @@ export default function AddExpense() {
       long_description: longDescription.trim() || null,
       merchant: savedMerchant || null,
       amount_minor: amount,
-      currency: 'INR',
+      currency,
       transaction_date: new Date(date + 'T12:00:00').toISOString(),
       notes: null,
       is_shared: false,

@@ -4,8 +4,10 @@ import { db } from '@/db/db'
 import { transactionsRepo } from '@/db/repos'
 import { formatMinor } from '@/lib/money'
 import { byCategory, currentMonth, monthTotal, monthlySeries, toCsv } from '@/lib/summary'
+import { useCurrency } from '@/money/CurrencyContext'
 
 export default function Insights() {
+  const { currency } = useCurrency()
   const txs = useLiveQuery(() => transactionsRepo.list(), []) ?? []
   const cats = useLiveQuery(() => db.categories.toArray(), []) ?? []
   const month = currentMonth()
@@ -25,7 +27,9 @@ export default function Insights() {
       <PageHeader title="Insights" />
       <Card>
         <div className="text-sm text-muted-foreground">Total spent</div>
-        <div className="text-3xl font-bold">{formatMinor(monthTotal(txs, month))}</div>
+        <div className="text-3xl font-bold">
+          {formatMinor(monthTotal(txs, month), currency)}
+        </div>
       </Card>
       <BarChartCard
         title="Monthly Spending Trend"

@@ -2,6 +2,7 @@ import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CornerUpLeft } from 'lucide-react'
 import type { Transaction } from '@/db/types'
 import { formatMinor } from '@/lib/money'
+import { useCurrency } from '@/money/CurrencyContext'
 
 const TYPE_STYLE = {
   expense: {
@@ -37,6 +38,7 @@ const TYPE_STYLE = {
 export function TransactionList({ transactions }: { transactions: Transaction[] }) {
   const navigate = useNavigate()
   const { pathname } = useLocation()
+  const { currency } = useCurrency()
   const days = [
     ...new Set(transactions.map((transaction) => transaction.transaction_date.slice(0, 10))),
   ]
@@ -62,7 +64,7 @@ export function TransactionList({ transactions }: { transactions: Transaction[] 
                   <button
                     key={transaction.id}
                     type="button"
-                    aria-label={`${kind.label}: ${transaction.title}, ${formatMinor(transaction.amount_minor)}`}
+                    aria-label={`${kind.label}: ${transaction.title}, ${formatMinor(transaction.amount_minor, currency)}`}
                     onClick={() =>
                       navigate(`/money/transactions/${transaction.id}`, {
                         state: { from: pathname },
@@ -81,7 +83,7 @@ export function TransactionList({ transactions }: { transactions: Transaction[] 
                     </span>
                     <span className={`money shrink-0 text-sm font-semibold ${kind.color}`}>
                       {kind.prefix}
-                      {formatMinor(transaction.amount_minor)}
+                      {formatMinor(transaction.amount_minor, currency)}
                     </span>
                   </button>
                 )
