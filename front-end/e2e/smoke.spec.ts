@@ -35,7 +35,43 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
     'aria-pressed',
     'false',
   )
+  const getAppTabBounds = () =>
+    Promise.all(
+      ['My Money', 'MyFood', 'MyHabbit'].map((name) =>
+        appSelector.getByRole('button', { name }).evaluate((element) => {
+          const { x, width } = element.getBoundingClientRect()
+          return { x, width }
+        }),
+      ),
+    )
+  const initialAppTabBounds = await getAppTabBounds()
+  expect(initialAppTabBounds.every(({ width }) => width === initialAppTabBounds[0].width)).toBe(
+    true,
+  )
   await expect(page.locator('[data-app="money"]')).toHaveCSS('--primary', '#4b8bff')
+  const moneyAppTab = appSelector.getByRole('button', { name: 'My Money' })
+  await expect(moneyAppTab).toHaveClass(/app-connected-surface/)
+  await expect(moneyAppTab).toHaveCSS('border-radius', '0px')
+  await expect(moneyAppTab).toHaveCSS('background-image', 'none')
+  await expect(moneyAppTab).toHaveCSS('box-shadow', /-12px/)
+  await expect(page.locator('main')).toHaveClass(/app-connected-surface/)
+  await expect(page.locator('main')).toHaveCSS('background-image', 'none')
+  await expect(page.locator('main')).toHaveCSS(
+    'background-color',
+    await moneyAppTab.evaluate((element) => getComputedStyle(element).backgroundColor),
+  )
+  await expect(appSelector.getByRole('button', { name: 'My Money' })).toHaveCSS(
+    'color',
+    'rgb(75, 139, 255)',
+  )
+  await expect(appSelector.getByRole('button', { name: 'MyFood' })).toHaveCSS(
+    'color',
+    'rgb(57, 201, 138)',
+  )
+  await expect(appSelector.getByRole('button', { name: 'MyHabbit' })).toHaveCSS(
+    'color',
+    'rgb(237, 41, 57)',
+  )
   await expect(page.locator('[data-app="money"]')).toHaveCSS('background-image', /50vh/)
   await expect(page.locator('html')).toHaveCSS('scrollbar-width', 'none')
   const spendingOverview = page.getByRole('region', { name: 'Spending overview' })
@@ -68,6 +104,30 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await appSelector.getByRole('button', { name: 'MyFood' }).click()
   await expect(page).toHaveURL(/\/food\/home$/)
   await expect(page.getByRole('heading', { name: 'MyFood' })).toBeVisible()
+  expect(await getAppTabBounds()).toEqual(initialAppTabBounds)
+  const foodAppTab = appSelector.getByRole('button', { name: 'MyFood' })
+  await expect(foodAppTab).toHaveClass(/app-connected-surface/)
+  await expect(foodAppTab).toHaveCSS('border-radius', '0px')
+  await expect(foodAppTab).toHaveCSS('background-image', 'none')
+  await expect(page.locator('main')).toHaveClass(/app-connected-surface/)
+  await expect(page.locator('main')).toHaveCSS('background-image', 'none')
+  await page.mouse.move(0, 0)
+  await expect(foodAppTab).toHaveCSS(
+    'background-color',
+    await page.locator('main').evaluate((element) => getComputedStyle(element).backgroundColor),
+  )
+  await expect(appSelector.getByRole('button', { name: 'My Money' })).toHaveCSS(
+    'color',
+    'rgb(75, 139, 255)',
+  )
+  await expect(appSelector.getByRole('button', { name: 'MyFood' })).toHaveCSS(
+    'color',
+    'rgb(57, 201, 138)',
+  )
+  await expect(appSelector.getByRole('button', { name: 'MyHabbit' })).toHaveCSS(
+    'color',
+    'rgb(237, 41, 57)',
+  )
   await expect(page.getByText('Coming Soon')).toBeVisible()
   await expect(page.locator('[data-app="food"]')).toHaveCSS('background-image', /50vh/)
   await expect(
@@ -94,6 +154,30 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await appSelector.getByRole('button', { name: 'MyHabbit' }).click()
   await expect(page).toHaveURL(/\/habits\/today$/)
   await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible()
+  expect(await getAppTabBounds()).toEqual(initialAppTabBounds)
+  const habitAppTab = appSelector.getByRole('button', { name: 'MyHabbit' })
+  await expect(habitAppTab).toHaveClass(/app-connected-surface/)
+  await expect(habitAppTab).toHaveCSS('border-radius', '0px')
+  await expect(habitAppTab).toHaveCSS('background-image', 'none')
+  await expect(page.locator('main')).toHaveClass(/app-connected-surface/)
+  await expect(page.locator('main')).toHaveCSS('background-image', 'none')
+  await page.mouse.move(0, 0)
+  await expect(habitAppTab).toHaveCSS(
+    'background-color',
+    await page.locator('main').evaluate((element) => getComputedStyle(element).backgroundColor),
+  )
+  await expect(appSelector.getByRole('button', { name: 'My Money' })).toHaveCSS(
+    'color',
+    'rgb(75, 139, 255)',
+  )
+  await expect(appSelector.getByRole('button', { name: 'MyFood' })).toHaveCSS(
+    'color',
+    'rgb(57, 201, 138)',
+  )
+  await expect(appSelector.getByRole('button', { name: 'MyHabbit' })).toHaveCSS(
+    'color',
+    'rgb(237, 41, 57)',
+  )
   await expect(page.locator('[data-app="habit"]')).toHaveCSS('background-image', /50vh/)
   await expect(
     page.getByRole('navigation', { name: 'MyHabbit navigation' }).locator('svg').first(),
@@ -113,14 +197,39 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Transactions' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Insights' })).toHaveCount(0)
   const personalLink = appSelector.getByRole('link', { name: 'Personal' })
+  const personalTabBoundsBeforeSelection = await personalLink.evaluate((element) => {
+    const { x, width } = element.getBoundingClientRect()
+    return { x, width }
+  })
   await personalLink.click()
   await expect(page).toHaveURL(/\/personal/)
   await expect(appSelector.getByRole('button', { name: 'My Money' })).toHaveAttribute(
     'aria-pressed',
     'false',
   )
+  await expect(appSelector.getByRole('button', { name: 'My Money' })).toHaveCSS(
+    'color',
+    'rgb(75, 139, 255)',
+  )
+  await expect(appSelector.getByRole('button', { name: 'MyFood' })).toHaveCSS(
+    'color',
+    'rgb(57, 201, 138)',
+  )
+  await expect(appSelector.getByRole('button', { name: 'MyHabbit' })).toHaveCSS(
+    'color',
+    'rgb(237, 41, 57)',
+  )
   await expect(personalLink).toHaveCSS('color', 'rgb(142, 142, 160)')
+  await expect(personalLink).toHaveCSS('border-radius', '0px')
   await expect(personalLink).toHaveClass(/bg-card/)
+  await expect(personalLink).toHaveCSS('box-shadow', /12px/)
+  await expect(page.locator('main')).toHaveCSS('border-radius', '0px')
+  expect(
+    await personalLink.evaluate((element) => {
+      const { x, width } = element.getBoundingClientRect()
+      return { x, width }
+    }),
+  ).toEqual(personalTabBoundsBeforeSelection)
   await expect(personalLink.locator('svg')).toBeVisible()
   await expect(page.locator('.bottom-nav')).toHaveCount(0)
   await expect(page.getByText(/Good (morning|afternoon|evening)/)).toBeVisible()

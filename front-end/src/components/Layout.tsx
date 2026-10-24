@@ -60,6 +60,12 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
       >
         {apps.map(({ id, label, Icon }) => {
           const selected = selectedApp === id
+          const appTheme =
+            id === 'money'
+              ? 'text-[#4b8bff]'
+              : id === 'food'
+                ? 'text-[#39c98a]'
+                : 'text-[#ed2939]'
           return (
             <button
               key={label}
@@ -74,8 +80,12 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
                       : '/habits/today',
                 )
               }
-              className={`flex min-w-0 items-center justify-center gap-1.5 rounded-xl px-1.5 py-2 text-xs font-semibold transition-colors ${
-                selected ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted/50'
+              className={`flex min-w-0 items-center justify-center gap-1.5 px-1.5 py-2 text-xs font-semibold transition-colors ${
+                selected
+                  ? `app-connected-surface app-selector-tab-active h-16 self-stretch text-primary ${
+                      id === 'money' ? 'app-selector-tab-active--edge' : ''
+                    }`
+                  : `rounded-xl ${appTheme} hover:bg-muted/50`
               }`}
             >
               <Icon size={16} aria-hidden="true" />
@@ -89,7 +99,7 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
           aria-current={pathname === '/personal' ? 'page' : undefined}
           className={`flex items-center justify-center text-muted-foreground transition-colors ${
             isPersonal
-              ? 'h-16 w-[calc(100%_+_0.75rem)] -mr-3 bg-card hover:bg-card'
+              ? 'personal-selector-tab-active h-16 w-10 bg-card hover:bg-card'
               : 'size-10 rounded-xl hover:bg-muted/50'
           }`}
         >
@@ -110,8 +120,10 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
       <main
         className={`space-y-5 px-5 pt-2 ${
           isPersonal
-            ? 'min-h-[calc(100vh-4rem)] rounded-tl-[28px] bg-card pb-5'
-            : ''
+            ? 'min-h-[calc(100vh-4rem)] bg-card pb-5'
+            : selectedApp
+              ? 'app-connected-surface min-h-[calc(100vh-4rem)] pb-5'
+              : ''
         }`}
       >
         <Outlet />

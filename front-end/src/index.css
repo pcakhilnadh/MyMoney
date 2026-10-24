@@ -86,6 +86,25 @@
   --app-side-glow: rgba(237, 41, 57, 0.06);
 }
 
+.app-connected-surface {
+  --connected-surface-color: color-mix(in srgb, var(--card) 84%, var(--primary) 16%);
+  background-color: var(--connected-surface-color);
+  background-image: none;
+}
+
+.app-selector-tab-active {
+  border-radius: 0;
+}
+
+.app-selector-tab-active--edge {
+  box-shadow: -0.75rem 0 0 0 var(--connected-surface-color);
+}
+
+.personal-selector-tab-active {
+  border-radius: 0;
+  box-shadow: 0.75rem 0 0 0 var(--card);
+}
+
 [data-app] {
   background-color: var(--background);
   background-image:
