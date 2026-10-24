@@ -31,7 +31,7 @@ export interface SyncStatus {
   pending: number
   lastSyncedAt: string | null
   error: string | null
-  syncNow: () => void
+  syncNow: () => Promise<void>
 }
 
 const Ctx = createContext<SyncStatus | null>(null)
@@ -106,7 +106,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   }, [sub, syncNow])
 
   const value = useMemo(
-    () => ({ state, pending, lastSyncedAt: last, error, syncNow: () => void syncNow() }),
+    () => ({ state, pending, lastSyncedAt: last, error, syncNow }),
     [state, pending, last, error, syncNow],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>

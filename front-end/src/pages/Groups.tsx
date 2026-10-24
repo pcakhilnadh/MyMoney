@@ -2,36 +2,45 @@ import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import { AddIconButton, Button, Card, Input, ListItem, PageHeader, SectionTitle } from '@/components/kit'
+import { db } from '@/db/db'
 import { useAction, useGroups, useInvitations } from '@/groups/hooks'
 import type { Group } from '@/groups/types'
+import { useSync } from '@/sync/SyncProvider'
 
 const TYPES = ['family', 'trip', 'roommates', 'friends', 'other']
 
 export default function Groups() {
   const groups = useGroups()
   const invites = useInvitations()
+  const sync = useSync()
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [type, setType] = useState('friends')
   const create = useAction<{ name: string; group_type: string }, Group>(
     '/money/groups',
-    [['groups']],
+    [],
   )
   const join = useAction<{ id: string }>(
     (b) => `/money/groups/${b.id}/join`,
-    [['groups'], ['invitations']],
+    [],
   )
 
-  if (groups.error)
+  if (groups === undefined || invites === undefined)
+    return <p className="text-muted-foreground">Loading groups…</p>
+
+  if (!sync.lastSyncedAt && sync.state === 'error')
     return (
       <Card>
-        <p className="font-semibold">Groups need an internet connection.</p>
-        <p className="text-sm text-muted-foreground">{groups.error.message}</p>
-        <Button className="mt-3" onClick={() => groups.refetch()}>
+        <p className="font-semibold">Groups could not be synced.</p>
+        <p className="text-sm text-muted-foreground">{sync.error}</p>
+        <Button className="mt-3" onClick={sync.syncNow}>
           Retry
         </Button>
       </Card>
     )
+
+  if (groups.length === 0 && invites.length === 0 && !sync.lastSyncedAt && sync.state !== 'error')
+    return <p className="text-muted-foreground">Loading groups…</p>
 
   return (
     <div className="space-y-4">
@@ -63,22 +72,34 @@ export default function Groups() {
       </div>
       {!showForm && (
         <>
-          {invites.data?.map((g) => (
+          {invites.map((g) => (
             <Card key={g.id} className="flex items-center justify-between">
               <div>
                 <div className="font-semibold">{g.name}</div>
                 <div className="text-sm text-muted-foreground">You have been invited</div>
               </div>
-              <Button size="sm" onClick={() => join.mutate({ id: g.id })}>
+              <Button
+                size="sm"
+                onClick={() =>
+                  join.mutate(
+                    { id: g.id },
+                    {
+                      onSuccess: async () => {
+                        await db.groups.update(g.id, { membership_status: 'active' })
+                        await sync.syncNow()
+                      },
+                    },
+                  )
+                }
+              >
                 Join
               </Button>
             </Card>
           ))}
-          {groups.isLoading && <p className="text-muted-foreground">Loading…</p>}
-          {groups.data?.length === 0 && (
+          {groups.length === 0 && (
             <p className="py-4 text-center text-muted-foreground">No groups yet</p>
           )}
-          {groups.data?.map((g) => (
+          {groups.map((g) => (
             <Link key={g.id} to={`/groups/${g.id}`} className="block">
               <ListItem title={g.name} subtitle={g.group_type} />
             </Link>
@@ -105,7 +126,9 @@ export default function Groups() {
               create.mutate(
                 { name: name.trim(), group_type: type },
                 {
-                  onSuccess: () => {
+                  onSuccess: async (group) => {
+                    await db.groups.put({ ...group, membership_status: 'active' })
+                    await sync.syncNow()
                     setName('')
                     setType('friends')
                     setShowForm(false)

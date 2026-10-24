@@ -124,3 +124,13 @@ export interface HabitLog extends Syncable {
   completed: boolean
   note: string | null
 }
+
+export interface GroupCache {
+  id: string
+  name: string
+  description: string | null
+  group_type: string
+  currency: string
+  created_by: string
+  membership_status: 'active' | 'invited'
+}

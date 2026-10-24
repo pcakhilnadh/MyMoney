@@ -147,4 +147,69 @@ describe('sync dependencies', () => {
     expect(await db.categories.toArray()).toEqual([serverCategory])
     expect((await db.budgets.get(budget.id))?.category_id).toBe(serverCategory.id)
   })
+
+  it('stores group snapshots from sync and removes memberships absent from the next snapshot', async () => {
+    const activeGroup = {
+      id: 'active-group',
+      name: 'Weekend trip',
+      description: null,
+      group_type: 'friends',
+      currency: 'INR',
+      created_by: 'alice',
+    }
+    const invitedGroup = { ...activeGroup, id: 'invited-group', name: 'Family' }
+    let groups = [activeGroup]
+    let invitations = [invitedGroup]
+    let pullCount = 0
+    const requestPaths: string[] = []
+    const storage = new Map<string, string>()
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const path = new URL(String(input)).pathname
+      requestPaths.push(path)
+      if (path === '/sync/pull') {
+        pullCount += 1
+        return new Response(
+          JSON.stringify({
+            categories: [],
+            accounts: [],
+            merchants: [],
+            transactions: [],
+            budgets: [],
+            due_payments: [],
+            food_entries: [],
+            food_library: [],
+            habits: [],
+            habit_logs: [],
+            groups,
+            invitations,
+            server_time: `2026-10-24T00:00:0${pullCount}.000Z`,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+    })
+
+    await runSync('token', 'alice')
+
+    expect(await db.groups.toArray()).toEqual([
+      { ...activeGroup, membership_status: 'active' },
+      { ...invitedGroup, membership_status: 'invited' },
+    ])
+    expect(requestPaths).not.toContain('/money/groups')
+    expect(requestPaths).not.toContain('/money/groups/invitations')
+
+    invitations = []
+    await runSync('token', 'alice')
+
+    expect(await db.groups.toArray()).toEqual([
+      { ...activeGroup, membership_status: 'active' },
+    ])
+  })
 })

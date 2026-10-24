@@ -1,6 +1,6 @@
 import { api, ApiError } from '@/auth/api'
 import { db } from '@/db/db'
-import type { Budget, Category, Syncable } from '@/db/types'
+import type { Budget, Category, GroupCache, Syncable } from '@/db/types'
 import { migrateLegacyFoodStorage } from '@/lib/food'
 
 type EntityName =
@@ -49,6 +49,8 @@ const DEFAULTS: Record<EntityName, object> = {
 
 interface PullResponse extends Record<EntityName, (Syncable & { id: string })[]> {
   server_time: string
+  groups: Omit<GroupCache, 'membership_status'>[]
+  invitations: Omit<GroupCache, 'membership_status'>[]
 }
 interface PushResponse {
   accepted: { entity: EntityName; id: string; canonical_id?: string }[]
@@ -80,6 +82,17 @@ async function pullAndMerge(
       }
     }
   }
+  const groupSnapshots: GroupCache[] = [
+    ...(pulled.groups ?? []).map((group) => ({ ...group, membership_status: 'active' as const })),
+    ...(pulled.invitations ?? []).map((group) => ({
+      ...group,
+      membership_status: 'invited' as const,
+    })),
+  ]
+  await db.transaction('rw', db.groups, async () => {
+    await db.groups.clear()
+    await db.groups.bulkPut(groupSnapshots)
+  })
   return pulled
 }
 

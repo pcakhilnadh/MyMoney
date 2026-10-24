@@ -115,6 +115,33 @@ def test_shared_sync_accepts_food_and_habit_entities(client):
     assert client.get("/api/sync/pull", headers=H("bob")).json()["habits"] == []
 
 
+def test_shared_sync_returns_group_and_invitation_snapshots(client):
+    bob_email = client.get("/auth/me", headers=H("bob")).json()["email"]
+    group = client.post(
+        "/money/groups",
+        json={"name": "Weekend trip"},
+        headers=H("alice"),
+    ).json()
+    invited = client.post(
+        f"/money/groups/{group['id']}/members",
+        json={"email": bob_email},
+        headers=H("alice"),
+    )
+    assert invited.status_code == 201
+
+    alice_pull = client.get("/sync/pull", headers=H("alice")).json()
+    bob_pull = client.get("/sync/pull", headers=H("bob")).json()
+    assert [item["id"] for item in alice_pull["groups"]] == [group["id"]]
+    assert alice_pull["invitations"] == []
+    assert bob_pull["groups"] == []
+    assert [item["id"] for item in bob_pull["invitations"]] == [group["id"]]
+
+    assert client.post(f"/money/groups/{group['id']}/join", headers=H("bob")).status_code == 200
+    bob_pull = client.get("/sync/pull", headers=H("bob")).json()
+    assert [item["id"] for item in bob_pull["groups"]] == [group["id"]]
+    assert bob_pull["invitations"] == []
+
+
 def test_sync_rejects_habit_log_for_another_users_habit(client):
     habit_id = "aaaaaaaa-0000-0000-0000-000000000031"
     client.post(

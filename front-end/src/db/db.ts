@@ -5,6 +5,7 @@ import type {
   Budget,
   Category,
   DuePayment,
+  GroupCache,
   FoodEntry,
   FoodLibraryItem,
   Habit,
@@ -36,6 +37,7 @@ export class AppDB extends Dexie {
   food_library!: EntityTable<FoodLibraryItem, 'id'>
   habits!: EntityTable<Habit, 'id'>
   habit_logs!: EntityTable<HabitLog, 'id'>
+  groups!: EntityTable<GroupCache, 'id'>
 
   constructor(name = 'exptracker') {
     super(name)
@@ -120,6 +122,21 @@ export class AppDB extends Dexie {
       food_library: 'id, &normalized_name, name, status, sync_state',
       habits: 'id, status, sync_state',
       habit_logs: 'id, habit_id, logged_on, status, sync_state, [habit_id+logged_on]',
+    })
+    this.version(7).stores({
+      accounts: 'id, status, sync_state',
+      categories: 'id, transaction_type, status, sync_state',
+      merchants: 'id, &normalized_name, name, status, sync_state',
+      transactions:
+        'id, transaction_date, context, group_id, category_id, status, sync_state, [status+transaction_date]',
+      budgets: 'id, category_id, status, sync_state',
+      due_payments: 'id, account_id, status, sync_state',
+      auth_sessions: 'id',
+      food_entries: 'id, entry_date, meal, status, sync_state, [entry_date+meal]',
+      food_library: 'id, &normalized_name, name, status, sync_state',
+      habits: 'id, status, sync_state',
+      habit_logs: 'id, habit_id, logged_on, status, sync_state, [habit_id+logged_on]',
+      groups: 'id, membership_status',
     })
   }
 }

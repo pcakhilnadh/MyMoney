@@ -53,7 +53,7 @@ function GroupFields({
   busy: boolean
   error: string | null
 }) {
-  const groups = useGroups().data ?? []
+  const groups = useGroups() ?? []
   const members = (useMembers(groupId).data ?? []).filter((m) => m.status === 'active' && m.user_id)
   const me = useMe().data
   const [method, setMethod] = useState<keyof typeof METHODS>('Equal')

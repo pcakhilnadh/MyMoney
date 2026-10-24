@@ -24,8 +24,10 @@ from app.models import (
     Budget,
     Category,
     DuePayment,
+    ExpenseGroup,
     FoodEntry,
     FoodLibraryItem,
+    GroupMember,
     Habit,
     HabitLog,
     Merchant,
@@ -465,4 +467,44 @@ def pull(
         if since is not None:
             q = q.where(model.updated_at > since)
         out[name] = [_out(r, fields) for r in db.scalars(q)]
+    out["groups"] = [
+        {
+            "id": group.id,
+            "name": group.name,
+            "description": group.description,
+            "group_type": group.group_type,
+            "currency": group.currency,
+            "created_by": group.created_by,
+        }
+        for group in db.scalars(
+            select(ExpenseGroup)
+            .join(GroupMember)
+            .where(
+                GroupMember.user_id == user.id,
+                GroupMember.status == "active",
+                ExpenseGroup.status == "active",
+            )
+            .distinct()
+        )
+    ]
+    out["invitations"] = [
+        {
+            "id": group.id,
+            "name": group.name,
+            "description": group.description,
+            "group_type": group.group_type,
+            "currency": group.currency,
+            "created_by": group.created_by,
+        }
+        for group in db.scalars(
+            select(ExpenseGroup)
+            .join(GroupMember)
+            .where(
+                GroupMember.email == user.email,
+                GroupMember.status == "invited",
+                ExpenseGroup.status == "active",
+            )
+            .distinct()
+        )
+    ]
     return out

@@ -1,7 +1,9 @@
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { useAuth } from '@/auth/AuthContext'
 import { api } from '@/auth/api'
-import type { Balances, Group, GroupTx, Member } from './types'
+import { db } from '@/db/db'
+import type { Balances, GroupTx, Member } from './types'
 
 const useToken = () => useAuth().token ?? ''
 
@@ -14,9 +16,10 @@ export function useApi<T>(key: unknown[], path: string, enabled = true) {
   })
 }
 
-export const useGroups = () => useApi<Group[]>(['groups'], '/money/groups')
+export const useGroups = () =>
+  useLiveQuery(() => db.groups.where('membership_status').equals('active').toArray(), [])
 export const useInvitations = () =>
-  useApi<Group[]>(['invitations'], '/money/groups/invitations')
+  useLiveQuery(() => db.groups.where('membership_status').equals('invited').toArray(), [])
 export const useMembers = (id: string) =>
   useApi<Member[]>(['members', id], `/money/groups/${id}/members`)
 export const useBalances = (id: string) =>

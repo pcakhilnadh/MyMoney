@@ -10,9 +10,11 @@ import {
   SectionTitle,
   SegmentedControl,
 } from '@/components/kit'
+import { db } from '@/db/db'
 import { useAction, useBalances, useGroupTxs, useGroups, useMe, useMembers } from '@/groups/hooks'
 import { memberLabel, type Member } from '@/groups/types'
 import { formatMinor } from '@/lib/money'
+import { useSync } from '@/sync/SyncProvider'
 
 const TABS = ['Expenses', 'Balances', 'Members'] as const
 
@@ -20,7 +22,9 @@ export default function GroupDetail() {
   const navigate = useNavigate()
   const { groupId = '' } = useParams()
   const [tab, setTab] = useState<(typeof TABS)[number]>('Expenses')
-  const group = useGroups().data?.find((g) => g.id === groupId)
+  const groups = useGroups()
+  const group = groups?.find((g) => g.id === groupId)
+  const sync = useSync()
   const members = useMembers(groupId)
   const txs = useGroupTxs(groupId)
   const balances = useBalances(groupId)
@@ -34,12 +38,12 @@ export default function GroupDetail() {
   const myRole = members.data?.find((m) => m.user_id === me?.id)?.role
   const removeGroup = useAction<{ id: string }>(
     (b) => `/money/groups/${b.id}`,
-    [['groups'], ['invitations']],
+    [],
     'DELETE',
   )
   const leaveGroup = useAction<{ id: string }>(
     (b) => `/money/groups/${b.id}/members/me`,
-    [['groups'], ['invitations'], ['members', groupId], ['balances', groupId], ['gtx', groupId]],
+    [['members', groupId], ['balances', groupId], ['gtx', groupId]],
     'DELETE',
   )
 
@@ -68,7 +72,16 @@ export default function GroupDetail() {
           disabled={removeGroup.isPending}
           onClick={() => {
             if (window.confirm(`Delete "${group?.name}"? This removes it for all members.`))
-              removeGroup.mutate({ id: groupId }, { onSuccess: () => navigate('/groups') })
+              removeGroup.mutate(
+                { id: groupId },
+                {
+                  onSuccess: async () => {
+                    await db.groups.delete(groupId)
+                    await sync.syncNow()
+                    navigate('/groups')
+                  },
+                },
+              )
           }}
         >
           Delete Group
@@ -190,7 +203,16 @@ export default function GroupDetail() {
                 disabled={leaveGroup.isPending}
                 onClick={() => {
                   if (window.confirm(`Leave "${group?.name}"? You will no longer see this group.`))
-                    leaveGroup.mutate({ id: groupId }, { onSuccess: () => navigate('/groups') })
+                    leaveGroup.mutate(
+                      { id: groupId },
+                      {
+                        onSuccess: async () => {
+                          await db.groups.delete(groupId)
+                          await sync.syncNow()
+                          navigate('/groups')
+                        },
+                      },
+                    )
                 }}
               >
                 Leave Group
