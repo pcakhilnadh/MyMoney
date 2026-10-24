@@ -13,6 +13,7 @@ import Transactions from './pages/Transactions'
 import TransactionDetail from './pages/TransactionDetail'
 import Personal from './pages/Personal'
 import Settings from './pages/Settings'
+import CurrencySettings from './pages/CurrencySettings'
 import Layout from './components/Layout'
 import AccountDetail from './pages/AccountDetail'
 import BudgetCategoryDetail from './pages/BudgetCategoryDetail'
@@ -56,6 +57,7 @@ export default function App() {
             <Route path="/money" element={<Navigate to="/money/home" replace />} />
             <Route path="/money/home" element={<Home />} />
             <Route path="/money/settings" element={<Settings />} />
+            <Route path="/money/settings/currency" element={<CurrencySettings />} />
             <Route path="/money/transactions" element={<Transactions />} />
             <Route path="/money/transactions/:transactionId" element={<TransactionDetail />} />
             <Route path="/money/expenses/new" element={<AddExpense />} />
