@@ -1,14 +1,12 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ArrowLeft, Pencil, Plus, Trash2 } from 'lucide-react'
+import { ArrowLeft, Eye, EyeOff, Plus } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Button,
   CurrencyInput,
   Input,
-  MetalActionButton,
-  MetalBadge,
-  MetalCard,
+  AccountCard,
   PageHeader,
 } from '@/components/kit'
 import { accountsRepo, transactionsRepo } from '@/db/repos'
@@ -54,22 +52,6 @@ const ACCOUNT_GROUPS: { label: string; types: AccountType[] }[] = [
   { label: 'Other', types: ['other'] },
 ]
 
-function currentAccountType(type: AccountType): AccountType {
-  switch (type) {
-    case 'cash':
-      return 'bank'
-    case 'upi':
-    case 'debit_card':
-      return 'wallet'
-    case 'loan_payable':
-      return 'loan'
-    case 'money_lent':
-      return 'asset'
-    default:
-      return type
-  }
-}
-
 export default function SettingsAccounts() {
   const accounts = useLiveQuery(() => accountsRepo.list(), []) ?? []
   const txs = useLiveQuery(() => transactionsRepo.list(), []) ?? []
@@ -80,6 +62,8 @@ export default function SettingsAccounts() {
   const [limit, setLimit] = useState(0)
   const [dueDay, setDueDay] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
+  const [categoryTotalsVisible, setCategoryTotalsVisible] = useState<Record<string, boolean>>({})
+  
   const isCard = type === 'credit_card'
   const hasDueDay = isCard || type === 'loan'
   const isLiability = type === 'loan' || type === 'liability'
@@ -112,29 +96,9 @@ export default function SettingsAccounts() {
     setShowForm(false)
   }
 
-  function edit(id: string) {
-    const account = accounts.find((item) => item.id === id)
-    if (!account) return
-    setEditingId(id)
-    setName(account.name)
-    setType(currentAccountType(account.account_type))
-    setOpening(account.opening_balance)
-    setLimit(account.credit_limit ?? 0)
-    setDueDay(account.payment_due_day ? String(account.payment_due_day) : '')
-    setShowForm(true)
-  }
-
-  async function remove(id: string, accountName: string) {
-    if (!window.confirm(`Delete "${accountName}"? Its transactions will remain in your history.`))
-      return
-    const account = accounts.find((item) => item.id === id)
-    if (account?.is_default) {
-      const replacement = accounts.find((item) => item.id !== id)
-      if (replacement) await accountsRepo.update(replacement.id, { is_default: true })
-    }
-    await accountsRepo.remove(id)
-    if (editingId === id) resetForm()
-  }
+  const activeGroups = ACCOUNT_GROUPS.filter((group) =>
+    accounts.some((account) => group.types.includes(account.account_type)),
+  )
 
   return (
     <div className="space-y-4">
@@ -148,74 +112,83 @@ export default function SettingsAccounts() {
             }}
             className="flex items-center gap-1 text-sm font-medium text-muted-foreground"
           >
-            <ArrowLeft size={18} />
+            <ArrowLeft size={16} />
             Back
           </button>
         ) : (
-          <PageHeader title="Payment Account" />
+          <PageHeader title="Payment Accounts" />
         )}
-        {showForm ? (
-          <span className="text-sm font-medium text-muted-foreground">
-            {editingId ? 'Edit account' : 'New account'}
-          </span>
-        ) : (
+        {!showForm && (
           <button
             type="button"
-            aria-label="Add payment account"
-            onClick={() => setShowForm(true)}
-            className="gloss flex size-10 items-center justify-center rounded-full text-primary-foreground"
+            onClick={() => {
+              resetForm()
+              setShowForm(true)
+            }}
+            className="flex items-center justify-center gap-2 rounded-lg border border-blue-400/30 bg-blue-500/10 px-3 py-2 text-sm font-medium text-blue-300 hover:border-blue-400/50 hover:bg-blue-500/20 transition"
           >
-            <Plus size={21} />
+            <Plus size={16} />
+            Add
           </button>
         )}
       </div>
+
       {showForm ? (
-        <div className="surface space-y-3 rounded-card p-5">
-          <Input
-            placeholder="Account name"
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-          />
-          <select
-            aria-label="Account type"
-            value={type}
-            onChange={(e) => setType(e.target.value as AccountType)}
-            className="field appearance-none"
-          >
-            {TYPES.map((accountType) => (
-              <option key={accountType} value={accountType}>
-                {TYPE_LABELS[accountType]}
-              </option>
-            ))}
-          </select>
-          <CurrencyInput
-            label={
-              isCard || isLiability
-                ? 'Amount already owed (optional)'
-                : isAsset
-                  ? 'Amount already owed to you (optional)'
-                  : 'Opening balance (optional)'
-            }
-            value={opening}
-            onChange={setOpening}
-          />
-          {isCard && <CurrencyInput label="Credit limit" value={limit} onChange={setLimit} />}
-          {hasDueDay && (
+        <div className="space-y-4">
+          <div>
+            <label className="label mb-2 block">Account Name</label>
             <Input
-              type="number"
-              inputMode="numeric"
-              min={1}
-              max={31}
-              aria-label="Payment due day of month"
-              placeholder="Payment due day of month, e.g. 10 (optional)"
-              value={dueDay}
-              onChange={(e) => setDueDay(e.target.value)}
+              value={name}
+              onChange={(e) => setName(e.target.value)}
+              placeholder="e.g., ICICI Bank"
             />
+          </div>
+
+          <div>
+            <label className="label mb-2 block">Account Type</label>
+            <select
+              value={type}
+              onChange={(e) => setType(e.target.value as AccountType)}
+              className="field w-full"
+            >
+              {TYPES.map((t) => (
+                <option key={t} value={t}>
+                  {TYPE_LABELS[t]}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <CurrencyInput value={opening} onChange={setOpening} label="Opening Balance" />
+
+          {isCard && (
+            <CurrencyInput value={limit} onChange={setLimit} label="Credit Limit (Optional)" />
           )}
-          {isLiability && (
+
+          {hasDueDay && (
+            <div>
+              <label className="label mb-2 block">Payment Due Day (Optional)</label>
+              <Input
+                type="number"
+                value={dueDay}
+                onChange={(e) => setDueDay(e.target.value)}
+                placeholder="1-31"
+                min="1"
+                max="31"
+              />
+            </div>
+          )}
+
+          {isCard && (
             <p className="text-sm text-muted-foreground">
-              For money you owe. Record borrowing as a transfer from this account to your bank or
-              deposit account; repay by transferring back.
+              For credit cards. Record spending in individual transactions; the app calculates your
+              available credit based on your limit and outstanding balance.
+            </p>
+          )}
+          {isLiability && !isCard && (
+            <p className="text-sm text-muted-foreground">
+              For money you owe (loans, lines of credit). Record loan disbursals as transfers from
+              your bank or cash account to this account; record repayments by transferring back.
             </p>
           )}
           {isAsset && (
@@ -235,88 +208,73 @@ export default function SettingsAccounts() {
         </div>
       ) : (
         <>
-          {ACCOUNT_GROUPS.filter((group) =>
-            accounts.some((account) => group.types.includes(account.account_type)),
-          ).map((group) => (
-            <section key={group.label} className="space-y-2">
-              <h2 className="label px-1">{group.label}</h2>
-              {accounts
-                .filter((account) => group.types.includes(account.account_type))
-                .map((account) => {
-                  const summary = summarizeAccount(account, txs)
-                  const card = account.account_type === 'credit_card'
-                  const liability =
-                    card ||
-                    account.account_type === 'loan' ||
-                    account.account_type === 'liability' ||
-                    account.account_type === 'loan_payable'
-                  const receivable =
-                    account.account_type === 'asset' || account.account_type === 'money_lent'
-                  return (
-                    <MetalCard key={account.id} className="space-y-4 p-4">
-                      <header className="flex items-center justify-between gap-3">
-                        <Link
-                          to={`/accounts/${account.id}`}
-                          className="flex min-w-0 flex-1 items-center gap-3"
-                        >
-                          <MetalBadge label={account.name} />
-                          <div className="min-w-0">
-                            <div className="truncate font-semibold">{account.name}</div>
-                            <div className="truncate text-xs text-muted-foreground">
-                              {card
-                                ? `Credit card · limit ${account.credit_limit == null ? 'not set' : formatMinor(account.credit_limit)}`
-                                : TYPE_LABELS[account.account_type] +
-                                  (account.is_default ? ' · default' : '')}
-                            </div>
-                          </div>
-                        </Link>
-                        <div className="flex shrink-0 items-center gap-1.5">
-                          <MetalActionButton
-                            label={`Edit ${account.name}`}
-                            onClick={() => edit(account.id)}
-                          >
-                            <Pencil size={15} />
-                          </MetalActionButton>
-                          <MetalActionButton
-                            label={`Delete ${account.name}`}
-                            onClick={() => void remove(account.id, account.name)}
-                            destructive
-                          >
-                            <Trash2 size={15} />
-                          </MetalActionButton>
-                        </div>
-                      </header>
-                      <Link to={`/accounts/${account.id}`} className="block">
-                        <div className="money truncate text-sm leading-tight font-bold tracking-tight text-white">
-                          {liability
-                            ? `${formatMinor(summary.balance)} owed`
-                            : receivable
-                              ? `${formatMinor(summary.balance)} owed to you`
-                              : formatMinor(summary.balance)}
-                        </div>
-                        {card && summary.available != null && (
-                          <div
-                            className={`mt-1 text-sm ${summary.available < 0 ? 'text-destructive' : 'text-muted-foreground'}`}
-                          >
-                            {formatMinor(summary.available)} available
-                          </div>
-                        )}
-                        {account.payment_due_day != null && (
-                          <div className="mt-1 text-sm text-muted-foreground">
-                            Due on day {account.payment_due_day} of each month
-                          </div>
-                        )}
-                      </Link>
-                    </MetalCard>
-                  )
-                })}
-            </section>
-          ))}
           {accounts.length === 0 && (
             <p className="py-8 text-center text-sm text-muted-foreground">
               No payment accounts yet. Tap + to add one.
             </p>
           )}
+          {activeGroups.map((group) => {
+            const groupAccounts = accounts.filter((account) =>
+              group.types.includes(account.account_type),
+            )
+            const groupTotal = groupAccounts.reduce((sum, account) => {
+              const summary = summarizeAccount(account, txs)
+              return sum + summary.balance
+            }, 0)
+            const isVisible = categoryTotalsVisible[group.label] === true
+
+            return (
+              <section key={group.label} className="space-y-3">
+                <div className="flex items-center justify-between px-1">
+                  <h2 className="label">{group.label}</h2>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCategoryTotalsVisible((prev) => ({
+                        ...prev,
+                        [group.label]: prev[group.label] !== true,
+                      }))
+                    }
+                    className="flex items-center gap-1.5 text-xs font-medium text-blue-400 hover:text-blue-300 transition"
+                  >
+                    {isVisible ? (
+                      <>
+                        <Eye size={14} />
+                        {formatMinor(groupTotal)}
+                      </>
+                    ) : (
+                      <>
+                        <EyeOff size={14} />
+                        ●●●●●
+                      </>
+                    )}
+                  </button>
+                </div>
+                <div className="space-y-2">
+                  {groupAccounts.map((account) => {
+                    const summary = summarizeAccount(account, txs)
+                    const card = account.account_type === 'credit_card'
+
+                    return (
+                      <Link
+                        key={account.id}
+                        to={`/accounts/${account.id}`}
+                        className="block"
+                      >
+                        <AccountCard
+                          account={account}
+                          balance={summary.balance}
+                          available={card ? summary.available : undefined}
+                          isDefault={account.is_default}
+                          variant="list"
+                        />
+                      </Link>
+                    )
+                  })}
+                </div>
+              </section>
+            )
+          })}
         </>
       )}
     </div>

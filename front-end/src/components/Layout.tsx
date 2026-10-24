@@ -102,7 +102,7 @@ export default function Layout() {
             </h1>
             <p className="mt-2 text-sm font-medium text-primary">Coming Soon</p>
             <p className="mt-2 max-w-xs text-sm text-muted-foreground">
-              {selectedApp === 'food' ? 'Track the food you eat.' : 'Track the habits you do.'}
+              {selectedApp === 'habit' ? 'Track the habits you do.' : 'More apps coming soon.'}
             </p>
           </section>
         ) : (

@@ -5,6 +5,7 @@ import { normalizeMoneyInput, toMinor } from '@/lib/money'
 
 export { Button } from '@/components/ui/button'
 export { MetalActionButton, MetalBadge, MetalCard } from './MetalCard'
+export { AccountCard } from './AccountCard'
 
 export function Card({
   children,
