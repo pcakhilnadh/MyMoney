@@ -96,12 +96,10 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     const onOffline = () => setState('offline')
     window.addEventListener('online', onOnline)
     window.addEventListener('offline', onOffline)
-    const timer = setInterval(() => void syncNow(), 60_000)
     return () => {
       again.current = false
       off()
       clearTimeout(debounce)
-      clearInterval(timer)
       window.removeEventListener('online', onOnline)
       window.removeEventListener('offline', onOffline)
     }
