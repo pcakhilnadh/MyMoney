@@ -95,3 +95,32 @@ export interface Budget extends Syncable {
   alert_threshold_percent: number
   is_active: boolean
 }
+
+export type MealType = 'breakfast' | 'lunch' | 'snacks' | 'dinner'
+
+export interface FoodEntry extends Syncable {
+  entry_date: string
+  meal: MealType
+  name: string
+  quantity: number
+  unit: string
+}
+
+export interface FoodLibraryItem extends Syncable {
+  name: string
+  normalized_name: string
+}
+
+export interface Habit extends Syncable {
+  name: string
+  description: string | null
+  frequency: 'daily' | 'weekly'
+  target_per_week: number
+}
+
+export interface HabitLog extends Syncable {
+  habit_id: string
+  logged_on: string
+  completed: boolean
+  note: string | null
+}

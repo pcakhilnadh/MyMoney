@@ -1,1 +1,17 @@
-<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512"><rect width="512" height="512" fill="#635BFF"/><text x="256" y="350" font-size="280" text-anchor="middle" fill="#fff" font-family="Inter,Arial,sans-serif" font-weight="700">₹</text></svg>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#17264a"/>
+      <stop offset="1" stop-color="#0a0e1a"/>
+    </linearGradient>
+    <linearGradient id="accent" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#76a8ff"/>
+      <stop offset="1" stop-color="#4b8bff"/>
+    </linearGradient>
+  </defs>
+  <rect width="512" height="512" rx="112" fill="url(#bg)"/>
+  <path d="M160 155h192M160 256h192M160 357h192" fill="none" stroke="#ffffff" stroke-linecap="round" stroke-opacity=".48" stroke-width="24"/>
+  <circle cx="126" cy="155" r="28" fill="url(#accent)"/>
+  <circle cx="126" cy="256" r="28" fill="#4ae3b5"/>
+  <circle cx="126" cy="357" r="28" fill="#a7a0ff"/>
+</svg>

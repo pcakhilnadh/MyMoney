@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowRight, Plus, Search } from 'lucide-react'
 import { Card, Input, PageHeader, SegmentedControl } from '@/components/kit'
@@ -6,6 +7,7 @@ import {
   MEAL_META,
   MEAL_ORDER,
   addFoodEntries,
+  DEFAULT_FOOD_LIBRARY,
   getFoodLibrary,
   isoDate,
   type MealType,
@@ -18,17 +20,18 @@ export default function FoodAdd() {
   const [meal, setMeal] = useState<MealType>((searchParams.get('meal') as MealType) ?? 'breakfast')
   const [query, setQuery] = useState('')
   const [selectedFood, setSelectedFood] = useState<string | null>(null)
+  const foodLibrary = useLiveQuery(() => getFoodLibrary(), []) ?? DEFAULT_FOOD_LIBRARY
   const [quantity, setQuantity] = useState(1)
   const [unit, setUnit] = useState('serving')
   const [draftItems, setDraftItems] = useState<Array<{ name: string; quantity: number; unit: string }>>([])
 
   const suggestions = useMemo(() => {
     const needle = query.trim().toLowerCase()
-    const items = getFoodLibrary()
+    const items = foodLibrary
 
     if (!needle) return items.slice(0, 8)
     return items.filter((item) => item.toLowerCase().includes(needle)).slice(0, 8)
-  }, [query])
+  }, [foodLibrary, query])
 
   const addDraftItem = () => {
     const name = (selectedFood ?? query.trim()) || 'Custom food'
@@ -49,20 +52,24 @@ export default function FoodAdd() {
     setUnit('serving')
   }
 
-  const saveDraft = () => {
+  const saveDraft = async () => {
     if (!draftItems.length) return
 
-    addFoodEntries(
-      draftItems.map((item) => ({
-        date,
-        meal,
-        name: item.name,
-        quantity: item.quantity,
-        unit: item.unit,
-      })),
-    )
-
-    navigate('/food')
+    try {
+      await addFoodEntries(
+        draftItems.map((item) => ({
+          entry_date: date,
+          meal,
+          name: item.name,
+          quantity: item.quantity,
+          unit: item.unit,
+        })),
+      )
+      navigate('/food')
+    } catch (error) {
+      console.error('Unable to save food diary entries', error)
+      window.alert('Unable to save food entries. Please try again.')
+    }
   }
 
   return (
@@ -176,7 +183,7 @@ export default function FoodAdd() {
 
           <button
             type="button"
-            onClick={saveDraft}
+            onClick={() => void saveDraft()}
             className="gloss flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold text-primary-foreground"
           >
             Save food entries

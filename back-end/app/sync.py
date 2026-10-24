@@ -7,6 +7,7 @@ copy is returned as a conflict and the client adopts it.
 
 import uuid
 from datetime import date, datetime, timezone
+from decimal import Decimal
 from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
@@ -18,7 +19,19 @@ from sqlalchemy.orm import Session
 from app.auth import get_current_user
 from app.category_rules import transfer_category_account_error
 from app.db import get_db
-from app.models import Account, Budget, Category, DuePayment, Merchant, Profile, Transaction
+from app.models import (
+    Account,
+    Budget,
+    Category,
+    DuePayment,
+    FoodEntry,
+    FoodLibraryItem,
+    Habit,
+    HabitLog,
+    Merchant,
+    Profile,
+    Transaction,
+)
 
 router = APIRouter(prefix="/sync", tags=["sync"], dependencies=[Depends(get_current_user)])
 
@@ -87,6 +100,32 @@ class MerchantSyncRec(Rec):
     name: str
 
 
+class FoodEntryRec(Rec):
+    entry_date: date
+    meal: Literal["breakfast", "lunch", "snacks", "dinner"]
+    name: str = Field(min_length=1, max_length=200)
+    quantity: Decimal = Field(gt=0, max_digits=10, decimal_places=2)
+    unit: str = Field(min_length=1, max_length=40)
+
+
+class FoodLibraryRec(Rec):
+    name: str = Field(min_length=1, max_length=200)
+
+
+class HabitRec(Rec):
+    name: str = Field(min_length=1, max_length=160)
+    description: str | None = None
+    frequency: Literal["daily", "weekly"] = "daily"
+    target_per_week: int = Field(default=7, ge=1, le=7)
+
+
+class HabitLogRec(Rec):
+    habit_id: uuid.UUID
+    logged_on: date
+    completed: bool = True
+    note: str | None = None
+
+
 class PushIn(BaseModel):
     categories: list[CategoryRec] = []
     accounts: list[AccountRec] = []
@@ -94,6 +133,10 @@ class PushIn(BaseModel):
     transactions: list[TransactionRec] = []
     budgets: list[BudgetRec] = []
     due_payments: list[DuePaymentRec] = []
+    food_entries: list[FoodEntryRec] = []
+    food_library: list[FoodLibraryRec] = []
+    habits: list[HabitRec] = []
+    habit_logs: list[HabitLogRec] = []
 
 
 # entity name -> (model, owner column, fields copied from the record)
@@ -146,6 +189,22 @@ SPECS = {
             "is_active",
         ],
     ),
+    "food_entries": (
+        FoodEntry,
+        "user_id",
+        ["entry_date", "meal", "name", "quantity", "unit"],
+    ),
+    "food_library": (FoodLibraryItem, "user_id", ["name", "normalized_name"]),
+    "habits": (
+        Habit,
+        "user_id",
+        ["name", "description", "frequency", "target_per_week"],
+    ),
+    "habit_logs": (
+        HabitLog,
+        "user_id",
+        ["habit_id", "logged_on", "completed", "note"],
+    ),
 }
 
 
@@ -170,6 +229,27 @@ def _category_name_key(name: str) -> str:
 
 def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> None:
     model, owner_col, fields = SPECS[name]
+    if name == "food_library":
+        food_name = " ".join(rec.name.split())
+        normalized_name = food_name.casefold()
+        if not normalized_name:
+            raise HTTPException(422, "Food name cannot be empty")
+        data = {"name": food_name, "normalized_name": normalized_name}
+        duplicate = db.scalar(
+            select(FoodLibraryItem).where(
+                FoodLibraryItem.user_id == user.id,
+                FoodLibraryItem.normalized_name == normalized_name,
+                FoodLibraryItem.status == "active",
+                FoodLibraryItem.id != rec.id,
+            )
+        )
+        if duplicate is not None:
+            result["accepted"].append(
+                {"entity": name, "id": str(rec.id), "canonical_id": str(duplicate.id)}
+            )
+            return
+    elif name != "merchants":
+        data = {f: getattr(rec, f) for f in fields}
     if name == "merchants":
         merchant_rec = rec
         normalized_name = " ".join(merchant_rec.name.split()).casefold()
@@ -256,7 +336,12 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
             )
             return
 
-    data = {f: getattr(rec, f) for f in fields}
+    if name == "habit_logs":
+        habit = db.get(Habit, rec.habit_id)
+        if habit is None or habit.user_id != user.id:
+            raise HTTPException(422, "Habit log must refer to a habit you own")
+        if rec.status != "deleted" and habit.status != "active":
+            raise HTTPException(422, "Habit log must refer to an active habit")
     if name == "transactions":
         if rec.context != "personal":  # group data goes through /transactions
             raise HTTPException(422, "Only personal transactions can be synced")
@@ -329,7 +414,17 @@ def push(body: PushIn, user: Profile = Depends(get_current_user), db: Session = 
         for accepted in result["accepted"]
         if accepted["entity"] == "categories" and "canonical_id" in accepted
     }
-    for name in ("accounts", "merchants", "transactions", "budgets", "due_payments"):
+    for name in (
+        "accounts",
+        "merchants",
+        "transactions",
+        "budgets",
+        "due_payments",
+        "food_library",
+        "food_entries",
+        "habits",
+        "habit_logs",
+    ):
         for rec in getattr(body, name):
             if name in {"transactions", "budgets"} and rec.category_id in category_aliases:
                 rec = rec.model_copy(

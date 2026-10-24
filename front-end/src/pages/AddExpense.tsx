@@ -183,7 +183,7 @@ export default function AddExpense() {
   const [accountId, setAccountId] = useState('')
   const [transferToAccountId, setTransferToAccountId] = useState('')
   const [groupId, setGroupId] = useState(presetGroup)
-  const post = useAction<object>('/transactions', [['gtx'], ['balances']])
+  const post = useAction<object>('/money/transactions', [['gtx'], ['balances']])
 
   const activeAccounts = accounts?.filter((account) => account.status === 'active') ?? []
   const categoryType = categoryTypeForTransaction(transactionType)

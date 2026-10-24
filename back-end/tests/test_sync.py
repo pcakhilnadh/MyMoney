@@ -47,19 +47,19 @@ def test_push_then_pull_roundtrip(client):
     again = c.get("/sync/pull", params={"since": pulled["server_time"]}, headers=H("alice")).json()
     assert again["transactions"] == []
     # synced rows are visible through the normal API too
-    assert len(c.get("/transactions", headers=H("alice")).json()) == 1
+    assert len(c.get("/money/transactions", headers=H("alice")).json()) == 1
 
 
 def test_push_is_idempotent_and_versioned(client):
     c = client
     c.post("/sync/push", json=payload(), headers=H("alice"))
     c.post("/sync/push", json=payload(), headers=H("alice"))
-    assert len(c.get("/transactions", headers=H("alice")).json()) == 1
+    assert len(c.get("/money/transactions", headers=H("alice")).json()) == 1
     c.post("/sync/push", json=payload(version=2, amount=2500), headers=H("alice"))
-    assert c.get("/transactions", headers=H("alice")).json()[0]["amount_minor"] == 2500
+    assert c.get("/money/transactions", headers=H("alice")).json()[0]["amount_minor"] == 2500
     # stale version is reported as a conflict and does not overwrite
     r = c.post("/sync/push", json=payload(version=1, amount=1), headers=H("alice")).json()
-    assert r["conflicts"] and c.get("/transactions", headers=H("alice")).json()[0]["amount_minor"] == 2500
+    assert r["conflicts"] and c.get("/money/transactions", headers=H("alice")).json()[0]["amount_minor"] == 2500
 
 
 def test_category_sync_uses_existing_user_category_as_canonical(client):
@@ -144,7 +144,7 @@ def test_soft_delete_syncs(client):
     c = client
     c.post("/sync/push", json=payload(), headers=H("alice"))
     c.post("/sync/push", json=payload(version=2, status="deleted"), headers=H("alice"))
-    assert c.get("/transactions", headers=H("alice")).json() == []
+    assert c.get("/money/transactions", headers=H("alice")).json() == []
     pulled = c.get("/sync/pull", headers=H("alice")).json()
     assert pulled["transactions"][0]["status"] == "deleted"
 
@@ -224,7 +224,7 @@ def test_budget_sync_validates_category_references(client):
     )
 
     assert response.status_code == 200
-    assert client.get("/budgets", headers=H("alice")).json()[0]["category_id"] == CAT
+    assert client.get("/money/budgets", headers=H("alice")).json()[0]["category_id"] == CAT
 
     budget["id"] = "aaaaaaaa-0000-0000-0000-000000000010"
     budget["category_id"] = "aaaaaaaa-0000-0000-0000-000000000011"

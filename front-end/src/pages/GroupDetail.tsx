@@ -33,22 +33,25 @@ export default function GroupDetail() {
   const myNet = me ? (balances.data?.net[me.id] ?? 0) : 0
   const myRole = members.data?.find((m) => m.user_id === me?.id)?.role
   const removeGroup = useAction<{ id: string }>(
-    (b) => `/groups/${b.id}`,
+    (b) => `/money/groups/${b.id}`,
     [['groups'], ['invitations']],
     'DELETE',
   )
   const leaveGroup = useAction<{ id: string }>(
-    (b) => `/groups/${b.id}/members/me`,
+    (b) => `/money/groups/${b.id}/members/me`,
     [['groups'], ['invitations'], ['members', groupId], ['balances', groupId], ['gtx', groupId]],
     'DELETE',
   )
 
   const [email, setEmail] = useState('')
-  const invite = useAction<{ email: string }>(`/groups/${groupId}/members`, [['members', groupId]])
+  const invite = useAction<{ email: string }>(
+    `/money/groups/${groupId}/members`,
+    [['members', groupId]],
+  )
   const [settleTo, setSettleTo] = useState('')
   const [amount, setAmount] = useState(0)
   const settle = useAction<{ receiver_user_id: string; amount_minor: number; group_id: string }>(
-    '/settlements',
+    '/money/settlements',
     [['balances', groupId]],
   )
 

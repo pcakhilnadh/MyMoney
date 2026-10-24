@@ -1,10 +1,12 @@
 import { Link } from 'react-router-dom'
 import { Database, Utensils } from 'lucide-react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { Card } from '@/components/kit'
 import { getFoodLibrary } from '@/lib/food'
 
 export default function FoodSettings() {
-  const totalFoods = getFoodLibrary().length
+  const foods = useLiveQuery(() => getFoodLibrary(), []) ?? []
+  const totalFoods = foods.length
 
   return (
     <div className="space-y-5">

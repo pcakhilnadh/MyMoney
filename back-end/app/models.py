@@ -257,3 +257,68 @@ class Budget(Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
+class FoodEntry(Base):
+    __tablename__ = "food_entries"
+    __table_args__ = (CheckConstraint("quantity > 0"),)
+
+    id: Mapped[uuid.UUID] = _pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), index=True)
+    entry_date: Mapped[date] = mapped_column(Date, index=True)
+    meal: Mapped[str] = mapped_column(String)
+    name: Mapped[str] = mapped_column(String)
+    quantity: Mapped[float] = mapped_column(Numeric(10, 2))
+    unit: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String, default="active")
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
+class FoodLibraryItem(Base):
+    __tablename__ = "food_library_items"
+    __table_args__ = (UniqueConstraint("user_id", "normalized_name"),)
+
+    id: Mapped[uuid.UUID] = _pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), index=True)
+    name: Mapped[str] = mapped_column(String)
+    normalized_name: Mapped[str] = mapped_column(String)
+    status: Mapped[str] = mapped_column(String, default="active")
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
+class Habit(Base):
+    __tablename__ = "habits"
+
+    id: Mapped[uuid.UUID] = _pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), index=True)
+    name: Mapped[str] = mapped_column(String)
+    description: Mapped[str | None] = mapped_column(Text)
+    frequency: Mapped[str] = mapped_column(String, default="daily")
+    target_per_week: Mapped[int] = mapped_column(Integer, default=7)
+    status: Mapped[str] = mapped_column(String, default="active")
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
+class HabitLog(Base):
+    __tablename__ = "habit_logs"
+    __table_args__ = (
+        UniqueConstraint("habit_id", "logged_on"),
+        CheckConstraint("status IN ('active', 'archived', 'deleted')"),
+    )
+
+    id: Mapped[uuid.UUID] = _pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), index=True)
+    habit_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("habits.id"), index=True)
+    logged_on: Mapped[date] = mapped_column(Date, index=True)
+    completed: Mapped[bool] = mapped_column(Boolean, default=True)
+    note: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String, default="active")
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)

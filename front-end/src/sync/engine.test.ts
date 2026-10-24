@@ -86,6 +86,7 @@ describe('sync dependencies', () => {
     vi.stubGlobal('localStorage', {
       getItem: () => null,
       setItem: () => undefined,
+      removeItem: () => undefined,
     })
 
     await runSync('token', 'user')
@@ -138,6 +139,7 @@ describe('sync dependencies', () => {
     vi.stubGlobal('localStorage', {
       getItem: () => null,
       setItem: () => undefined,
+      removeItem: () => undefined,
     })
 
     await runSync('token', 'user')

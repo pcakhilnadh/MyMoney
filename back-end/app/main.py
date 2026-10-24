@@ -6,11 +6,13 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import settings
 from app.db import engine
-from app.routers import router as api_router
 from app.routers_auth import router as auth_router
+from app.routers_food import router as food_router
+from app.routers_habits import router as habits_router
+from app.routers_money import router as money_router
 from app.sync import router as sync_router
 
-app = FastAPI(title="MyMoney API")
+app = FastAPI(title="MyTracker API")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -20,15 +22,18 @@ app.add_middleware(
 )
 
 
+# Auth and sync remain shared across all MyTracker features. Domain routes are
+# mounted both locally and beneath the deployment's /api base path.
 app.include_router(auth_router)
-app.include_router(api_router)
 app.include_router(sync_router)
-
-# Keep the existing local API paths while exposing a collision-free prefix
-# for the frontend when both apps share a Vercel domain.
+app.include_router(money_router)
+app.include_router(food_router)
+app.include_router(habits_router)
 app.include_router(auth_router, prefix="/api")
-app.include_router(api_router, prefix="/api")
 app.include_router(sync_router, prefix="/api")
+app.include_router(money_router, prefix="/api")
+app.include_router(food_router, prefix="/api")
+app.include_router(habits_router, prefix="/api")
 
 
 @app.get("/health", response_model=None)

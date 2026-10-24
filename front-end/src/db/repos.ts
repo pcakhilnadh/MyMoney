@@ -1,7 +1,19 @@
 import Dexie from 'dexie'
 import { db } from './db'
 import { Repository } from './repository'
-import type { Account, Budget, Category, DuePayment, Merchant, Syncable, Transaction } from './types'
+import type {
+  Account,
+  Budget,
+  Category,
+  DuePayment,
+  FoodEntry,
+  FoodLibraryItem,
+  Habit,
+  HabitLog,
+  Merchant,
+  Syncable,
+  Transaction,
+} from './types'
 import { requestSync } from '@/sync/bus'
 import {
   categoryTypeForTransaction,
@@ -11,6 +23,10 @@ import {
 export const accountsRepo = new Repository<Account>(db.accounts)
 export const budgetsRepo = new Repository<Budget>(db.budgets)
 export const duePaymentsRepo = new Repository<DuePayment>(db.due_payments)
+export const foodEntriesRepo = new Repository<FoodEntry>(db.food_entries)
+export const foodLibraryRepo = new Repository<FoodLibraryItem>(db.food_library)
+export const habitsRepo = new Repository<Habit>(db.habits)
+export const habitLogsRepo = new Repository<HabitLog>(db.habit_logs)
 
 class CategoriesRepository extends Repository<Category> {
   async removeWithTransactions(id: string): Promise<void> {

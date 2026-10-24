@@ -1,4 +1,5 @@
 import { Link, useNavigate } from 'react-router-dom'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { CalendarDays, Plus, Sparkles } from 'lucide-react'
 import { Card } from '@/components/kit'
 import {
@@ -7,12 +8,14 @@ import {
   countForDate,
   currentStreak,
   entriesForMeal,
+  getEntries,
   isoDate,
 } from '@/lib/food'
 
 export default function FoodHome() {
   const navigate = useNavigate()
   const today = isoDate()
+  const entries = useLiveQuery(() => getEntries(), []) ?? []
 
   return (
     <div className="space-y-5">
@@ -38,7 +41,7 @@ export default function FoodHome() {
           <div>
             <div className="text-sm font-medium text-white/75">Current streak</div>
             <div className="money mt-1 text-[38px] leading-none font-extrabold text-white">
-              {currentStreak()} days
+              {currentStreak(entries)} days
             </div>
           </div>
           <div className="flex size-12 items-center justify-center rounded-2xl bg-white/10">
@@ -49,7 +52,7 @@ export default function FoodHome() {
 
       <div className="space-y-3">
         {MEAL_ORDER.map((meal) => {
-          const items = entriesForMeal(today, meal)
+          const items = entriesForMeal(today, meal, entries)
           const preview = items.slice(0, 2).map((entry) => entry.name).join(', ')
 
           return (
@@ -103,7 +106,7 @@ export default function FoodHome() {
         to="/food/diary"
         className="surface flex items-center justify-between rounded-2xl px-4 py-3.5 font-medium"
       >
-        <span>{countForDate(today)} items tracked today</span>
+        <span>{countForDate(today, entries)} items tracked today</span>
         <span className="text-primary">View diary</span>
       </Link>
     </div>

@@ -24,7 +24,11 @@ from app.models import (
 )
 from app.splits import SplitError, compute_shares, net_balances, simplify_debts
 
-router = APIRouter(dependencies=[Depends(get_current_user)])
+router = APIRouter(
+    prefix="/money",
+    tags=["money"],
+    dependencies=[Depends(get_current_user)],
+)
 
 
 # ---------- accounts & categories ----------

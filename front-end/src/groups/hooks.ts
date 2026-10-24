@@ -14,13 +14,15 @@ export function useApi<T>(key: unknown[], path: string, enabled = true) {
   })
 }
 
-export const useGroups = () => useApi<Group[]>(['groups'], '/groups')
-export const useInvitations = () => useApi<Group[]>(['invitations'], '/groups/invitations')
-export const useMembers = (id: string) => useApi<Member[]>(['members', id], `/groups/${id}/members`)
+export const useGroups = () => useApi<Group[]>(['groups'], '/money/groups')
+export const useInvitations = () =>
+  useApi<Group[]>(['invitations'], '/money/groups/invitations')
+export const useMembers = (id: string) =>
+  useApi<Member[]>(['members', id], `/money/groups/${id}/members`)
 export const useBalances = (id: string) =>
-  useApi<Balances>(['balances', id], `/groups/${id}/balances`)
+  useApi<Balances>(['balances', id], `/money/groups/${id}/balances`)
 export const useGroupTxs = (id: string) =>
-  useApi<GroupTx[]>(['gtx', id], `/transactions?group_id=${id}`)
+  useApi<GroupTx[]>(['gtx', id], `/money/transactions?group_id=${id}`)
 export const useMe = () => useApi<{ id: string; email: string }>(['me'], '/auth/me')
 
 /** POST/DELETE helper that invalidates the given query keys on success. */

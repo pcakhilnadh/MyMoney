@@ -1,4 +1,5 @@
 import { useEffect, useMemo, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate, useParams } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { Card, PageHeader } from '@/components/kit'
@@ -7,12 +8,15 @@ import {
   MEAL_ORDER,
   entriesForDay,
   entriesForMeal,
+  getEntries,
   isoDate,
   trackedDateSet,
   type MealType,
 } from '@/lib/food'
+import type { FoodEntry } from '@/db/types'
 
 const DAY_LABELS = ['Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat', 'Sun']
+const EMPTY_ENTRIES: FoodEntry[] = []
 
 function formatCalendarMonth(date: Date) {
   return date.toLocaleDateString('en-IN', { month: 'long', year: 'numeric' })
@@ -21,6 +25,7 @@ function formatCalendarMonth(date: Date) {
 export default function FoodDiary() {
   const navigate = useNavigate()
   const { date: routeDate, mealType } = useParams<{ date?: string; mealType?: string }>()
+  const entries = useLiveQuery(() => getEntries(), [])
   const [selectedDate, setSelectedDate] = useState(routeDate ?? isoDate())
   const [monthCursor, setMonthCursor] = useState(() => new Date(`${selectedDate}T12:00:00`))
 
@@ -48,10 +53,11 @@ export default function FoodDiary() {
     return cells
   }, [monthStart])
 
-  const trackedDates = useMemo(() => trackedDateSet(), [selectedDate])
+  const foodEntries = entries ?? EMPTY_ENTRIES
+  const trackedDates = useMemo(() => trackedDateSet(foodEntries), [foodEntries])
 
   const focusMeal = mealType && MEAL_ORDER.includes(mealType as MealType) ? mealType : null
-  const dayEntries = entriesForDay(selectedDate)
+  const dayEntries = entriesForDay(selectedDate, foodEntries)
 
   return (
     <div className="space-y-5">
@@ -146,7 +152,7 @@ export default function FoodDiary() {
 
         <div className="space-y-3">
           {MEAL_ORDER.map((meal) => {
-            const items = entriesForMeal(selectedDate, meal)
+            const items = entriesForMeal(selectedDate, meal, foodEntries)
             const isFocused = focusMeal === meal
 
             return (

@@ -33,7 +33,7 @@ def send_email(to: str, subject: str, body: str) -> bool:
 
 
 def invite_email(group_name: str, inviter_email: str) -> tuple[str, str]:
-    subject = f"{inviter_email} invited you to \"{group_name}\" on MyMoney"
+    subject = f"{inviter_email} invited you to \"{group_name}\" on MyTracker"
     body = (
         f"{inviter_email} added you to the group \"{group_name}\".\n\n"
         f"Sign in with this Google account to join: {settings.app_url}/groups\n"

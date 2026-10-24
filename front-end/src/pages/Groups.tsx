@@ -13,9 +13,12 @@ export default function Groups() {
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
   const [type, setType] = useState('friends')
-  const create = useAction<{ name: string; group_type: string }, Group>('/groups', [['groups']])
+  const create = useAction<{ name: string; group_type: string }, Group>(
+    '/money/groups',
+    [['groups']],
+  )
   const join = useAction<{ id: string }>(
-    (b) => `/groups/${b.id}/join`,
+    (b) => `/money/groups/${b.id}/join`,
     [['groups'], ['invitations']],
   )
 

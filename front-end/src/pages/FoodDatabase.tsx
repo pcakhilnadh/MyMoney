@@ -1,25 +1,31 @@
 import { useMemo, useState } from 'react'
+import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowLeft, Plus } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card, Input } from '@/components/kit'
-import { addFoodLibraryItem, getFoodLibrary } from '@/lib/food'
+import { addFoodLibraryItem, DEFAULT_FOOD_LIBRARY, getFoodLibrary } from '@/lib/food'
 
 export default function FoodDatabase() {
   const [query, setQuery] = useState('')
   const [customFood, setCustomFood] = useState('')
+  const foods = useLiveQuery(() => getFoodLibrary(), []) ?? DEFAULT_FOOD_LIBRARY
 
   const items = useMemo(() => {
-    const foods = getFoodLibrary()
     const needle = query.trim().toLowerCase()
     if (!needle) return foods
     return foods.filter((food) => food.toLowerCase().includes(needle))
-  }, [query])
+  }, [foods, query])
 
-  const handleAddFood = () => {
+  const handleAddFood = async () => {
     const clean = customFood.trim()
     if (!clean) return
-    addFoodLibraryItem(clean)
-    setCustomFood('')
+    try {
+      await addFoodLibraryItem(clean)
+      setCustomFood('')
+    } catch (error) {
+      console.error('Unable to save custom food', error)
+      window.alert('Unable to save the custom food. Please try again.')
+    }
   }
 
   return (
