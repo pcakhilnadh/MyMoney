@@ -5,7 +5,16 @@ const monthKey = (iso: string) => iso.slice(0, 7) // YYYY-MM
 export const currentMonth = (d = new Date()) =>
   `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
 
+export const currentDay = (d = new Date()) =>
+  `${currentMonth(d)}-${String(d.getDate()).padStart(2, '0')}`
+
 const spend = (txs: Transaction[]) => txs.filter((t) => t.transaction_type === 'expense')
+
+export function dayTotal(txs: Transaction[], day: string): number {
+  return spend(txs)
+    .filter((t) => t.transaction_date.slice(0, 10) === day)
+    .reduce((n, t) => n + t.amount_minor, 0)
+}
 
 export function monthTotal(txs: Transaction[], month: string): number {
   return spend(txs)

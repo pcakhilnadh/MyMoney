@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { Category, Transaction } from '@/db/types'
-import { byCategory, monthTotal, monthlySeries, toCsv } from './summary'
+import { byCategory, currentDay, dayTotal, monthTotal, monthlySeries, toCsv } from './summary'
 
 const t = (date: string, amount: number, cat: string | null = null, type = 'expense') =>
   ({
@@ -19,6 +19,10 @@ describe('summary', () => {
     t('2026-09-30', 70, 'f'),
     t('2026-10-02', 999, 'f', 'income'),
   ]
+  it('formats the current local day as a date key', () =>
+    expect(currentDay(new Date(2026, 9, 24))).toBe('2026-10-24'))
+  it('totals spending for a day while ignoring income', () =>
+    expect(dayTotal(txs, '2026-10-09')).toBe(50))
   it('totals a month, ignoring income', () => expect(monthTotal(txs, '2026-10')).toBe(150))
   it('groups by category', () =>
     expect(byCategory(txs, cats, '2026-10')).toEqual([

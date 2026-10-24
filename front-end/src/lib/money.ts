@@ -3,6 +3,16 @@ const inr = new Intl.NumberFormat('en-IN', { style: 'currency', currency: 'INR' 
 /** Format an amount in minor units (paise) as INR. */
 export const formatMinor = (minor: number) => inr.format(minor / 100)
 
+/** Format an INR amount compactly with Indian denominations and two decimals. */
+export function formatCompactMinor(minor: number): string {
+  const rupees = Math.abs(minor) / 100
+  const sign = minor < 0 ? '-₹' : '₹'
+  if (rupees >= 10_000_000) return `${sign}${(rupees / 10_000_000).toFixed(2)}Cr`
+  if (rupees >= 100_000) return `${sign}${(rupees / 100_000).toFixed(2)}L`
+  if (rupees >= 1_000) return `${sign}${(rupees / 1_000).toFixed(2)}K`
+  return `${sign}${rupees.toFixed(2)}`
+}
+
 export const DEFAULT_CATEGORIES = {
   expense: [
     'Food & Dining',

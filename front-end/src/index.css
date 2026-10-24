@@ -160,6 +160,21 @@
     background: linear-gradient(115deg, rgba(255, 255, 255, 0.22) 0%, transparent 38%);
     pointer-events: none;
   }
+  @keyframes spending-overview-enter {
+    from {
+      opacity: 0;
+      transform: translateY(8px) scale(0.985);
+    }
+    to {
+      opacity: 1;
+      transform: translateY(0) scale(1);
+    }
+  }
+  @media (prefers-reduced-motion: no-preference) {
+    .spending-overview {
+      animation: spending-overview-enter 420ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
+    }
+  }
   .gloss {
     background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 82%, white) 0%, var(--primary) 100%);
     box-shadow:

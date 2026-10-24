@@ -17,6 +17,10 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await fakeSignIn(page)
   await page.goto('/money')
   await expect(page).toHaveURL(/\/money\/home/)
+  const greetingHeader = page.locator('[data-app="money"] main header')
+  await expect(greetingHeader.getByText(/Good (morning|afternoon|evening)/)).toBeVisible()
+  await expect(greetingHeader.getByRole('heading', { name: 'Test!' })).toBeVisible()
+  await expect(greetingHeader.locator('[aria-hidden="true"]')).toHaveText(/🌅|☀️|🌙/)
   const appSelector = page.getByRole('group', { name: 'App selector' })
   await expect(appSelector.getByRole('button', { name: 'My Money' })).toHaveAttribute(
     'aria-pressed',
@@ -39,9 +43,12 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
   await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
   await page.evaluate(() => window.scrollTo(0, 0))
-  const monthlySpendCard = page.locator('.hero')
-  await expect(monthlySpendCard).toHaveText(/Spent this month/)
-  await expect(monthlySpendCard).toHaveCSS('background-image', /color\(srgb/)
+  const spendingOverview = page.getByRole('region', { name: 'Spending overview' })
+  await expect(spendingOverview).toContainText('Spent today')
+  await expect(spendingOverview).toContainText('Spent this month')
+  await expect(spendingOverview.locator('.money')).toHaveCount(2)
+  await expect(spendingOverview.locator('.rounded-2xl')).toHaveCount(0)
+  await expect(spendingOverview).toHaveCSS('background-image', /color\(srgb/)
   await expect(page.locator('.recharts-responsive-container svg').first()).toBeVisible()
   await expect(page.locator('.recharts-responsive-container svg stop').first()).toHaveCSS(
     'stop-color',
