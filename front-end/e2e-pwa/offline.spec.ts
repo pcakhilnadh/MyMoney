@@ -32,3 +32,20 @@ test('offers an install action when Chrome exposes the install prompt', async ({
   await installButton.click()
   await expect(installButton).toHaveCount(0)
 })
+
+test('alerts when more than ten offline changes are waiting to sync', async ({ page, context }) => {
+  await fakeSignIn(page)
+  await page.goto('/money/settings/accounts')
+  await expect(page.getByRole('heading', { name: 'Payment Account' })).toBeVisible()
+  await context.setOffline(true)
+
+  for (let index = 1; index <= 11; index += 1) {
+    await page.getByRole('button', { name: 'Add payment account' }).click()
+    await page.getByPlaceholder('e.g., ICICI Bank').fill(`Offline account ${index}`)
+    await page.getByRole('button', { name: 'Add Account' }).click()
+  }
+
+  const pendingAlert = page.getByRole('status')
+  await expect(pendingAlert).toContainText(/changes (are )?waiting/, { timeout: 10_000 })
+  await expect(pendingAlert).toContainText('Reconnect to sync your data.')
+})
