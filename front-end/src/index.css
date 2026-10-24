@@ -99,13 +99,8 @@
   border-radius: 0;
 }
 
-.app-selector-tab-active--edge {
-  box-shadow: -0.75rem 0 0 0 var(--connected-surface-color);
-}
-
 .personal-selector-tab-active {
   border-radius: 0;
-  box-shadow: 0.75rem 0 0 0 var(--card);
 }
 
 [data-app] {

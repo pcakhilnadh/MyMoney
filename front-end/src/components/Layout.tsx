@@ -56,7 +56,7 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
       <div
         role="group"
         aria-label="App selector"
-        className="grid h-16 grid-cols-[repeat(3,minmax(0,1fr))_2.5rem] items-center gap-1 px-3"
+        className="grid h-16 grid-cols-[repeat(3,minmax(0,1fr))_2.5rem] items-center"
       >
         {apps.map(({ id, label, Icon }) => {
           const selected = selectedApp === id
@@ -82,10 +82,8 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
               }
               className={`flex min-w-0 items-center justify-center gap-1.5 px-1.5 py-2 text-xs font-semibold transition-colors ${
                 selected
-                  ? `app-connected-surface app-selector-tab-active h-16 self-stretch text-primary ${
-                      id === 'money' ? 'app-selector-tab-active--edge' : ''
-                    }`
-                  : `rounded-xl ${appTheme}`
+                  ? 'app-connected-surface app-selector-tab-active h-16 self-stretch text-primary'
+                  : `h-16 self-stretch rounded-xl ${appTheme}`
               }`}
             >
               <Icon size={16} aria-hidden="true" />
@@ -99,8 +97,8 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
           aria-current={pathname === '/personal' ? 'page' : undefined}
           className={`flex items-center justify-center text-muted-foreground transition-colors ${
             isPersonal
-              ? 'personal-selector-tab-active h-16 w-10 bg-card hover:bg-card'
-              : 'size-10 rounded-xl'
+            ? 'personal-selector-tab-active h-16 w-full bg-card hover:bg-card'
+            : 'h-16 w-full rounded-xl'
           }`}
         >
           {picture && picture !== failedPicture ? (
