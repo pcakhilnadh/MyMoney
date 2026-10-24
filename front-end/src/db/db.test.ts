@@ -26,6 +26,34 @@ beforeEach(async () => {
   await Promise.all(db.tables.map((t) => t.clear()))
 })
 
+it('removes food and habit stores when upgrading local databases', async () => {
+  const name = `tracking-reset-${crypto.randomUUID()}`
+  const legacy = new Dexie(name)
+  legacy.version(7).stores({
+    food_entries: 'id, entry_date, meal, status, sync_state, [entry_date+meal]',
+    food_library: 'id, &normalized_name, name, status, sync_state',
+    habits: 'id, status, sync_state',
+    habit_logs: 'id, habit_id, logged_on, status, sync_state, [habit_id+logged_on]',
+  })
+  await legacy.open()
+  await legacy.table('food_entries').add({ id: 'old-entry' })
+  await legacy.table('food_library').add({ id: 'old-food' })
+  await legacy.table('habits').add({ id: 'old-habit' })
+  await legacy.table('habit_logs').add({ id: 'old-habit-log' })
+  legacy.close()
+
+  const upgraded = new AppDB(name)
+  try {
+    await upgraded.open()
+    const tableNames = upgraded.tables.map((table) => table.name)
+    for (const tableName of ['food_entries', 'food_library', 'habits', 'habit_logs'])
+      expect(tableNames).not.toContain(tableName)
+  } finally {
+    upgraded.close()
+    await Dexie.delete(name)
+  }
+})
+
 describe('repository', () => {
   it('creates pending records and bumps version on update', async () => {
     const account = await accountsRepo.create({

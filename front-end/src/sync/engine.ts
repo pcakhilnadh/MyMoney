@@ -1,7 +1,6 @@
 import { api, ApiError } from '@/auth/api'
 import { db } from '@/db/db'
 import type { Budget, Category, GroupCache, Syncable } from '@/db/types'
-import { migrateLegacyFoodStorage } from '@/lib/food'
 
 type EntityName =
   | 'categories'
@@ -10,10 +9,6 @@ type EntityName =
   | 'transactions'
   | 'budgets'
   | 'due_payments'
-  | 'food_entries'
-  | 'food_library'
-  | 'habits'
-  | 'habit_logs'
 const ENTITIES: EntityName[] = [
   'categories',
   'accounts',
@@ -21,10 +16,6 @@ const ENTITIES: EntityName[] = [
   'transactions',
   'budgets',
   'due_payments',
-  'food_entries',
-  'food_library',
-  'habits',
-  'habit_logs',
 ]
 
 /** Fields the server may omit, used when a record is first pulled. */
@@ -32,10 +23,6 @@ const DEFAULTS: Record<EntityName, object> = {
   categories: { is_system: false, is_hidden: false },
   accounts: { payment_due_day: null },
   due_payments: {},
-  food_entries: {},
-  food_library: {},
-  habits: { description: null, frequency: 'daily', target_per_week: 7 },
-  habit_logs: { note: null, completed: true },
   merchants: {},
   transactions: {
     group_id: null,
@@ -135,7 +122,6 @@ export async function runSync(token: string, sub: string): Promise<void> {
 }
 
 async function syncCycle(token: string, sub: string): Promise<void> {
-  await migrateLegacyFoodStorage()
   await api('/auth/me', token) // creates the profile row on first sign-in
 
   const since = localStorage.getItem(cursorKey(sub))
@@ -186,7 +172,7 @@ async function syncCycle(token: string, sub: string): Promise<void> {
           continue
         }
         if (
-          (entity === 'merchants' || entity === 'food_library') &&
+          entity === 'merchants' &&
           canonical_id &&
           canonical_id !== id
         ) {

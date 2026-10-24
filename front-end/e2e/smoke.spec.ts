@@ -6,7 +6,7 @@ test('signed-out users are sent to login', async ({ page }) => {
   await expect(page).toHaveURL(/\/login/)
   await expect(page).toHaveTitle('MyTracker')
   await expect(page.getByText('MyTracker')).toBeVisible()
-  await expect(page.getByRole('heading', { name: /Track money, food, habits and more/ })).toBeVisible()
+  await expect(page.getByRole('heading', { name: /Manage your money/ })).toBeVisible()
   await expect(page.locator('h1 span')).toHaveCSS('background-image', /rgb\(124, 108, 255\)/)
   await expect(page.locator('.gloss svg')).toBeVisible()
 })
@@ -64,8 +64,9 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   )
   await page.goto('/money/transactions')
   await appSelector.getByRole('button', { name: 'MyFood' }).click()
-  await expect(page).toHaveURL(/\/food/)
-  await expect(page.getByText('Current streak')).toBeVisible()
+  await expect(page).toHaveURL(/\/food\/home$/)
+  await expect(page.getByRole('heading', { name: 'MyFood' })).toBeVisible()
+  await expect(page.getByText('Coming Soon')).toBeVisible()
   await expect(page.locator('[data-app="food"]')).toHaveCSS('background-image', /50vh/)
   await expect(
     page.getByRole('navigation', { name: 'MyFood navigation' }).locator('svg').first(),
@@ -76,26 +77,31 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await expect(
     page.getByRole('navigation', { name: 'MyFood navigation' }).getByText('Home'),
   ).toBeVisible()
+  await expect(
+    page.getByRole('navigation', { name: 'MyFood navigation' }).getByRole('link'),
+  ).toHaveCount(1)
   await expect(page.locator('[data-app="food"]')).toHaveCSS('--primary', '#39c98a')
   await page.reload()
   await expect(appSelector.getByRole('button', { name: 'MyFood' })).toHaveAttribute(
     'aria-pressed',
     'true',
   )
+  await page.goto('/food/diary')
+  await expect(page).toHaveURL(/\/food\/home$/)
+  await expect(page.getByText('Coming Soon')).toBeVisible()
   await appSelector.getByRole('button', { name: 'MyHabbit' }).click()
-  await expect(page).toHaveURL(/\/habits/)
+  await expect(page).toHaveURL(/\/habits\/today$/)
   await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible()
   await expect(page.locator('[data-app="habit"]')).toHaveCSS('background-image', /50vh/)
   await expect(
     page.getByRole('navigation', { name: 'MyHabbit navigation' }).locator('svg').first(),
   ).toHaveCSS('color', 'rgb(237, 41, 57)')
-  await expect(
-    page.getByRole('navigation', { name: 'MyHabbit navigation' }).getByText('Habits'),
-  ).toHaveCSS('color', 'rgb(237, 41, 57)')
-  await expect(
-    page.getByRole('navigation', { name: 'MyHabbit navigation' }).getByText('Habits'),
-  ).toBeDisabled()
+  const habitNavigation = page.getByRole('navigation', { name: 'MyHabbit navigation' })
+  await expect(habitNavigation.getByRole('button')).toHaveCount(1)
+  await expect(habitNavigation.getByText('Today')).toBeDisabled()
   await expect(page.locator('[data-app="habit"]')).toHaveCSS('--primary', '#ed2939')
+  await page.goto('/habits')
+  await expect(page).toHaveURL(/\/habits\/today$/)
   await appSelector.getByRole('button', { name: 'My Money' }).click()
   await expect(page).toHaveURL(/\/money\/home/)
   await page.getByRole('link', { name: 'View budgets' }).click()

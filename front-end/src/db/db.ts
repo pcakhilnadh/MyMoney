@@ -6,10 +6,6 @@ import type {
   Category,
   DuePayment,
   GroupCache,
-  FoodEntry,
-  FoodLibraryItem,
-  Habit,
-  HabitLog,
   Merchant,
   Transaction,
 } from './types'
@@ -33,10 +29,6 @@ export class AppDB extends Dexie {
     },
     'id'
   >
-  food_entries!: EntityTable<FoodEntry, 'id'>
-  food_library!: EntityTable<FoodLibraryItem, 'id'>
-  habits!: EntityTable<Habit, 'id'>
-  habit_logs!: EntityTable<HabitLog, 'id'>
   groups!: EntityTable<GroupCache, 'id'>
 
   constructor(name = 'exptracker') {
@@ -132,10 +124,10 @@ export class AppDB extends Dexie {
       budgets: 'id, category_id, status, sync_state',
       due_payments: 'id, account_id, status, sync_state',
       auth_sessions: 'id',
-      food_entries: 'id, entry_date, meal, status, sync_state, [entry_date+meal]',
-      food_library: 'id, &normalized_name, name, status, sync_state',
-      habits: 'id, status, sync_state',
-      habit_logs: 'id, habit_id, logged_on, status, sync_state, [habit_id+logged_on]',
+      food_entries: null,
+      food_library: null,
+      habits: null,
+      habit_logs: null,
       groups: 'id, membership_status',
     })
   }

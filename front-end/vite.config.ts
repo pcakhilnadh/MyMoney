@@ -16,7 +16,7 @@ export default defineConfig({
         id: '/',
         name: 'MyTracker',
         short_name: 'MyTracker',
-        description: 'Track money, food, habits and more in one place',
+        description: 'Manage your money, with more tools coming soon',
         theme_color: '#0A0A0F',
         background_color: '#0A0A0F',
         display: 'standalone',

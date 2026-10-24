@@ -1,6 +1,6 @@
 # MyTracker
 
-An installable personal tracker for **money, food, and habits**, with a dark CRED-inspired UI.
+An installable personal tracker for money, with MyFood and MyHabbit screens ready to be rebuilt.
 Data is stored locally first (works offline) and syncs to the server when online.
 
 - **Front-end:** React + TypeScript + Vite, Tailwind CSS 4, shadcn/ui, TanStack Query, Dexie (IndexedDB), vite-plugin-pwa
@@ -20,7 +20,7 @@ Data is stored locally first (works offline) and syncs to the server when online
               │ HTTPS + app access token; HttpOnly refresh cookie
 ┌─────────────▼───────────── FastAPI (monolith) ────────────────────┐
 │ verify Google sign-in → issue renewable app session               │
-│ routes: /money/*, /food/*, /habits/*, shared /auth/* and /sync/*  │
+│ routes: /money/*, shared /auth/* and /sync/*                      │
 │ authorization + split/balance rules live here (app/splits.py)     │
 └─────────────┬─────────────────────────────────────────────────────┘
               │ SQLAlchemy (server-side connection string)
@@ -51,13 +51,9 @@ Key ideas
 | `expense_groups`, `group_members` | Groups/family spaces; members are added by email (`invited` → `active`) |
 | `settlements` | Payments between members of a group |
 | `budgets` | Spending limits (personal or group) |
-| `food_entries` | User-owned diary entries by date and meal |
-| `food_library_items` | User-owned custom foods |
-| `habits` | User-owned habit definitions and weekly targets |
-| `habit_logs` | Completion records associated with user-owned habits |
 
-The API keeps authentication and sync shared across features. Feature endpoints are namespaced
-under `/money`, `/food`, and `/habits`; deployment mounts the same routes under `/api`.
+The API keeps authentication and sync shared across features. Money endpoints are namespaced
+under `/money` and are also mounted beneath `/api`. MyFood and MyHabbit currently show Coming Soon.
 
 Split methods: equal, exact amount, percentage, shares. Balances = (paid − share) per member, adjusted by
 settlements. 

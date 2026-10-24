@@ -13,7 +13,7 @@ export default function HabitsHome() {
         Today
       </h1>
       <p className="mt-2 text-sm font-medium text-primary">Coming Soon</p>
-      <p className="mt-2 max-w-xs text-sm text-muted-foreground">Track the habits you do.</p>
+      <p className="mt-2 max-w-xs text-sm text-muted-foreground">Habit tracking is being rebuilt.</p>
     </section>
   )
 }

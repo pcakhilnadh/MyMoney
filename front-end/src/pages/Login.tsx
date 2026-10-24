@@ -22,9 +22,9 @@ export default function Login() {
       </div>
       <div className="space-y-4">
         <h1 className="text-[40px] leading-[1.05] font-extrabold tracking-tight">
-          Track money, food, habits and more,{' '}
+          Manage your money,{' '}
           <span className="bg-gradient-to-r from-primary to-positive bg-clip-text text-transparent">
-            all in one place.
+            with more tools coming soon.
           </span>
         </h1>
         <p className="text-base text-muted-foreground">

@@ -1,6 +1,5 @@
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
-  Activity,
   CalendarCheck,
   Heart,
   House,
@@ -21,10 +20,7 @@ const tabs = [
 ]
 
 const foodTabs = [
-  { to: '/food', label: 'Home', Icon: House },
-  { to: '/food/diary', label: 'Diary', Icon: CalendarCheck },
-  { to: '/food/insights', label: 'Insights', Icon: Activity },
-  { to: '/food/settings', label: 'Settings', Icon: SettingsIcon },
+  { to: '/food/home', label: 'Home', Icon: House },
 ]
 
 const apps = [
@@ -35,8 +31,6 @@ const apps = [
 
 const habitTabs = [
   { label: 'Today', Icon: CalendarCheck },
-  { label: 'Habits', Icon: Heart },
-  { label: 'Progress', Icon: Activity },
 ]
 
 export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'shared' }) {
@@ -63,7 +57,13 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
               type="button"
               aria-pressed={selected}
               onClick={() =>
-                navigate(id === 'money' ? '/money/home' : id === 'food' ? '/food' : '/habits')
+                navigate(
+                  id === 'money'
+                    ? '/money/home'
+                    : id === 'food'
+                      ? '/food/home'
+                      : '/habits/today',
+                )
               }
               className={`flex min-w-0 items-center justify-center gap-1.5 rounded-xl px-1.5 py-2 text-xs font-semibold transition-colors ${
                 selected ? 'bg-primary/15 text-primary' : 'text-muted-foreground hover:bg-muted/50'
@@ -125,13 +125,6 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
               {label}
             </NavLink>
           ))}
-          <Link
-            to="/food/add"
-            aria-label="Add food"
-            className={`gloss flex size-12 shrink-0 items-center justify-center rounded-full text-primary-foreground shadow-lg transition-transform active:scale-95 ${pathname === '/food/add' ? 'ring-2 ring-white/70' : ''}`}
-          >
-            <Plus size={23} strokeWidth={2.5} />
-          </Link>
         </nav>
       ) : (
         <nav className="bottom-nav fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
