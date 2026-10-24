@@ -12,6 +12,7 @@ import Login from './pages/Login'
 import Transactions from './pages/Transactions'
 import TransactionDetail from './pages/TransactionDetail'
 import Personal from './pages/Personal'
+import Welcome, { BreathingScreen } from './pages/Welcome'
 import Settings from './pages/Settings'
 import CurrencySettings from './pages/CurrencySettings'
 import Layout from './components/Layout'
@@ -23,12 +24,7 @@ import { CurrencyProvider } from './money/CurrencyContext'
 
 function Protected() {
   const { user, ready } = useAuth()
-  if (!ready)
-    return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
-        Restoring your session…
-      </div>
-    )
+  if (!ready) return <BreathingScreen />
   return user ? <Outlet /> : <Navigate to="/login" replace />
 }
 
@@ -45,6 +41,7 @@ export default function App() {
         <Route path="/login" element={<Login />} />
         <Route element={<Protected />}>
           <Route index element={<Navigate to="/personal" replace />} />
+          <Route path="/welcome" element={<Welcome />} />
           <Route path="/home" element={<LegacyMoneyRedirect />} />
           <Route path="/transactions/*" element={<LegacyMoneyRedirect />} />
           <Route path="/expenses/*" element={<LegacyMoneyRedirect />} />

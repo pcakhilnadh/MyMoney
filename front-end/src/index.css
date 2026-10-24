@@ -103,6 +103,82 @@
   border-radius: 0;
 }
 
+/* Welcome / initial sync: one 6s breath cycle drives every element. */
+.welcome-orb {
+  position: relative;
+  width: 14rem;
+  height: 14rem;
+  display: grid;
+  place-items: center;
+}
+.welcome-core {
+  width: 5rem;
+  height: 5rem;
+  border-radius: 9999px;
+  background: radial-gradient(circle at 35% 30%, #fff 0%, var(--primary) 45%, transparent 75%);
+  box-shadow: 0 0 60px 10px color-mix(in srgb, var(--primary) 55%, transparent);
+  animation: welcome-breathe 6s ease-in-out infinite;
+}
+.welcome-ring {
+  position: absolute;
+  inset: 0;
+  margin: auto;
+  border-radius: 9999px;
+  border: 1px solid color-mix(in srgb, var(--primary) 50%, transparent);
+  animation: welcome-ring 6s ease-in-out infinite;
+}
+.welcome-ring-1 { width: 7rem; height: 7rem; }
+.welcome-ring-2 { width: 10rem; height: 10rem; animation-delay: 0.3s; opacity: 0.6; }
+.welcome-ring-3 { width: 13.5rem; height: 13.5rem; animation-delay: 0.6s; opacity: 0.35; }
+.welcome-orbit {
+  position: absolute;
+  inset: 0;
+  animation: welcome-spin 12s linear infinite;
+}
+.welcome-orbit i {
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 0.5rem;
+  height: 0.5rem;
+  margin-left: -0.25rem;
+  border-radius: 9999px;
+  background: var(--positive);
+  box-shadow: 0 0 12px var(--positive);
+}
+.welcome-orbit-2 { animation-duration: 18s; animation-direction: reverse; inset: 1.25rem; }
+.welcome-word {
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: linear-gradient(90deg, var(--primary), var(--positive));
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+}
+.welcome-in { animation: welcome-in 6s ease-in-out infinite; }
+.welcome-out { animation: welcome-in 6s ease-in-out infinite; animation-delay: -3s; }
+
+@keyframes welcome-breathe {
+  0%, 100% { transform: scale(0.7); }
+  50% { transform: scale(1.35); }
+}
+@keyframes welcome-ring {
+  0%, 100% { transform: scale(0.75); }
+  50% { transform: scale(1.05); }
+}
+@keyframes welcome-spin {
+  to { transform: rotate(360deg); }
+}
+@keyframes welcome-in {
+  0%, 100% { opacity: 0; transform: translateY(6px); }
+  15%, 35% { opacity: 1; transform: translateY(0); }
+  50% { opacity: 0; transform: translateY(-6px); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .welcome-core, .welcome-ring, .welcome-orbit { animation: none; }
+}
+
 [data-app] {
   background-color: var(--background);
   background-image:

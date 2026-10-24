@@ -30,6 +30,7 @@ export interface SyncStatus {
   state: 'idle' | 'syncing' | 'offline' | 'error'
   pending: number
   lastSyncedAt: string | null
+  initialSyncDone: boolean
   error: string | null
   syncNow: () => Promise<void>
 }
@@ -43,6 +44,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   const [pending, setPending] = useState(0)
   const [error, setError] = useState<string | null>(null)
   const [last, setLast] = useState<string | null>(null)
+  const [initialSyncFor, setInitialSyncFor] = useState<string | null>(null)
   const running = useRef(false)
   const again = useRef(false)
 
@@ -51,6 +53,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     if (!navigator.onLine) {
       setState('offline')
       setPending(await countPending())
+      setInitialSyncFor(sub)
       return
     }
     if (running.current) {
@@ -76,6 +79,8 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     } finally {
       running.current = false
       setPending(await countPending())
+      // A failed first sync must not trap the user on the loading screen.
+      setInitialSyncFor(sub)
       if (again.current) {
         again.current = false
         void syncNow()
@@ -106,8 +111,15 @@ export function SyncProvider({ children }: { children: ReactNode }) {
   }, [sub, syncNow])
 
   const value = useMemo(
-    () => ({ state, pending, lastSyncedAt: last, error, syncNow }),
-    [state, pending, last, error, syncNow],
+    () => ({
+      state,
+      pending,
+      lastSyncedAt: last,
+      initialSyncDone: sub !== null && initialSyncFor === sub,
+      error,
+      syncNow,
+    }),
+    [state, pending, last, initialSyncFor, sub, error, syncNow],
   )
   return <Ctx.Provider value={value}>{children}</Ctx.Provider>
 }

@@ -2,16 +2,12 @@ import { Navigate } from 'react-router-dom'
 import { Activity } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import GoogleButton from '@/auth/GoogleButton'
+import { BreathingScreen } from './Welcome'
 
 export default function Login() {
   const { user, ready } = useAuth()
-  if (!ready)
-    return (
-      <div className="flex min-h-screen items-center justify-center text-sm text-muted-foreground">
-        Restoring your session…
-      </div>
-    )
-  if (user) return <Navigate to="/personal" replace />
+  if (!ready) return <BreathingScreen />
+  if (user) return <Navigate to="/welcome" replace />
   return (
     <div className="mx-auto flex min-h-screen max-w-md flex-col justify-between px-8 py-14">
       <div className="flex items-center gap-3">
