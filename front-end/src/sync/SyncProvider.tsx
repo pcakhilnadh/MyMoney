@@ -48,9 +48,9 @@ export function SyncProvider({ children }: { children: ReactNode }) {
 
   const syncNow = useCallback(async () => {
     if (!sub) return
+    setPending(await countPending())
     if (!navigator.onLine) {
       setState('offline')
-      setPending(await countPending())
       return
     }
     if (!token) return
@@ -94,7 +94,7 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       debounce = setTimeout(() => void syncNow(), 1000)
     })
     const onOnline = () => void syncNow()
-    const onOffline = () => setState('offline')
+    const onOffline = () => void syncNow()
     window.addEventListener('online', onOnline)
     window.addEventListener('offline', onOffline)
     return () => {
