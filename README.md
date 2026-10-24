@@ -38,26 +38,6 @@ Key ideas
   to renew sign-in. A member's Google name is saved on `group_members.display_name` only when they join a group.
 - Money is stored as integer **minor units** (paise) everywhere.
 
-## Data model (summary)
-
-| Table | Purpose |
-|---|---|
-| `profiles` | Identity only: `id`, `google_sub`, `email` |
-| `auth_sessions` | Hashed access/refresh credentials and the session's rolling expiry |
-| `accounts` | Cash/bank/UPI/credit card etc. with `opening_balance` and (cards) `credit_limit` |
-| `categories` | Expense/income categories (user-owned) |
-| `transactions` | Expenses, income, refunds; `context` = personal / family / group; `client_id`, `version` |
-| `split_allocations` | Each participant's share and amount paid for a shared transaction |
-| `expense_groups`, `group_members` | Groups/family spaces; members are added by email (`invited` → `active`) |
-| `settlements` | Payments between members of a group |
-| `budgets` | Spending limits (personal or group) |
-
-The API keeps authentication and sync shared across features. Money endpoints are namespaced
-under `/money` and are also mounted beneath `/api`. MyFood and MyHabbit currently show Coming Soon.
-
-Split methods: equal, exact amount, percentage, shares. Balances = (paid − share) per member, adjusted by
-settlements. 
-
 ## Repository layout
 
 ```
