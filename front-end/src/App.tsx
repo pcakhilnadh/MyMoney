@@ -12,7 +12,7 @@ import Login from './pages/Login'
 import Transactions from './pages/Transactions'
 import TransactionDetail from './pages/TransactionDetail'
 import Personal from './pages/Personal'
-import Welcome, { BreathingScreen } from './pages/Welcome'
+import Welcome, { BreathingScreen, SyncGate } from './pages/Welcome'
 import Settings from './pages/Settings'
 import CurrencySettings from './pages/CurrencySettings'
 import Layout from './components/Layout'
@@ -25,8 +25,11 @@ import { CurrencyProvider } from './money/CurrencyContext'
 function Protected() {
   const { user, ready } = useAuth()
   if (!ready) return <BreathingScreen />
-  return user ? <Outlet /> : <Navigate to="/login" replace />
-}
+  return user ? (
+    <SyncGate>
+      <Outlet />
+    </SyncGate>
+  ) : <Navigate to="/login" replace />}
 
 function LegacyMoneyRedirect() {
   const { pathname, search, hash } = useLocation()

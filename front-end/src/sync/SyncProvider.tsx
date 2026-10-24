@@ -53,7 +53,6 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     if (!navigator.onLine) {
       setState('offline')
       setPending(await countPending())
-      setInitialSyncFor(sub)
       return
     }
     if (running.current) {
@@ -73,14 +72,13 @@ export function SyncProvider({ children }: { children: ReactNode }) {
       setError(null)
       setState('idle')
       setLast(localStorage.getItem(lastSyncKey(sub)))
+      setInitialSyncFor(sub)
     } catch (e) {
       setError(e instanceof Error ? e.message : 'Sync failed')
       setState('error')
     } finally {
       running.current = false
       setPending(await countPending())
-      // A failed first sync must not trap the user on the loading screen.
-      setInitialSyncFor(sub)
       if (again.current) {
         again.current = false
         void syncNow()
