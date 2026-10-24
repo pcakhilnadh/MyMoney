@@ -1,8 +1,30 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
 import { useAuth } from '@/auth/AuthContext'
+import { fetchAuthSessions, refreshSession, type AuthSession } from '@/auth/api'
 import { countPending, lastSyncKey, runSync } from './engine'
 import { onSyncRequested } from './bus'
+
+const sessionStorageKey = (sub: string) => `exptracker.sessions.${sub}`
+
+export function cachedAuthSessions(sub: string): AuthSession[] {
+  const cached = localStorage.getItem(sessionStorageKey(sub))
+  if (!cached) return []
+  try {
+    const sessions = JSON.parse(cached) as AuthSession[]
+    if (!Array.isArray(sessions)) throw new Error('Invalid cached sessions')
+    return sessions
+  } catch (error) {
+    localStorage.removeItem(sessionStorageKey(sub))
+    console.error('Unable to read cached sessions', error)
+    return []
+  }
+}
+
+async function updateAuthSessions(token: string, sub: string): Promise<void> {
+  const sessions = await fetchAuthSessions(token)
+  localStorage.setItem(sessionStorageKey(sub), JSON.stringify(sessions))
+}
 
 export interface SyncStatus {
   state: 'idle' | 'syncing' | 'offline' | 'error'
@@ -38,7 +60,13 @@ export function SyncProvider({ children }: { children: ReactNode }) {
     running.current = true
     setState('syncing')
     try {
-      await runSync(token, sub)
+      const currentSession = await refreshSession()
+      await runSync(currentSession.access_token, sub)
+      try {
+        await updateAuthSessions(currentSession.access_token, sub)
+      } catch (sessionError) {
+        console.error('Unable to refresh active sessions', sessionError)
+      }
       setError(null)
       setState('idle')
       setLast(localStorage.getItem(lastSyncKey(sub)))

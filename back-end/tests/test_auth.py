@@ -74,6 +74,51 @@ def test_logout_revokes_session_and_clears_cookie(client):
     assert client.post("/auth/refresh").status_code == 401
 
 
+def test_sessions_are_listed_and_revocable_individually(client):
+    first_login = client.post("/auth/login", json={"credential": "alice"})
+    first_access = first_login.json()["access_token"]
+    second_login = client.post("/auth/login", json={"credential": "alice"})
+    second_access = second_login.json()["access_token"]
+
+    sessions = client.get(
+        "/auth/sessions", headers={"Authorization": f"Bearer {second_access}"}
+    )
+    assert sessions.status_code == 200
+    assert len(sessions.json()) == 2
+    current = next(row for row in sessions.json() if row["is_current"])
+    other = next(row for row in sessions.json() if not row["is_current"])
+    assert current["device"] is None
+    assert current["browser"] is None
+    assert current["created_at"] > 0
+
+    ended = client.delete(
+        f"/auth/sessions/{other['id']}",
+        headers={"Authorization": f"Bearer {second_access}"},
+    )
+    assert ended.status_code == 204
+    assert client.get("/auth/me", headers={"Authorization": f"Bearer {first_access}"}).status_code == 401
+    remaining = client.get(
+        "/auth/sessions", headers={"Authorization": f"Bearer {second_access}"}
+    )
+    assert len(remaining.json()) == 1
+    assert remaining.json()[0]["is_current"]
+
+
+def test_session_listing_and_revocation_are_scoped_to_authenticated_user(client):
+    alice = client.post("/auth/login", json={"credential": "alice"}).json()["access_token"]
+    bob = client.post("/auth/login", json={"credential": "bob"}).json()["access_token"]
+    bob_sessions = client.get(
+        "/auth/sessions", headers={"Authorization": f"Bearer {bob}"}
+    ).json()
+    assert len(bob_sessions) == 1
+    response = client.delete(
+        f"/auth/sessions/{bob_sessions[0]['id']}",
+        headers={"Authorization": f"Bearer {alice}"},
+    )
+    assert response.status_code == 404
+    assert client.get("/auth/me", headers={"Authorization": f"Bearer {bob}"}).status_code == 200
+
+
 def test_expired_access_token_is_rejected(client):
     import time
 

@@ -56,12 +56,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     const sub = session?.user.sub ?? DB_SUB
+    if (sub) await waitForSync(sub)
     setAccessToken(null)
     clearStoredSession()
     window.google?.accounts.id.disableAutoSelect()
     setSession(null)
     try {
-      if (sub) await waitForSync(sub)
       await clearLocalDatabase()
       if (sub) clearSyncState(sub)
     } catch (error) {

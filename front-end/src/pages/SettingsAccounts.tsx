@@ -287,7 +287,7 @@ export default function SettingsAccounts() {
                         </div>
                       </header>
                       <Link to={`/accounts/${account.id}`} className="block">
-                        <div className="money truncate text-[26px] leading-tight font-bold tracking-tight text-white">
+                        <div className="money truncate text-sm leading-tight font-bold tracking-tight text-white">
                           {liability
                             ? `${formatMinor(summary.balance)} owed`
                             : receivable

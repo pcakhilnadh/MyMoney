@@ -9,6 +9,18 @@ export class AppDB extends Dexie {
   transactions!: EntityTable<Transaction, 'id'>
   budgets!: EntityTable<Budget, 'id'>
   due_payments!: EntityTable<DuePayment, 'id'>
+  auth_sessions!: EntityTable<
+    {
+      id: string
+      device: string | null
+      browser: string | null
+      location: string | null
+      created_at: number
+      last_used_at: number
+      is_current: boolean
+    },
+    'id'
+  >
 
   constructor(name = 'exptracker') {
     super(name)
@@ -69,6 +81,16 @@ export class AppDB extends Dexie {
         'id, transaction_date, context, group_id, category_id, status, sync_state, [status+transaction_date]',
       budgets: 'id, category_id, status, sync_state',
       due_payments: 'id, account_id, status, sync_state',
+    })
+    this.version(5).stores({
+      accounts: 'id, status, sync_state',
+      categories: 'id, transaction_type, status, sync_state',
+      merchants: 'id, &normalized_name, name, status, sync_state',
+      transactions:
+        'id, transaction_date, context, group_id, category_id, status, sync_state, [status+transaction_date]',
+      budgets: 'id, category_id, status, sync_state',
+      due_payments: 'id, account_id, status, sync_state',
+      auth_sessions: 'id',
     })
   }
 }

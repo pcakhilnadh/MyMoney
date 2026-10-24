@@ -1,6 +1,6 @@
 from uuid import UUID
 
-from app.models import ExpenseGroup, GroupMember
+from app.models import Category, ExpenseGroup, GroupMember
 from tests.conftest import H
 
 
@@ -28,6 +28,45 @@ def make_group(c):
     g = c.post("/groups", json={"name": "Trip"}, headers=H("alice")).json()
     assert c.post(f"/groups/{g['id']}/members", json={"email": "Bob@gmail.com"}, headers=H("alice")).status_code == 201
     return g["id"], a, b
+
+
+def test_category_creation_returns_existing_user_or_default_category(client):
+    c = client
+    first = c.post(
+        "/categories",
+        json={"name": "Custom food", "transaction_type": "expense"},
+        headers=H("alice"),
+    )
+    duplicate = c.post(
+        "/categories",
+        json={"name": "  CUSTOM   FOOD ", "transaction_type": "expense"},
+        headers=H("alice"),
+    )
+
+    assert first.status_code == 201
+    assert duplicate.status_code == 200
+    assert duplicate.json()["id"] == first.json()["id"]
+
+    default_id = UUID("aaaaaaaa-0000-0000-0000-000000000010")
+    with c.session_factory() as db:
+        db.add(
+            Category(
+                id=default_id,
+                user_id=None,
+                name="Groceries",
+                transaction_type="expense",
+                is_system=True,
+            )
+        )
+        db.commit()
+    default_duplicate = c.post(
+        "/categories",
+        json={"name": "groceries", "transaction_type": "expense"},
+        headers=H("alice"),
+    )
+
+    assert default_duplicate.status_code == 200
+    assert default_duplicate.json()["id"] == str(default_id)
 
 
 def test_personal_private_and_idempotent(client):

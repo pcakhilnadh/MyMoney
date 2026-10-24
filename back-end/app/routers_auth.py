@@ -1,7 +1,8 @@
 import time
+import uuid
 from urllib.parse import urlsplit
 
-from fastapi import APIRouter, Cookie, Depends, HTTPException, Request, Response, status
+from fastapi import APIRouter, Cookie, Depends, Header, HTTPException, Request, Response, status
 from pydantic import BaseModel
 from sqlalchemy import select
 from sqlalchemy.orm import Session
@@ -56,6 +57,7 @@ def refresh(
     request: Request,
     response: Response,
     refresh_token: str | None = Cookie(default=None, alias=REFRESH_COOKIE),
+    user_agent: str | None = Header(default=None),
     db: Session = Depends(get_db),
 ) -> dict:
     _verify_cookie_origin(request)
@@ -72,6 +74,11 @@ def refresh(
     session.access_token_hash = _token_hash(access_token)
     session.access_expires_at = now + ACCESS_TOKEN_SECONDS
     session.refresh_expires_at = now + REFRESH_TOKEN_SECONDS
+    session.last_used_at = now
+    device, browser, location = auth._session_metadata(request)
+    session.device = device or session.device
+    session.browser = browser or session.browser
+    session.location = location or session.location
     db.commit()
     _set_refresh_cookie(response, refresh_token, request)
     return _session_response(session, access_token)
@@ -101,6 +108,65 @@ def logout(
     )
     response.status_code = status.HTTP_204_NO_CONTENT
     return response
+
+
+@router.get("/sessions")
+def list_sessions(
+    creds: auth.HTTPAuthorizationCredentials | None = Depends(auth.bearer),
+    db: Session = Depends(get_db),
+) -> list[dict]:
+    identity = auth.get_identity(creds, db)
+    current_session_id: str | None = None
+    if creds is not None and creds.credentials.startswith(auth.ACCESS_TOKEN_PREFIX):
+        current = db.scalar(
+            select(AuthSession).where(
+                AuthSession.access_token_hash == _token_hash(creds.credentials)
+            )
+        )
+        current_session_id = str(current.id) if current is not None else None
+    if current_session_id is None:
+        raise HTTPException(status.HTTP_401_UNAUTHORIZED, "App session required")
+
+    sessions = db.scalars(
+        select(AuthSession)
+        .where(AuthSession.google_sub == identity.sub)
+        .order_by(AuthSession.last_used_at.desc())
+    ).all()
+    return [
+        {
+            "id": str(session.id),
+            "device": session.device,
+            "browser": session.browser,
+            "location": session.location,
+            "created_at": session.created_at,
+            "last_used_at": session.last_used_at,
+            "is_current": str(session.id) == current_session_id,
+        }
+        for session in sessions
+    ]
+
+
+@router.delete("/sessions/{session_id}", status_code=status.HTTP_204_NO_CONTENT)
+def revoke_session(
+    session_id: str,
+    identity: auth.GoogleIdentity = Depends(auth.get_identity),
+    db: Session = Depends(get_db),
+) -> Response:
+    try:
+        parsed_session_id = uuid.UUID(session_id)
+    except ValueError:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Session not found") from None
+    session = db.scalar(
+        select(AuthSession).where(
+            AuthSession.id == parsed_session_id,
+            AuthSession.google_sub == identity.sub,
+        )
+    )
+    if session is None:
+        raise HTTPException(status.HTTP_404_NOT_FOUND, "Session not found")
+    db.delete(session)
+    db.commit()
+    return Response(status_code=status.HTTP_204_NO_CONTENT)
 
 
 @router.get("/me")

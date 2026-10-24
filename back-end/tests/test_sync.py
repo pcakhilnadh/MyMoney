@@ -1,3 +1,6 @@
+from uuid import UUID
+
+from app.models import Category
 from tests.conftest import H
 
 CAT = "aaaaaaaa-0000-0000-0000-000000000001"
@@ -57,6 +60,84 @@ def test_push_is_idempotent_and_versioned(client):
     # stale version is reported as a conflict and does not overwrite
     r = c.post("/sync/push", json=payload(version=1, amount=1), headers=H("alice")).json()
     assert r["conflicts"] and c.get("/transactions", headers=H("alice")).json()[0]["amount_minor"] == 2500
+
+
+def test_category_sync_uses_existing_user_category_as_canonical(client):
+    c = client
+    c.post(
+        "/sync/push",
+        json={"categories": [{"id": CAT, "version": 1, "name": "Food"}]},
+        headers=H("alice"),
+    )
+    duplicate_id = "aaaaaaaa-0000-0000-0000-000000000008"
+    response = c.post(
+        "/sync/push",
+        json={
+            "categories": [
+                {
+                    "id": duplicate_id,
+                    "version": 1,
+                    "name": "  FOOD  ",
+                    "transaction_type": "expense",
+                }
+            ],
+            "accounts": [{"id": ACC, "version": 1, "name": "Cash"}],
+            "transactions": [
+                {
+                    "id": TX,
+                    "version": 1,
+                    "account_id": ACC,
+                    "category_id": duplicate_id,
+                    "title": "Tea",
+                    "amount_minor": 1000,
+                    "transaction_date": "2026-10-05T10:00:00Z",
+                }
+            ],
+        },
+        headers=H("alice"),
+    )
+
+    assert response.status_code == 200
+    assert [
+        accepted
+        for accepted in response.json()["accepted"]
+        if accepted["entity"] == "categories"
+    ] == [
+        {"entity": "categories", "id": duplicate_id, "canonical_id": CAT}
+    ]
+    pulled = c.get("/sync/pull", headers=H("alice")).json()
+    assert [category["id"] for category in pulled["categories"]] == [CAT]
+    assert pulled["transactions"][0]["category_id"] == CAT
+
+
+def test_category_sync_uses_global_default_as_canonical(client):
+    c = client
+    global_id = "aaaaaaaa-0000-0000-0000-000000000010"
+    with c.session_factory() as db:
+        db.add(
+            Category(
+                id=UUID(global_id),
+                user_id=None,
+                name="Food",
+                transaction_type="expense",
+                is_system=True,
+            )
+        )
+        db.commit()
+
+    duplicate_id = "aaaaaaaa-0000-0000-0000-000000000011"
+    response = c.post(
+        "/sync/push",
+        json={"categories": [{"id": duplicate_id, "version": 1, "name": "Food"}]},
+        headers=H("alice"),
+    )
+
+    assert response.status_code == 200
+    assert response.json()["accepted"] == [
+        {"entity": "categories", "id": duplicate_id, "canonical_id": global_id}
+    ]
+    pulled = c.get("/sync/pull", headers=H("alice")).json()["categories"]
+    assert [category["id"] for category in pulled] == [global_id]
 
 
 def test_soft_delete_syncs(client):

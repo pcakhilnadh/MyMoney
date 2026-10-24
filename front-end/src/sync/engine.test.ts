@@ -55,8 +55,10 @@ describe('sync dependencies', () => {
     await db.budgets.add(budget)
 
     let pushedCategories: Category[] = []
+    const requestPaths: string[] = []
     const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
       const path = new URL(String(input)).pathname
+      requestPaths.push(path)
       if (path === '/sync/push') {
         const body = JSON.parse(String(init?.body)) as { categories: Category[] }
         pushedCategories = body.categories
@@ -89,5 +91,58 @@ describe('sync dependencies', () => {
     await runSync('token', 'user')
 
     expect(pushedCategories).toContainEqual(category)
+    expect(requestPaths.indexOf('/sync/pull')).toBeLessThan(requestPaths.indexOf('/sync/push'))
+  })
+
+  it('merges a duplicate category into the server category after the initial pull', async () => {
+    const serverCategory = { ...category, id: 'server-category', sync_state: 'synced' as const }
+    await db.categories.add(category)
+    await db.budgets.add(budget)
+
+    let pullCount = 0
+    const fetchMock = vi.fn<typeof fetch>(async (input) => {
+      const path = new URL(String(input)).pathname
+      if (path === '/sync/push') {
+        return new Response(
+          JSON.stringify({
+            accepted: [
+              {
+                entity: 'categories',
+                id: category.id,
+                canonical_id: serverCategory.id,
+              },
+            ],
+            conflicts: [],
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      if (path === '/sync/pull') {
+        pullCount += 1
+        return new Response(
+          JSON.stringify({
+            categories: [serverCategory],
+            accounts: [],
+            merchants: [],
+            transactions: [],
+            budgets: [],
+            due_payments: [],
+            server_time: `2026-10-23T00:00:0${pullCount}.000Z`,
+          }),
+          { status: 200, headers: { 'Content-Type': 'application/json' } },
+        )
+      }
+      return new Response('{}', { status: 200, headers: { 'Content-Type': 'application/json' } })
+    })
+    vi.stubGlobal('fetch', fetchMock)
+    vi.stubGlobal('localStorage', {
+      getItem: () => null,
+      setItem: () => undefined,
+    })
+
+    await runSync('token', 'user')
+
+    expect(await db.categories.toArray()).toEqual([serverCategory])
+    expect((await db.budgets.get(budget.id))?.category_id).toBe(serverCategory.id)
   })
 })

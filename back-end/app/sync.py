@@ -11,7 +11,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException
 from pydantic import AliasChoices, BaseModel, Field
-from sqlalchemy import select
+from sqlalchemy import or_, select
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
@@ -155,6 +155,19 @@ def _owned_ref(db: Session, model, owner_col: str, ref_id, user: Profile) -> boo
     )
 
 
+def _owned_category_ref(db: Session, ref_id, user: Profile) -> bool:
+    if ref_id is None:
+        return True
+    category = db.get(Category, ref_id)
+    return category is not None and (
+        category.user_id == user.id or (category.user_id is None and category.is_system)
+    )
+
+
+def _category_name_key(name: str) -> str:
+    return " ".join(name.split()).casefold()
+
+
 def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> None:
     model, owner_col, fields = SPECS[name]
     if name == "merchants":
@@ -198,6 +211,51 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
         result["accepted"].append({"entity": name, "id": str(rec.id)})
         return
 
+    existing = db.get(model, rec.id)
+    if (
+        existing is not None
+        and getattr(existing, owner_col) != user.id
+        and not (name == "categories" and existing.user_id is None and existing.is_system)
+    ):
+        raise HTTPException(404, "Record not found")
+    if name == "categories" and existing is not None and existing.user_id is None:
+        result["accepted"].append({"entity": name, "id": str(rec.id)})
+        return
+
+    if name == "categories" and rec.status != "deleted":
+        category_rec = rec
+        normalized_name = _category_name_key(category_rec.name)
+        if not normalized_name:
+            raise HTTPException(422, "Category name cannot be empty")
+        matches = db.scalars(
+            select(Category).where(
+                or_(
+                    Category.user_id == user.id,
+                    (Category.user_id.is_(None) & Category.is_system.is_(True)),
+                ),
+                Category.transaction_type == category_rec.transaction_type,
+                Category.status == "active",
+            )
+        ).all()
+        duplicate = next(
+            (
+                category
+                for category in matches
+                if category.id != rec.id
+                and _category_name_key(category.name) == normalized_name
+            ),
+            None,
+        )
+        if duplicate is not None:
+            result["accepted"].append(
+                {
+                    "entity": name,
+                    "id": str(rec.id),
+                    "canonical_id": str(duplicate.id),
+                }
+            )
+            return
+
     data = {f: getattr(rec, f) for f in fields}
     if name == "transactions":
         if rec.context != "personal":  # group data goes through /transactions
@@ -220,7 +278,7 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
             raise HTTPException(422, "Only transfers can have a destination account")
         if rec.transaction_type not in {"expense", "income", "refund", "transfer"}:
             raise HTTPException(422, "Unsupported transaction type")
-        if not _owned_ref(db, Category, "user_id", rec.category_id, user):
+        if not _owned_category_ref(db, rec.category_id, user):
             raise HTTPException(422, "Unknown account or category")
         if rec.category_id:
             category = db.get(Category, rec.category_id)
@@ -237,11 +295,8 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
         account = db.get(Account, rec.account_id)
         if account is None or account.user_id != user.id:
             raise HTTPException(422, "Unknown account")
-    elif name == "budgets" and not _owned_ref(db, Category, "user_id", rec.category_id, user):
+    elif name == "budgets" and not _owned_category_ref(db, rec.category_id, user):
         raise HTTPException(422, "Unknown category")
-    existing = db.get(model, rec.id)
-    if existing is not None and getattr(existing, owner_col) != user.id:
-        raise HTTPException(404, "Record not found")
     if existing is None:
         extra = {"created_by": user.id} if name in ("transactions", "budgets") else {}
         row = model(id=rec.id, **{owner_col: user.id}, **extra, **data)
@@ -267,8 +322,19 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
 def push(body: PushIn, user: Profile = Depends(get_current_user), db: Session = Depends(get_db)):
     result: dict = {"accepted": [], "conflicts": []}
     # parents before children so foreign keys resolve
-    for name in ("categories", "accounts", "merchants", "transactions", "budgets", "due_payments"):
+    for rec in body.categories:
+        _upsert(db, user, "categories", rec, result)
+    category_aliases = {
+        uuid.UUID(accepted["id"]): uuid.UUID(accepted["canonical_id"])
+        for accepted in result["accepted"]
+        if accepted["entity"] == "categories" and "canonical_id" in accepted
+    }
+    for name in ("accounts", "merchants", "transactions", "budgets", "due_payments"):
         for rec in getattr(body, name):
+            if name in {"transactions", "budgets"} and rec.category_id in category_aliases:
+                rec = rec.model_copy(
+                    update={"category_id": category_aliases[rec.category_id]}
+                )
             _upsert(db, user, name, rec, result)
         db.flush()
     db.commit()
@@ -290,8 +356,15 @@ def pull(
     out: dict = {"server_time": server_time}
     for name, (model, owner_col, fields) in SPECS.items():
         q = select(model)
-        if owner_col is not None:
+        if owner_col is not None and name != "categories":
             q = q.where(getattr(model, owner_col) == user.id)
+        elif name == "categories":
+            q = q.where(
+                or_(
+                    Category.user_id == user.id,
+                    (Category.user_id.is_(None) & Category.is_system.is_(True)),
+                )
+            )
         if name == "transactions":
             q = q.where(Transaction.context == "personal")
         if since is not None:

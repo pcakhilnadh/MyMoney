@@ -9,6 +9,16 @@ export interface AuthResponse {
   user: GoogleUser
 }
 
+export interface AuthSession {
+  id: string
+  device: string | null
+  browser: string | null
+  location: string | null
+  created_at: number
+  last_used_at: number
+  is_current: boolean
+}
+
 export class ApiError extends Error {
   status: number
   constructor(status: number, detail: string) {
@@ -83,6 +93,22 @@ export async function logoutSession(): Promise<void> {
     credentials: 'include',
   })
   if (!response.ok) throw await readError(response)
+}
+
+export function fetchAuthSessions(token: string): Promise<AuthSession[]> {
+  return fetch(BASE + '/auth/sessions', {
+    headers: { Authorization: `Bearer ${token}` },
+    credentials: 'include',
+  }).then(async (response) => {
+    if (!response.ok) throw await readError(response)
+    return (await response.json()) as AuthSession[]
+  })
+}
+
+export function revokeAuthSession(token: string, sessionId: string): Promise<void> {
+  return api<void>(`/auth/sessions/${encodeURIComponent(sessionId)}`, token, {
+    method: 'DELETE',
+  })
 }
 
 async function request(path: string, token: string, init: RequestInit): Promise<Response> {

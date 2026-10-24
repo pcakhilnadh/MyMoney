@@ -76,17 +76,56 @@ def _session_response(session: AuthSession, access_token: str) -> dict:
     }
 
 
+def _session_metadata(request: Request) -> tuple[str | None, str | None, str | None]:
+    user_agent = request.headers.get("user-agent", "")
+    lower_agent = user_agent.lower()
+    if "edg/" in lower_agent:
+        browser = "Edge"
+    elif "opr/" in lower_agent or "opera" in lower_agent:
+        browser = "Opera"
+    elif "firefox/" in lower_agent:
+        browser = "Firefox"
+    elif "chrome/" in lower_agent:
+        browser = "Chrome"
+    elif "safari/" in lower_agent:
+        browser = "Safari"
+    else:
+        browser = None
+
+    if "ipad" in lower_agent:
+        device = "iPad"
+    elif "iphone" in lower_agent:
+        device = "iPhone"
+    elif "android" in lower_agent:
+        device = "Android device"
+    elif "windows" in lower_agent:
+        device = "Windows device"
+    elif "macintosh" in lower_agent or "mac os" in lower_agent:
+        device = "Mac"
+    elif "linux" in lower_agent:
+        device = "Linux device"
+    else:
+        device = None
+    return device, browser, None
+
+
 def create_session(
     identity: GoogleIdentity, db: Session, response: Response, request: Request
 ) -> dict:
     now = int(time.time())
     access_token = _new_token(ACCESS_TOKEN_PREFIX)
     refresh_token = _new_token("mymoney_refresh_")
+    device, browser, location = _session_metadata(request)
     session = AuthSession(
         google_sub=identity.sub,
         email=identity.email,
         name=identity.name,
         picture=identity.picture,
+        device=device,
+        browser=browser,
+        location=location,
+        created_at=now,
+        last_used_at=now,
         access_token_hash=_token_hash(access_token),
         refresh_token_hash=_token_hash(refresh_token),
         access_expires_at=now + ACCESS_TOKEN_SECONDS,

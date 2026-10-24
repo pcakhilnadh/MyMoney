@@ -1,8 +1,8 @@
 import uuid
 from datetime import datetime, timezone
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
-from sqlalchemy import select
+from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
+from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
 from app import schemas as s
@@ -54,8 +54,29 @@ def list_categories(user: Profile = Depends(get_current_user), db: Session = Dep
 
 @router.post("/categories", response_model=s.CategoryOut, status_code=201)
 def create_category(
-    body: s.CategoryIn, user: Profile = Depends(get_current_user), db: Session = Depends(get_db)
+    body: s.CategoryIn,
+    response: Response,
+    user: Profile = Depends(get_current_user),
+    db: Session = Depends(get_db),
 ):
+    normalized_name = " ".join(body.name.split()).casefold()
+    if not normalized_name:
+        raise HTTPException(422, "Category name cannot be empty")
+    existing = db.scalars(
+        select(Category).where(
+            or_(
+                Category.user_id == user.id,
+                (Category.user_id.is_(None) & Category.is_system.is_(True)),
+            ),
+            Category.transaction_type == body.transaction_type,
+            Category.status == "active",
+        )
+    ).all()
+    for category in existing:
+        if " ".join(category.name.split()).casefold() == normalized_name:
+            response.status_code = 200
+            return category
+
     cat = Category(user_id=user.id, is_system=False, **body.model_dump())
     db.add(cat)
     db.commit()
@@ -83,7 +104,13 @@ def _validated_splits(db: Session, body: s.TransactionIn, user: Profile):
         if account is None or account.user_id != user.id or account.status != "active":
             raise HTTPException(422, "An active account owned by the caller is required")
         category = db.get(Category, body.category_id) if body.category_id else None
-        if body.category_id and (category is None or category.user_id != user.id):
+        if body.category_id and (
+            category is None
+            or (
+                category.user_id != user.id
+                and not (category.user_id is None and category.is_system)
+            )
+        ):
             raise HTTPException(422, "Unknown category")
         if category is not None:
             expected_type = "expense" if body.transaction_type == "refund" else body.transaction_type
