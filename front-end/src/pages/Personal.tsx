@@ -109,9 +109,9 @@ export default function Personal() {
             {firstName ? `${firstName}!` : 'Welcome back!'}
           </h1>
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/70">
-            Your personal hub to track <span className="text-cyan-200">money</span>,{' '}
-            <span className="text-pink-200">food</span>, and{' '}
-            <span className="text-cyan-200">habits</span> — all in one place.
+            Your personal hub to track <span className="text-primary">money</span>,{' '}
+            <span className="text-positive">food</span>, and{' '}
+            <span className="text-primary">habits</span> — all in one place.
           </p>
           <div className="mt-4 flex flex-wrap gap-2" role="list" aria-label="Things you can track">
             <span className="cyber-feature" role="listitem">

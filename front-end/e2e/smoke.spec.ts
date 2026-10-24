@@ -234,6 +234,10 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await expect(page.locator('.bottom-nav')).toHaveCount(0)
   await expect(page.getByText(/Good (morning|afternoon|evening)/)).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Test!' })).toBeVisible()
+  await expect(page.locator('.cyber-greeting__eyebrow')).toHaveCSS(
+    'color',
+    'rgb(75, 139, 255)',
+  )
   await expect(page.getByTestId('personal-greeting-emoji')).toHaveText(/🌅|☀️|🌙/)
   await expect(page.getByText('me@gmail.com')).toHaveCount(0)
   await expect(page.getByText(/track money, food, and habits/i)).toBeVisible()
