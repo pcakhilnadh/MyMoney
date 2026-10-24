@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   CalendarCheck,
@@ -11,6 +12,7 @@ import {
   Users,
   WalletCards,
 } from 'lucide-react'
+import { useAuth } from '@/auth/AuthContext'
 
 const tabs = [
   { to: '/money/home', label: 'Home', Icon: House },
@@ -34,8 +36,11 @@ const habitTabs = [
 ]
 
 export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'shared' }) {
+  const { user } = useAuth()
   const { pathname } = useLocation()
   const navigate = useNavigate()
+  const [failedPicture, setFailedPicture] = useState<string | null>(null)
+  const picture = user?.picture
   const selectedApp = app === 'shared' ? null : app
   const comingSoon = selectedApp === 'habit'
   const appInfo = apps.find((app) => app.id === selectedApp) ?? apps[0]
@@ -82,7 +87,18 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
             pathname === '/personal' ? 'bg-muted/50' : ''
           }`}
         >
-          <User size={20} aria-hidden="true" />
+          {picture && picture !== failedPicture ? (
+            <img
+              src={picture}
+              alt=""
+              aria-hidden="true"
+              referrerPolicy="no-referrer"
+              onError={() => setFailedPicture(picture)}
+              className="size-7 rounded-full object-cover ring-2 ring-primary/30"
+            />
+          ) : (
+            <User size={20} aria-hidden="true" />
+          )}
         </Link>
       </div>
       <main className="space-y-5 px-5 pt-2">

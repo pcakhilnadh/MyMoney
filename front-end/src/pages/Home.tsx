@@ -1,20 +1,12 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router-dom'
 import { CalendarDays, ChevronRight, PiggyBank, Sun } from 'lucide-react'
-import { useAuth } from '@/auth/AuthContext'
 import { BarChartCard } from '@/components/kit'
 import { DueAlerts } from '@/components/DueAlerts'
 import { transactionsRepo } from '@/db/repos'
 import { formatCompactMinor } from '@/lib/money'
 import { currentDay, currentMonth, dayTotal, monthTotal, monthlySeries } from '@/lib/summary'
 import { useCurrency } from '@/money/CurrencyContext'
-
-const greeting = () => {
-  const h = new Date().getHours()
-  if (h < 12) return { text: 'Good morning', emoji: '🌅' }
-  if (h < 17) return { text: 'Good afternoon', emoji: '☀️' }
-  return { text: 'Good evening', emoji: '🌙' }
-}
 
 const spendingPeriod = () => {
   const now = new Date()
@@ -26,33 +18,14 @@ const spendingPeriod = () => {
 }
 
 export default function Home() {
-  const { user } = useAuth()
   const { currency } = useCurrency()
   const txs = useLiveQuery(() => transactionsRepo.list(), []) ?? []
   const period = spendingPeriod()
   const todayTotal = dayTotal(txs, period.today)
   const total = monthTotal(txs, period.month)
-  const welcome = greeting()
-  const firstName = user?.name?.trim().split(/\s+/)[0]
 
   return (
     <div className="space-y-5">
-      <header className="surface flex items-center justify-between gap-4 overflow-hidden rounded-[28px] border border-primary/10 bg-gradient-to-br from-primary/10 via-card to-positive/10 px-5 py-4">
-        <div className="min-w-0">
-          <p className="text-sm font-medium text-muted-foreground">{welcome.text}</p>
-          <h1 className="mt-1 truncate text-[28px] leading-tight font-bold">
-            {firstName ? `${firstName}!` : 'Welcome back!'}
-          </h1>
-          <p className="mt-1 text-sm text-muted-foreground">Your money, at a glance.</p>
-        </div>
-        <span
-          aria-hidden="true"
-          className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-[30px] shadow-sm"
-        >
-          {welcome.emoji}
-        </span>
-      </header>
-
       <section
         className="hero spending-overview rounded-[26px] px-5 py-4"
         aria-labelledby="spending-overview-title"
@@ -63,10 +36,6 @@ export default function Home() {
               id="spending-overview-title"
               className="flex items-center gap-2 text-[11px] font-semibold uppercase tracking-[0.18em] text-white/70"
             >
-              <span
-                aria-hidden="true"
-                className="size-1.5 rounded-full bg-white shadow-[0_0_10px_rgba(255,255,255,0.8)]"
-              />
               Spending overview
             </h2>
             <p className="text-xs font-medium text-white/65">{period.monthLabel}</p>

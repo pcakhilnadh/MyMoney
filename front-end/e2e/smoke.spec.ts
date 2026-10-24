@@ -17,10 +17,8 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await fakeSignIn(page)
   await page.goto('/money')
   await expect(page).toHaveURL(/\/money\/home/)
-  const greetingHeader = page.locator('[data-app="money"] main header')
-  await expect(greetingHeader.getByText(/Good (morning|afternoon|evening)/)).toBeVisible()
-  await expect(greetingHeader.getByRole('heading', { name: 'Test!' })).toBeVisible()
-  await expect(greetingHeader.locator('[aria-hidden="true"]')).toHaveText(/🌅|☀️|🌙/)
+  await expect(page.getByText(/Good (morning|afternoon|evening)/)).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Test!' })).toHaveCount(0)
   const appSelector = page.getByRole('group', { name: 'App selector' })
   await expect(appSelector.getByRole('button', { name: 'My Money' })).toHaveAttribute(
     'aria-pressed',
@@ -36,13 +34,7 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   )
   await expect(page.locator('[data-app="money"]')).toHaveCSS('--primary', '#4b8bff')
   await expect(page.locator('[data-app="money"]')).toHaveCSS('background-image', /50vh/)
-  await expect
-    .poll(() => page.evaluate(() => document.documentElement.scrollHeight > window.innerHeight))
-    .toBe(true)
   await expect(page.locator('html')).toHaveCSS('scrollbar-width', 'none')
-  await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
-  await expect.poll(() => page.evaluate(() => window.scrollY)).toBeGreaterThan(0)
-  await page.evaluate(() => window.scrollTo(0, 0))
   const spendingOverview = page.getByRole('region', { name: 'Spending overview' })
   await expect(spendingOverview).toContainText('Spent today')
   await expect(spendingOverview).toContainText('Spent this month')
@@ -126,14 +118,19 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   )
   await expect(personalLink).toHaveCSS('color', 'rgb(142, 142, 160)')
   await expect(personalLink).toHaveClass(/bg-muted\/50/)
+  await expect(personalLink.locator('svg')).toBeVisible()
   await expect(page.locator('.bottom-nav')).toHaveCount(0)
-  await expect(page.getByText('Test User')).toBeVisible()
+  await expect(page.getByText(/Good (morning|afternoon|evening)/)).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'Test!' })).toBeVisible()
+  await expect(page.getByTestId('personal-greeting-emoji')).toHaveText(/🌅|☀️|🌙/)
+  await expect(page.getByText('me@gmail.com')).toBeVisible()
   await expect(page.getByTestId('sync-state')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()
   await expect(page.getByRole('heading', { name: 'My Money Settings' })).toHaveCount(0)
   await appSelector.getByRole('button', { name: 'My Money' }).click()
   await expect(page).toHaveURL(/\/money\/home/)
-  await expect(page.getByText('Test User')).toHaveCount(0)
+  await expect(page.getByText(/Good (morning|afternoon|evening)/)).toHaveCount(0)
+  await expect(page.getByRole('heading', { name: 'Test!' })).toHaveCount(0)
   await expect(page.locator('.hero')).toHaveText(/Spent this month/)
   await page.getByRole('link', { name: 'Settings' }).click()
   await expect(page).toHaveURL(/\/money\/settings/)
@@ -164,4 +161,21 @@ test('legacy /home URL redirects to the MyMoney route', async ({ page }) => {
   await page.goto('/settings/accounts')
   await expect(page).toHaveURL(/\/money\/settings\/accounts/)
   await expect(page.getByRole('heading', { name: 'Payment Account' })).toBeVisible()
+})
+
+test('personal top navigation uses the Google avatar when available', async ({ page }) => {
+  await page.route('**/auth/refresh', (route) => route.abort())
+  await page.route('**/auth/login', (route) => route.abort())
+  const picture = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='
+  await fakeSignIn(page, {
+    sub: 'avatar-user',
+    email: 'avatar@gmail.com',
+    name: 'Avatar User',
+    picture,
+  })
+  await page.goto('/money/home')
+
+  const personalLink = page.getByRole('link', { name: 'Personal' })
+  await expect(personalLink.locator('img')).toHaveAttribute('src', picture)
+  await expect(personalLink.locator('svg')).toHaveCount(0)
 })

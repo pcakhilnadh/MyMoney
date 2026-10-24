@@ -12,10 +12,19 @@ const STATE = {
   error: { label: 'Error', dot: 'bg-destructive' },
 } as const
 
+const greeting = () => {
+  const hour = new Date().getHours()
+  if (hour < 12) return { text: 'Good morning', emoji: '🌅' }
+  if (hour < 17) return { text: 'Good afternoon', emoji: '☀️' }
+  return { text: 'Good evening', emoji: '🌙' }
+}
+
 export default function Personal() {
   const { user, token, signOut } = useAuth()
   const sync = useSync()
   const st = STATE[sync.state]
+  const welcome = greeting()
+  const firstName = user?.name?.trim().split(/\s+/)[0]
   const [sessions, setSessions] = useState<AuthSession[]>([])
   const [sessionsError, setSessionsError] = useState<string | null>(null)
   const [revokingId, setRevokingId] = useState<string | null>(null)
@@ -75,23 +84,35 @@ export default function Personal() {
     <div className="space-y-5">
       <PageHeader title="Personal" />
 
-      <Card className="flex items-center gap-4">
-        {user?.picture ? (
-          <img
-            src={user.picture}
-            alt=""
-            referrerPolicy="no-referrer"
-            className="size-14 rounded-full ring-2 ring-primary/40"
-          />
-        ) : (
-          <div className="gloss flex size-14 items-center justify-center rounded-full text-xl font-bold">
-            {user?.name?.[0]}
+      <Card className="flex items-center justify-between gap-4 overflow-hidden rounded-[28px] border border-primary/10 bg-gradient-to-br from-primary/10 via-card to-positive/10 px-5 py-4">
+        <div className="flex min-w-0 items-center gap-4">
+          {user?.picture ? (
+            <img
+              src={user.picture}
+              alt=""
+              referrerPolicy="no-referrer"
+              className="size-14 shrink-0 rounded-full ring-2 ring-primary/40"
+            />
+          ) : (
+            <div className="gloss flex size-14 shrink-0 items-center justify-center rounded-full text-xl font-bold">
+              {user?.name?.[0]}
+            </div>
+          )}
+          <div className="min-w-0">
+            <p className="text-sm font-medium text-muted-foreground">{welcome.text}</p>
+            <h1 className="mt-1 truncate text-[28px] leading-tight font-bold">
+              {firstName ? `${firstName}!` : 'Welcome back!'}
+            </h1>
+            <div className="truncate text-sm text-muted-foreground">{user?.email}</div>
           </div>
-        )}
-        <div className="min-w-0">
-          <div className="truncate text-lg font-semibold">{user?.name}</div>
-          <div className="truncate text-sm text-muted-foreground">{user?.email}</div>
         </div>
+        <span
+          data-testid="personal-greeting-emoji"
+          aria-hidden="true"
+          className="flex size-14 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-[30px] shadow-sm"
+        >
+          {welcome.emoji}
+        </span>
       </Card>
 
       <section className="space-y-2.5">
