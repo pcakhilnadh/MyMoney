@@ -9,6 +9,7 @@ import {
   PageHeader,
   SectionTitle,
   SegmentedControl,
+  Select,
 } from '@/components/kit'
 import { db } from '@/db/db'
 import { useAction, useBalances, useGroupTxs, useGroups, useMe, useMembers } from '@/groups/hooks'
@@ -141,21 +142,15 @@ export default function GroupDetail() {
           ))}
           <div className="surface space-y-3 rounded-card p-5">
             <SectionTitle>Record a payment</SectionTitle>
-            <select
+            <Select
               aria-label="Pay to"
               value={settleTo}
-              onChange={(e) => setSettleTo(e.target.value)}
-              className="field appearance-none"
-            >
-              <option value="">Paid to…</option>
-              {[...byUser]
+              onValueChange={setSettleTo}
+              placeholder="Paid to…"
+              options={[...byUser]
                 .filter(([id]) => id !== me?.id)
-                .map(([id, m]) => (
-                  <option key={id} value={id}>
-                    {memberLabel(m)}
-                  </option>
-                ))}
-            </select>
+                .map(([id, member]) => ({ value: id, label: memberLabel(member) }))}
+            />
             <CurrencyInput label="Amount" value={amount} onChange={setAmount} />
             <Button
               className="w-full"

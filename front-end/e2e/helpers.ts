@@ -10,3 +10,8 @@ export async function fakeSignIn(
   const token = `h.${b64({ ...who, exp: Math.floor(Date.now() / 1000) + 3600 })}.s`
   await page.addInitScript((t) => localStorage.setItem('exptracker.idtoken', t), token)
 }
+
+export async function chooseOption(page: Page, label: string, option: string) {
+  await page.getByLabel(label).click()
+  await page.getByRole('option', { name: option, exact: true }).click()
+}

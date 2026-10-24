@@ -3,12 +3,14 @@ import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Button,
+  AutocompleteInput,
   CategorySelector,
   CurrencyInput,
   DatePicker,
   Input,
   PageHeader,
   SegmentedControl,
+  Select,
 } from '@/components/kit'
 import { db } from '@/db/db'
 import { merchantsRepo, transactionsRepo } from '@/db/repos'
@@ -82,19 +84,13 @@ function GroupFields({
 
   return (
     <div className="space-y-3">
-      <select
+      <Select
         aria-label="Group"
         value={groupId}
-        onChange={(e) => setGroupId(e.target.value)}
-        className="field appearance-none"
-      >
-        <option value="">Select group…</option>
-        {groups.map((g) => (
-          <option key={g.id} value={g.id}>
-            {g.name}
-          </option>
-        ))}
-      </select>
+        onValueChange={setGroupId}
+        placeholder="Select group…"
+        options={groups.map((group) => ({ value: group.id, label: group.name }))}
+      />
       {groupId && (
         <>
           <SegmentedControl
@@ -104,17 +100,16 @@ function GroupFields({
           />
           <label className="block space-y-1.5 label">
             Paid by
-            <select
+            <Select
+              aria-label="Paid by"
               value={payerId}
-              onChange={(e) => setPayer(e.target.value)}
-              className="field mt-1 appearance-none normal-case"
-            >
-              {members.map((m) => (
-                <option key={m.id} value={m.user_id as string}>
-                  {m.user_id === me?.id ? 'You' : memberLabel(m)}
-                </option>
-              ))}
-            </select>
+              onValueChange={setPayer}
+              className="mt-1 normal-case"
+              options={members.map((member) => ({
+                value: member.user_id as string,
+                label: member.user_id === me?.id ? 'You' : memberLabel(member),
+              }))}
+            />
           </label>
           <div className="space-y-2">
             {members.map((m) => {
@@ -132,7 +127,7 @@ function GroupFields({
                   />
                   <span className="flex-1">{uid === me?.id ? 'You' : memberLabel(m)}</span>
                   {method !== 'Equal' && (
-                    <input
+                    <Input
                       inputMode="decimal"
                       aria-label={`Value for ${memberLabel(m)}`}
                       placeholder={
@@ -144,7 +139,7 @@ function GroupFields({
                       }
                       value={values[uid] ?? ''}
                       onChange={(e) => setValues({ ...values, [uid]: e.target.value })}
-                      className="w-20 rounded-lg border px-2 py-1 text-right"
+                      className="w-20 px-3 py-2 text-right"
                     />
                   )}
                 </div>
@@ -289,19 +284,13 @@ export default function AddExpense() {
       {context === 'Personal' && transactionType === 'expense' && (
         <label className="block space-y-1.5">
           <span className="label">Merchant (optional)</span>
-          <input
+          <AutocompleteInput
             aria-label="Merchant"
-            list="saved-merchants"
             placeholder="Choose or enter a merchant"
             value={merchant}
-            onChange={(e) => setMerchant(e.target.value)}
-            className="field"
+            onChange={setMerchant}
+            options={merchants.map((item) => item.name)}
           />
-          <datalist id="saved-merchants">
-            {merchants.map((item) => (
-              <option key={item.id} value={item.name} />
-            ))}
-          </datalist>
         </label>
       )}
       <label className="block space-y-1.5">
@@ -334,7 +323,7 @@ export default function AddExpense() {
               : 'Paid from'}
         </span>
         {activeAccounts.length > 0 ? (
-          <select
+          <Select
             aria-label={
               transactionType === 'income' || transactionType === 'refund'
                 ? 'Received into'
@@ -343,16 +332,14 @@ export default function AddExpense() {
                   : 'Paid from'
             }
             value={accountId}
-            onChange={(e) => setAccountId(e.target.value)}
-            className="field mt-1 appearance-none normal-case"
-          >
-            <option value="">Select an account…</option>
-            {activeAccounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.name}
-              </option>
-            ))}
-          </select>
+            onValueChange={setAccountId}
+            className="mt-1 normal-case"
+            placeholder="Select an account…"
+            options={activeAccounts.map((account) => ({
+              value: account.id,
+              label: account.name,
+            }))}
+          />
         ) : (
           <p className="mt-2 text-sm text-muted-foreground">
             Add an account before creating a transaction.{' '}
@@ -365,21 +352,16 @@ export default function AddExpense() {
       {transactionType === 'transfer' && (
         <label className="block">
           <span className="label">To account</span>
-          <select
+          <Select
             aria-label="To account"
             value={transferToAccountId}
-            onChange={(e) => setTransferToAccountId(e.target.value)}
-            className="field mt-1 appearance-none normal-case"
-          >
-            <option value="">Select destination account…</option>
-            {activeAccounts
+            onValueChange={setTransferToAccountId}
+            className="mt-1 normal-case"
+            placeholder="Select destination account…"
+            options={activeAccounts
               .filter((account) => account.id !== accountId)
-              .map((account) => (
-                <option key={account.id} value={account.id}>
-                  {account.name}
-                </option>
-              ))}
-          </select>
+              .map((account) => ({ value: account.id, label: account.name }))}
+          />
         </label>
       )}
       {context === 'Personal' ? (

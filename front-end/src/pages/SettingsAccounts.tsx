@@ -9,6 +9,7 @@ import {
   AccountCard,
   AddIconButton,
   PageHeader,
+  Select,
 } from '@/components/kit'
 import { accountsRepo, transactionsRepo } from '@/db/repos'
 import type { AccountType } from '@/db/types'
@@ -145,17 +146,15 @@ export default function SettingsAccounts() {
 
           <div>
             <label className="label mb-2 block">Account Type</label>
-            <select
+            <Select
+              aria-label="Account type"
               value={type}
-              onChange={(e) => setType(e.target.value as AccountType)}
-              className="field w-full"
-            >
-              {TYPES.map((t) => (
-                <option key={t} value={t}>
-                  {TYPE_LABELS[t]}
-                </option>
-              ))}
-            </select>
+              onValueChange={(value) => setType(value as AccountType)}
+              options={TYPES.map((accountType) => ({
+                value: accountType,
+                label: TYPE_LABELS[accountType],
+              }))}
+            />
           </div>
 
           <CurrencyInput value={opening} onChange={setOpening} label="Opening Balance" />

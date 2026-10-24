@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { fakeSignIn } from '../e2e/helpers'
+import { chooseOption, fakeSignIn } from '../e2e/helpers'
 
 const alice = { sub: 'g-alice', email: 'alice@gmail.com', name: 'Alice A' }
 const bob = { sub: 'g-bob', email: 'bob@gmail.com', name: 'Bob B' }
@@ -14,7 +14,7 @@ test('create group, invite by email, join, split expense, see balances, settle',
 
   await a.goto('/settings/accounts')
   await a.getByRole('button', { name: 'Add payment account' }).click()
-  await a.getByPlaceholder('Account name').fill('Checking')
+  await a.getByPlaceholder('e.g., ICICI Bank').fill('Checking')
   await a.getByRole('button', { name: 'Add Account' }).click()
 
   // Bob signs in once so his profile exists
@@ -43,7 +43,7 @@ test('create group, invite by email, join, split expense, see balances, settle',
   // Alice adds a 600 expense split equally
   await a.getByRole('button', { name: 'Expenses' }).click()
   await a.getByRole('button', { name: 'Add Expense' }).click()
-  await a.getByLabel('Paid from').selectOption({ label: 'Checking' })
+  await chooseOption(a, 'Paid from', 'Checking')
   await a.getByPlaceholder('0').fill('600')
   await a.getByPlaceholder('Title').fill('Hotel')
   await expect(a.getByRole('button', { name: 'Save and Split' })).toBeDisabled()
@@ -59,7 +59,7 @@ test('create group, invite by email, join, split expense, see balances, settle',
   await expect(b.getByText('₹300.00').first()).toBeVisible()
 
   // Bob pays back 100
-  await b.getByLabel('Pay to').selectOption({ label: 'Alice A' })
+  await chooseOption(b, 'Pay to', 'Alice A')
   await b.getByPlaceholder('0').fill('100')
   await b.getByRole('button', { name: 'Record Settlement' }).click()
   await expect(b.getByText('₹200.00').first()).toBeVisible()

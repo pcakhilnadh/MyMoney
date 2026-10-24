@@ -1,7 +1,16 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
-import { AddIconButton, Button, Card, Input, ListItem, PageHeader, SectionTitle } from '@/components/kit'
+import {
+  AddIconButton,
+  Button,
+  Card,
+  Input,
+  ListItem,
+  PageHeader,
+  SectionTitle,
+  Select,
+} from '@/components/kit'
 import { db } from '@/db/db'
 import { useAction, useGroups, useInvitations } from '@/groups/hooks'
 import type { Group } from '@/groups/types'
@@ -112,15 +121,12 @@ export default function Groups() {
         <div className="surface space-y-3 rounded-card p-5">
           <SectionTitle>Create New Group</SectionTitle>
           <Input placeholder="Group name" value={name} onChange={(e) => setName(e.target.value)} />
-          <select
+          <Select
+            aria-label="Group type"
             value={type}
-            onChange={(e) => setType(e.target.value)}
-            className="field appearance-none"
-          >
-            {TYPES.map((t) => (
-              <option key={t}>{t}</option>
-            ))}
-          </select>
+            onValueChange={setType}
+            options={TYPES.map((groupType) => ({ value: groupType, label: groupType }))}
+          />
           <Button
             className="w-full"
             disabled={!name.trim() || create.isPending}

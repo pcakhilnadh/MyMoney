@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { fakeSignIn } from '../e2e/helpers'
+import { chooseOption, fakeSignIn } from '../e2e/helpers'
 
 const API = 'http://localhost:8001'
 
@@ -13,10 +13,10 @@ test('local expense reaches the server, and a fresh device pulls it back', async
   await page.getByRole('link', { name: 'Add expense' }).click()
   await page.getByRole('link', { name: 'Add account' }).click()
   await page.getByRole('button', { name: 'Add payment account' }).click()
-  await page.getByPlaceholder('Account name').fill('Everyday')
+  await page.getByPlaceholder('e.g., ICICI Bank').fill('Everyday')
   await page.getByRole('button', { name: 'Add Account' }).click()
   await page.goto('/expenses/new')
-  await page.getByLabel('Paid from').selectOption({ label: 'Everyday' })
+  await chooseOption(page, 'Paid from', 'Everyday')
   await page.getByPlaceholder('0').fill('120')
   await page.getByPlaceholder('Title').fill('Synced coffee')
   await page.getByLabel('Merchant').fill('Amazon')
@@ -48,7 +48,8 @@ test('local expense reaches the server, and a fresh device pulls it back', async
   await page2.goto('/transactions')
   await expect(page2.getByText('Synced coffee')).toBeVisible({ timeout: 15_000 })
   await page2.goto('/expenses/new')
-  await expect(page2.locator('#saved-merchants option')).toHaveAttribute('value', 'Amazon')
+  await page2.getByLabel('Merchant').click()
+  await expect(page2.getByRole('option', { name: 'Amazon', exact: true })).toBeVisible()
   await page2.goto('/transactions')
 
   // delete on device 2 propagates back to device 1

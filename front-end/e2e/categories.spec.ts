@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { fakeSignIn } from './helpers'
+import { chooseOption, fakeSignIn } from './helpers'
 
 test('category types, hiding, and expense-only budgets', async ({ page }) => {
   await page.route('**/auth/refresh', (route) => route.abort())
@@ -42,10 +42,10 @@ test('category types, hiding, and expense-only budgets', async ({ page }) => {
   await page.goto('/money/expenses/new')
   await page.getByRole('link', { name: 'Add account' }).click()
   await page.getByRole('button', { name: 'Add payment account' }).click()
-  await page.getByPlaceholder('Account name').fill('Category test account')
+  await page.getByPlaceholder('e.g., ICICI Bank').fill('Category test account')
   await page.getByRole('button', { name: 'Add Account' }).click()
   await page.goBack()
-  await page.getByLabel('Paid from').selectOption({ label: 'Category test account' })
+  await chooseOption(page, 'Paid from', 'Category test account')
   await page.getByLabel('Amount').fill('123.45')
   await page.getByPlaceholder('Title').fill('Test category expense')
   await page.getByRole('button', { name: 'Test category' }).click()

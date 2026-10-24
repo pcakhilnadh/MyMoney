@@ -40,14 +40,12 @@ export default function CurrencySettings() {
             aria-label="Preferred currency"
             value={currency}
             disabled={loading || saving}
-            onChange={(event) => void changeCurrency(event.target.value)}
-          >
-            {CURRENCIES.map(({ code, name }) => (
-              <option key={code} value={code}>
-                {code} · {currencySymbol(code)} · {name}
-              </option>
-            ))}
-          </Select>
+            onValueChange={(value) => void changeCurrency(value)}
+            options={CURRENCIES.map(({ code, name }) => ({
+              value: code,
+              label: `${code} · ${currencySymbol(code)} · ${name}`,
+            }))}
+          />
         </label>
         <p className="text-sm text-muted-foreground">
           This changes currency labels throughout My Money. Amounts are not converted.

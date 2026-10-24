@@ -212,7 +212,7 @@ export default function BudgetCategoryDetail() {
                   setAmount(toMinor(event.target.value))
                 }}
                 placeholder="Amount"
-                className="h-9 w-28 px-2 py-0 text-xs"
+                className="field-compact h-9 w-28 px-2 py-0 text-xs"
               />
               <Button
                 size="icon"

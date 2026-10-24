@@ -1,10 +1,17 @@
-import { useEffect, useRef, useState, type ReactNode } from 'react'
-import { Plus } from 'lucide-react'
+import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
+import { Check, ChevronDown, Plus } from 'lucide-react'
 import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
 import { cn } from '@/lib/utils'
 import { currencySymbol } from '@/lib/currency'
 import { formatMinor, normalizeMoneyInput, toMinor } from '@/lib/money'
 import { useCurrency } from '@/money/CurrencyContext'
+import {
+  Select as SelectRoot,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select'
 
 export { Button } from '@/components/ui/button'
 export { MetalActionButton, MetalBadge, MetalCard } from './MetalCard'
@@ -48,8 +55,176 @@ export function Input({ className = '', ...p }: React.InputHTMLAttributes<HTMLIn
   return <input className={cn('field', className)} {...p} />
 }
 
-export function Select({ className = '', ...p }: React.SelectHTMLAttributes<HTMLSelectElement>) {
-  return <select className={cn('field appearance-none', className)} {...p} />
+export function Select({
+  options,
+  value,
+  onValueChange,
+  placeholder,
+  disabled = false,
+  required = false,
+  className,
+  'aria-label': ariaLabel,
+}: {
+  options: readonly { value: string; label: ReactNode; disabled?: boolean }[]
+  value: string
+  onValueChange: (value: string) => void
+  placeholder?: string
+  disabled?: boolean
+  required?: boolean
+  className?: string
+  'aria-label'?: string
+}) {
+  return (
+    <SelectRoot
+      value={value || null}
+      onValueChange={(next) => onValueChange(next ?? '')}
+      disabled={disabled}
+      required={required}
+    >
+      <SelectTrigger className={className} aria-label={ariaLabel}>
+        <SelectValue placeholder={placeholder} />
+      </SelectTrigger>
+      <SelectContent>
+        {options.map((option) => (
+          <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
+            {option.label}
+          </SelectItem>
+        ))}
+      </SelectContent>
+    </SelectRoot>
+  )
+}
+
+export function AutocompleteInput({
+  value,
+  onChange,
+  options,
+  placeholder,
+  'aria-label': ariaLabel,
+}: {
+  value: string
+  onChange: (value: string) => void
+  options: readonly string[]
+  placeholder?: string
+  'aria-label': string
+}) {
+  const suggestions = [...new Set(options.filter(Boolean))]
+  const listId = useId()
+  const inputRef = useRef<HTMLInputElement>(null)
+  const [open, setOpen] = useState(false)
+  const [activeIndex, setActiveIndex] = useState(-1)
+  const filteredSuggestions = suggestions.filter((suggestion) =>
+    suggestion.toLowerCase().includes(value.trim().toLowerCase()),
+  )
+
+  function handleKeyDown(event: React.KeyboardEvent<HTMLInputElement>) {
+    if (event.key === 'ArrowDown' && filteredSuggestions.length > 0) {
+      event.preventDefault()
+      setOpen(true)
+      setActiveIndex((current) => (current + 1) % filteredSuggestions.length)
+    } else if (event.key === 'ArrowUp' && filteredSuggestions.length > 0) {
+      event.preventDefault()
+      setOpen(true)
+      setActiveIndex((current) =>
+        current <= 0 ? filteredSuggestions.length - 1 : current - 1,
+      )
+    } else if (event.key === 'Enter' && open && activeIndex >= 0) {
+      event.preventDefault()
+      onChange(filteredSuggestions[activeIndex])
+      setOpen(false)
+      setActiveIndex(-1)
+    } else if (event.key === 'Escape' && open) {
+      event.preventDefault()
+      setOpen(false)
+      setActiveIndex(-1)
+    }
+  }
+
+  return (
+    <div
+      className="relative"
+      onBlur={(event) => {
+        if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) {
+          setOpen(false)
+          setActiveIndex(-1)
+        }
+      }}
+    >
+      <div className="relative">
+        <input
+          ref={inputRef}
+          aria-label={ariaLabel}
+          aria-autocomplete="list"
+          aria-controls={open ? listId : undefined}
+          aria-expanded={open}
+          aria-activedescendant={open && activeIndex >= 0 ? `${listId}-option-${activeIndex}` : undefined}
+          placeholder={placeholder}
+          role="combobox"
+          value={value}
+          onChange={(event) => {
+            onChange(event.target.value)
+            setActiveIndex(-1)
+            setOpen(true)
+          }}
+          onFocus={() => setOpen(true)}
+          onKeyDown={handleKeyDown}
+          className="field pr-11"
+        />
+        <button
+          type="button"
+          aria-label="Show suggestions"
+          aria-controls={open ? listId : undefined}
+          aria-haspopup="listbox"
+          aria-expanded={open}
+          className="absolute top-1/2 right-4 flex -translate-y-1/2 items-center justify-center text-muted-foreground"
+          onMouseDown={(event) => event.preventDefault()}
+          onClick={() => {
+            setOpen((current) => !current)
+            inputRef.current?.focus()
+          }}
+        >
+          <ChevronDown aria-hidden="true" size={18} />
+        </button>
+      </div>
+      {open && (
+        <div
+          id={listId}
+          role="listbox"
+          className="surface field-menu absolute top-full z-50 mt-1.5 max-h-60 w-full overflow-y-auto rounded-2xl p-1.5 text-popover-foreground"
+        >
+          {filteredSuggestions.length > 0 ? (
+            filteredSuggestions.map((suggestion, index) => (
+              <div
+                key={suggestion}
+                id={`${listId}-option-${index}`}
+                role="option"
+                aria-selected={value === suggestion}
+                className={cn(
+                  'flex cursor-pointer items-center gap-2 rounded-xl px-3 py-2.5 text-sm text-foreground',
+                  activeIndex === index ? 'bg-primary/15' : 'hover:bg-primary/10',
+                )}
+                onMouseDown={(event) => event.preventDefault()}
+                onClick={() => {
+                  onChange(suggestion)
+                  setOpen(false)
+                  setActiveIndex(-1)
+                }}
+              >
+                {suggestion}
+                {value === suggestion && (
+                  <Check aria-hidden="true" className="ml-auto text-primary" size={16} />
+                )}
+              </div>
+            ))
+          ) : (
+            <p className="px-3 py-2 text-sm text-muted-foreground">
+              No saved matches. Your entry will still be used.
+            </p>
+          )}
+        </div>
+      )}
+    </div>
+  )
 }
 
 export function PageHeader({ title, subtitle }: { title: string; subtitle?: string }) {

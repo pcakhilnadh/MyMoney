@@ -2,7 +2,15 @@ import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
-import { Button, Card, CurrencyInput, Input, MetalActionButton, PageHeader } from '@/components/kit'
+import {
+  Button,
+  Card,
+  CurrencyInput,
+  Input,
+  MetalActionButton,
+  PageHeader,
+  Select,
+} from '@/components/kit'
 import { TransactionList } from '@/components/TransactionList'
 import { accountsRepo, duePaymentsRepo, transactionsRepo } from '@/db/repos'
 import type { AccountType } from '@/db/types'
@@ -187,26 +195,21 @@ export default function AccountDetail() {
           </label>
           <label className="block space-y-1.5">
             <span className="label">Account type</span>
-            <select
+            <Select
+              aria-label="Account type"
               value={type}
-              onChange={(event) => setType(event.target.value as AccountType)}
-              className="field w-full"
-            >
-              {[
-                ['bank', 'Bank'],
-                ['credit_card', 'Credit Card'],
-                ['deposit', 'Deposit'],
-                ['wallet', 'Wallet'],
-                ['loan', 'Loan'],
-                ['liability', 'Liability (Money You Owe)'],
-                ['asset', 'Asset (Money Owed to You)'],
-                ['other', 'Other'],
-              ].map(([value, label]) => (
-                <option key={value} value={value}>
-                  {label}
-                </option>
-              ))}
-            </select>
+              onValueChange={(value) => setType(value as AccountType)}
+              options={[
+                { value: 'bank', label: 'Bank' },
+                { value: 'credit_card', label: 'Credit Card' },
+                { value: 'deposit', label: 'Deposit' },
+                { value: 'wallet', label: 'Wallet' },
+                { value: 'loan', label: 'Loan' },
+                { value: 'liability', label: 'Liability (Money You Owe)' },
+                { value: 'asset', label: 'Asset (Money Owed to You)' },
+                { value: 'other', label: 'Other' },
+              ]}
+            />
           </label>
           <CurrencyInput value={opening} onChange={setOpening} label="Opening balance" />
           {type === 'credit_card' && (
