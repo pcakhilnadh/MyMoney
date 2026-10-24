@@ -361,6 +361,135 @@
       0 0 18px rgba(0, 240, 255, 0.45);
     animation: cyber-glitch 5s steps(1, end) infinite;
   }
+  .cyber-feature {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border: 1px solid rgba(0, 240, 255, 0.2);
+    background: rgba(0, 240, 255, 0.06);
+    padding: 0.375rem 0.625rem;
+    color: rgba(225, 255, 255, 0.85);
+    font-size: 0.7rem;
+    font-weight: 600;
+    letter-spacing: 0.04em;
+  }
+  .cyber-panel {
+    border: 1px solid rgba(0, 240, 255, 0.13);
+    border-radius: 1.125rem;
+    background:
+      radial-gradient(ellipse at 100% 0%, rgba(0, 240, 255, 0.07), transparent 48%),
+      linear-gradient(145deg, #141820 0%, #10131a 100%);
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.035),
+      0 12px 28px -20px rgba(0, 0, 0, 0.8);
+  }
+  .cyber-status {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.375rem;
+    border: 1px solid currentColor;
+    border-radius: 9999px;
+    padding: 0.25rem 0.625rem;
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.06em;
+    text-transform: uppercase;
+    white-space: nowrap;
+  }
+  .cyber-status--idle {
+    color: var(--positive);
+    background: color-mix(in srgb, var(--positive) 8%, transparent);
+  }
+  .cyber-status--syncing {
+    color: var(--primary);
+    background: color-mix(in srgb, var(--primary) 8%, transparent);
+  }
+  .cyber-status--offline {
+    color: var(--muted-foreground);
+    background: color-mix(in srgb, var(--muted-foreground) 8%, transparent);
+  }
+  .cyber-status--error {
+    color: var(--destructive);
+    background: color-mix(in srgb, var(--destructive) 8%, transparent);
+  }
+  .cyber-sync-icon {
+    display: grid;
+    width: 2.5rem;
+    height: 2.5rem;
+    flex: none;
+    place-items: center;
+    border: 1px solid rgba(0, 240, 255, 0.2);
+    background: rgba(0, 240, 255, 0.08);
+    color: #00f0ff;
+  }
+  .cyber-sync-icon.is-syncing svg {
+    animation: cyber-rotate 2s linear infinite;
+  }
+  .cyber-sync-details {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: center;
+    gap: 0.375rem 0.625rem;
+    border-top: 1px solid rgba(255, 255, 255, 0.07);
+    padding-top: 0.75rem;
+    color: var(--muted-foreground);
+    font-size: 0.7rem;
+    font-variant-numeric: tabular-nums;
+  }
+  .cyber-sync-details__divider {
+    width: 3px;
+    height: 3px;
+    border-radius: 9999px;
+    background: rgba(0, 240, 255, 0.65);
+  }
+  .cyber-sync-button {
+    min-height: 2.75rem;
+    justify-content: center;
+    gap: 0.5rem;
+    border-color: rgba(0, 240, 255, 0.35);
+    background: rgba(0, 240, 255, 0.07);
+    color: #9df8ff;
+  }
+  button.cyber-sync-button:hover:not(:disabled) {
+    border-color: rgba(0, 240, 255, 0.65);
+    background: rgba(0, 240, 255, 0.13);
+  }
+  .cyber-session-count {
+    display: inline-grid;
+    min-width: 1.5rem;
+    height: 1.5rem;
+    place-items: center;
+    border: 1px solid rgba(255, 43, 214, 0.28);
+    background: rgba(255, 43, 214, 0.08);
+    color: #ff8be8;
+    font-size: 0.7rem;
+    font-weight: 700;
+  }
+  .personal-fixed-action {
+    position: fixed;
+    inset: auto 0 0;
+    z-index: 20;
+    max-width: 28rem;
+    margin-inline: auto;
+    border-top: 1px solid rgba(0, 240, 255, 0.12);
+    padding: 0.75rem 1.25rem max(0.75rem, env(safe-area-inset-bottom));
+    background: linear-gradient(180deg, rgba(16, 19, 26, 0.88), #10131a 45%);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+  }
+  .cyber-signout {
+    min-height: 2.75rem;
+    justify-content: center;
+    border-color: rgba(255, 107, 122, 0.28);
+    background: rgba(255, 107, 122, 0.07);
+    color: #ff9ca7;
+    letter-spacing: 0.04em;
+  }
+  button.cyber-signout:hover {
+    border-color: rgba(255, 107, 122, 0.55);
+    background: rgba(255, 107, 122, 0.13);
+    color: #ffc1c7;
+  }
   @keyframes cyber-enter {
     from {
       opacity: 0;
@@ -396,6 +525,11 @@
     100% {
       transform: none;
     }
+    @keyframes cyber-rotate {
+      to {
+        transform: rotate(360deg);
+      }
+    }
     93% {
       transform: translateX(-2px);
     }
@@ -412,6 +546,9 @@
     .cyber-greeting__scan,
     .cyber-greeting__pulse,
     .cyber-greeting__name {
+      animation: none;
+    }
+    .cyber-sync-icon.is-syncing svg {
       animation: none;
     }
   }

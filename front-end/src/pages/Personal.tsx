@@ -1,8 +1,8 @@
 import { useCallback, useEffect, useState } from 'react'
-import { X } from 'lucide-react'
+import { Heart, RefreshCw, Utensils, WalletCards, X } from 'lucide-react'
 import { ApiError, revokeAuthSession, type AuthSession } from '@/auth/api'
 import { useAuth } from '@/auth/AuthContext'
-import { Button, Card, PageHeader, SectionTitle } from '@/components/kit'
+import { Button, Card, SectionTitle } from '@/components/kit'
 import { cachedAuthSessions, useSync } from '@/sync/SyncProvider'
 
 const STATE = {
@@ -25,6 +25,14 @@ export default function Personal() {
   const st = STATE[sync.state]
   const welcome = greeting()
   const firstName = user?.name?.trim().split(/\s+/)[0]
+  const syncNeedsAttention =
+    sync.state !== 'idle' || sync.pending > 0 || !sync.lastSyncedAt
+  const syncLabel =
+    sync.state === 'idle' && sync.pending > 0
+      ? 'Changes waiting'
+      : sync.state === 'idle' && !sync.lastSyncedAt
+        ? 'Not synced'
+        : st.label
   const [sessions, setSessions] = useState<AuthSession[]>([])
   const [sessionsError, setSessionsError] = useState<string | null>(null)
   const [revokingId, setRevokingId] = useState<string | null>(null)
@@ -81,9 +89,7 @@ export default function Personal() {
   }
 
   return (
-    <div className="space-y-5">
-      <PageHeader title="Personal" />
-
+    <div className="space-y-5 pb-28">
       <section className="cyber-greeting">
         <div className="cyber-greeting__grid" aria-hidden="true" />
         <div className="cyber-greeting__scan" aria-hidden="true" />
@@ -102,34 +108,101 @@ export default function Personal() {
           <h1 className="cyber-greeting__name">
             {firstName ? `${firstName}!` : 'Welcome back!'}
           </h1>
+          <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/70">
+            Your personal hub to track <span className="text-cyan-200">money</span>,{' '}
+            <span className="text-pink-200">food</span>, and{' '}
+            <span className="text-cyan-200">habits</span> — all in one place.
+          </p>
+          <div className="mt-4 flex flex-wrap gap-2" role="list" aria-label="Things you can track">
+            <span className="cyber-feature" role="listitem">
+              <WalletCards size={14} aria-hidden="true" /> Money
+            </span>
+            <span className="cyber-feature" role="listitem">
+              <Utensils size={14} aria-hidden="true" /> Food
+            </span>
+            <span className="cyber-feature" role="listitem">
+              <Heart size={14} aria-hidden="true" /> Habits
+            </span>
+          </div>
         </div>
       </section>
 
       <section className="space-y-2.5">
-        <SectionTitle>Sync</SectionTitle>
-        <Card className="space-y-3">
-          <div className="flex items-center justify-between">
-            <span className="flex items-center gap-2 font-medium">
-              <span className={`size-2 rounded-full ${st.dot}`} />
-              <span data-testid="sync-state">{st.label}</span>
+        <div className="flex items-center justify-between px-1">
+          <SectionTitle>Sync status</SectionTitle>
+          <span
+            data-testid="sync-state"
+            aria-live="polite"
+            className={`cyber-status cyber-status--${sync.state}`}
+          >
+            <span className={`size-1.5 rounded-full ${st.dot}`} />
+            {syncLabel}
+          </span>
+        </div>
+        <Card className="cyber-panel space-y-4">
+          <div className="flex items-start gap-3">
+            <span className={`cyber-sync-icon ${sync.state === 'syncing' ? 'is-syncing' : ''}`}>
+              <RefreshCw size={18} aria-hidden="true" />
             </span>
-            <Button variant="outline" size="sm" onClick={sync.syncNow}>
-              Sync now
-            </Button>
+            <div className="min-w-0 flex-1">
+              <h2 className="font-semibold">
+                {sync.state === 'syncing'
+                  ? 'Syncing your data'
+                  : sync.state === 'offline'
+                    ? 'You’re offline'
+                    : sync.state === 'error'
+                      ? 'Sync needs attention'
+                      : sync.pending > 0
+                        ? 'Changes waiting to sync'
+                        : !sync.lastSyncedAt
+                          ? 'Sync your data'
+                          : 'Everything is up to date'}
+              </h2>
+              <p className="mt-1 text-sm leading-relaxed text-muted-foreground">
+                {sync.state === 'syncing'
+                  ? 'Your latest updates are being synced across your devices.'
+                  : sync.state === 'offline'
+                    ? 'Reconnect to sync your latest updates across devices.'
+                    : sync.state === 'error'
+                      ? 'We couldn’t sync your latest updates. Try again when you’re ready.'
+                      : sync.pending > 0 || !sync.lastSyncedAt
+                        ? 'Sync now to back up your latest changes.'
+                        : 'Your money, food, and habit data is backed up.'}
+              </p>
+            </div>
           </div>
-          <div className="text-sm text-muted-foreground">
-            {sync.pending} pending ·{' '}
-            {sync.lastSyncedAt
-              ? `last synced ${new Date(sync.lastSyncedAt).toLocaleTimeString()}`
-              : 'never synced'}
+          <div className="cyber-sync-details">
+            <span>{sync.pending} pending</span>
+            <span className="cyber-sync-details__divider" aria-hidden="true" />
+            <span>
+              {sync.lastSyncedAt
+                ? `Last synced ${new Date(sync.lastSyncedAt).toLocaleString()}`
+                : 'Not synced yet'}
+            </span>
           </div>
           {sync.error && <div className="text-sm text-destructive">{sync.error}</div>}
+          <Button
+            variant="outline"
+            className="cyber-sync-button w-full"
+            onClick={() => void sync.syncNow()}
+            disabled={sync.state === 'syncing' || sync.state === 'offline'}
+          >
+            <RefreshCw
+              size={15}
+              className={sync.state === 'syncing' ? 'animate-spin' : ''}
+              aria-hidden="true"
+            />
+            {sync.state === 'syncing' ? 'Syncing…' : syncNeedsAttention ? 'Sync now' : 'Sync again'}
+          </Button>
         </Card>
       </section>
 
       <section className="space-y-2.5">
-        <SectionTitle>Active sessions</SectionTitle>
-        <Card className="space-y-3">
+        <div className="flex items-center justify-between px-1">
+          <SectionTitle>Active sessions</SectionTitle>
+          <span className="cyber-session-count">{sessions.length}</span>
+        </div>
+        <Card className="cyber-panel space-y-3">
           {sessionsError && <p className="text-sm text-destructive">{sessionsError}</p>}
           {!sessionsError && sessions.length === 0 && (
             <p className="text-sm text-muted-foreground">No active sessions found.</p>
@@ -180,9 +253,15 @@ export default function Personal() {
         </Card>
       </section>
 
-      <Button variant="outline" className="w-full text-destructive" onClick={signOut}>
-        Sign out
-      </Button>
+      <div className="personal-fixed-action">
+        <Button
+          variant="outline"
+          className="cyber-signout w-full"
+          onClick={() => void signOut()}
+        >
+          Sign out
+        </Button>
+      </div>
     </div>
   )
 }
