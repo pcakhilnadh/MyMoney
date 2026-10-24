@@ -41,6 +41,7 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
   const navigate = useNavigate()
   const [failedPicture, setFailedPicture] = useState<string | null>(null)
   const picture = user?.picture
+  const isPersonal = pathname === '/personal'
   const selectedApp = app === 'shared' ? null : app
   const comingSoon = selectedApp === 'habit'
   const appInfo = apps.find((app) => app.id === selectedApp) ?? apps[0]
@@ -48,7 +49,10 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
     selectedApp === 'food' ? foodTabs : selectedApp === 'habit' ? habitTabs : []
 
   return (
-    <div data-app={selectedApp ?? 'money'} className="mx-auto min-h-screen max-w-md pb-32">
+    <div
+      data-app={selectedApp ?? 'money'}
+      className={`mx-auto min-h-screen max-w-md ${isPersonal ? '' : 'pb-32'}`}
+    >
       <div
         role="group"
         aria-label="App selector"
@@ -83,8 +87,10 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
           to="/personal"
           aria-label="Personal"
           aria-current={pathname === '/personal' ? 'page' : undefined}
-          className={`flex size-10 items-center justify-center rounded-xl text-muted-foreground transition-colors hover:bg-muted/50 ${
-            pathname === '/personal' ? 'bg-muted/50' : ''
+          className={`flex items-center justify-center text-muted-foreground transition-colors ${
+            isPersonal
+              ? 'h-16 w-[calc(100%_+_0.75rem)] -mr-3 bg-card hover:bg-card'
+              : 'size-10 rounded-xl hover:bg-muted/50'
           }`}
         >
           {picture && picture !== failedPicture ? (
@@ -101,7 +107,13 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
           )}
         </Link>
       </div>
-      <main className="space-y-5 px-5 pt-2">
+      <main
+        className={`space-y-5 px-5 pt-2 ${
+          isPersonal
+            ? 'min-h-[calc(100vh-4rem)] rounded-tl-[28px] bg-card pb-5'
+            : ''
+        }`}
+      >
         <Outlet />
       </main>
       {pathname === '/personal' ? null : comingSoon ? (

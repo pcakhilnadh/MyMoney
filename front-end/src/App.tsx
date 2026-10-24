@@ -44,7 +44,7 @@ export default function App() {
         <Routes>
         <Route path="/login" element={<Login />} />
         <Route element={<Protected />}>
-          <Route index element={<Navigate to="/money/home" replace />} />
+          <Route index element={<Navigate to="/personal" replace />} />
           <Route path="/home" element={<LegacyMoneyRedirect />} />
           <Route path="/transactions/*" element={<LegacyMoneyRedirect />} />
           <Route path="/expenses/*" element={<LegacyMoneyRedirect />} />

@@ -41,7 +41,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     storeUser(auth.user)
     localStorage.removeItem(TOKEN_KEY)
     if (auth.user.sub !== DB_SUB) {
-      window.location.assign('/money/home')
+      window.location.assign('/personal')
       return
     }
     setSession({ token: auth.access_token, user: auth.user })
