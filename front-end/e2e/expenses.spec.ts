@@ -16,6 +16,7 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await page.getByRole('button', { name: 'Add Account' }).click()
   await page.goBack()
   await chooseOption(page, 'Paid from', 'Everyday')
+  await expect(page.getByLabel('Paid from')).toContainText('Everyday')
   await page.getByLabel('Amount').pressSequentially('250.50')
   await expect(page.getByLabel('Amount')).toHaveValue('250.50')
   await page.getByPlaceholder('Title').fill('Lunch')
@@ -134,17 +135,46 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await page.getByPlaceholder('Title').fill('Payday')
   await page.getByRole('button', { name: 'Salary' }).click()
   await page.getByPlaceholder('0').fill('2500')
-  await chooseOption(page, 'Received into', 'Checking')
+  await page.getByLabel('Received into').click()
+  await expect(page.getByRole('option')).toHaveText([
+    'Checking',
+    'Loan — Alex',
+    'Money lent — Sam',
+    'Savings',
+  ])
+  await page.getByRole('option', { name: 'Checking', exact: true }).click()
+  await expect(page.getByLabel('Received into')).toContainText('Checking')
   await page.getByRole('button', { name: 'Save Income' }).click()
   await expect(page.getByText('Payday')).toBeVisible()
+
+  await page.getByRole('link', { name: 'Add expense' }).click()
+  await page.getByRole('button', { name: 'Refund', exact: true }).click()
+  await page.getByRole('button', { name: 'Food & Dining', exact: true }).click()
+  await page.getByPlaceholder('Title').fill('Returned meal')
+  await page.getByPlaceholder('0').fill('250')
+  await chooseOption(page, 'Received into', 'Checking')
+  await expect(page.getByLabel('Received into')).toContainText('Checking')
+  await page.getByRole('button', { name: 'Save Refund' }).click()
+  await expect(page.getByText('Returned meal')).toBeVisible()
 
   await page.getByRole('link', { name: 'Add expense' }).click()
   await page.getByRole('button', { name: 'Transfer', exact: true }).click()
   await page.getByRole('button', { name: 'Savings & Investments' }).click()
   await page.getByPlaceholder('Title').fill('Move to savings')
   await page.getByPlaceholder('0').fill('1000')
-  await chooseOption(page, 'From account', 'Checking')
-  await chooseOption(page, 'To account', 'Savings')
+  await page.getByLabel('From account').click()
+  await expect(page.getByRole('option')).toHaveText([
+    'Checking',
+    'Loan — Alex',
+    'Money lent — Sam',
+    'Savings',
+  ])
+  await page.getByRole('option', { name: 'Checking', exact: true }).click()
+  await expect(page.getByLabel('From account')).toContainText('Checking')
+  await page.getByLabel('To account').click()
+  await expect(page.getByRole('option')).toHaveText(['Loan — Alex', 'Money lent — Sam', 'Savings'])
+  await page.getByRole('option', { name: 'Savings', exact: true }).click()
+  await expect(page.getByLabel('To account')).toContainText('Savings')
   await page.getByRole('button', { name: 'Save Transfer' }).click()
   await expect(page.getByText('Move to savings')).toBeVisible()
 

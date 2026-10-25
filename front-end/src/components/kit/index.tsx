@@ -74,8 +74,11 @@ export function Select({
   className?: string
   'aria-label'?: string
 }) {
+  const items = options.map((option) => ({ value: option.value, label: option.label }))
+
   return (
     <SelectRoot
+      items={items}
       value={value || null}
       onValueChange={(next) => onValueChange(next ?? '')}
       disabled={disabled}

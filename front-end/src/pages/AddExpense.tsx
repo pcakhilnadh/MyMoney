@@ -190,7 +190,10 @@ export default function AddExpense() {
   const [groupId, setGroupId] = useState(presetGroup)
   const post = useAction<object>('/money/transactions', [['gtx'], ['balances']])
 
-  const activeAccounts = accounts?.filter((account) => account.status === 'active') ?? []
+  const activeAccounts =
+    accounts
+      ?.filter((account) => account.status === 'active')
+      .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })) ?? []
   const categoryType = categoryTypeForTransaction(transactionType)
   const visibleCategories =
     categories?.filter(
