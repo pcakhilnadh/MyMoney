@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Button,
@@ -25,6 +25,9 @@ export default function GroupDetail() {
   const navigate = useNavigate()
   const { groupId = '' } = useParams()
   const [tab, setTab] = useState<(typeof TABS)[number]>('Expenses')
+  const [deleteStarting, setDeleteStarting] = useState(false)
+  const [deleteError, setDeleteError] = useState<string | null>(null)
+  const deleteInProgress = useRef(false)
   const groups = useGroups()
   const group = groups?.find((g) => g.id === groupId)
   const sync = useSync()
@@ -62,6 +65,50 @@ export default function GroupDetail() {
     [['balances', groupId]],
   )
 
+  const deleteGroup = async () => {
+    if (deleteInProgress.current) return
+    if (!group) {
+      setDeleteError('This group is no longer available in the local list.')
+      return
+    }
+
+    deleteInProgress.current = true
+    setDeleteStarting(true)
+    setDeleteError(null)
+    try {
+      await db.groups.delete(groupId)
+    } catch (error) {
+      deleteInProgress.current = false
+      setDeleteStarting(false)
+      setDeleteError(
+        error instanceof Error ? error.message : 'Unable to remove the group from the local list.',
+      )
+      return
+    }
+
+    navigate('/money/groups')
+    try {
+      await removeGroup.mutateAsync({ id: groupId })
+    } catch (error) {
+      let message = `Could not delete the group: ${error instanceof Error ? error.message : 'Unknown error'}`
+      try {
+        await db.groups.put(group)
+      } catch (restoreError) {
+        console.error('Unable to restore the group after deletion failed', restoreError)
+        message += ' The group could not be restored locally.'
+      }
+      navigate('/money/groups', { replace: true, state: { groupDeleteError: message } })
+      void sync.syncNow().catch((syncError: unknown) => {
+        console.error('Unable to sync after group deletion failed', syncError)
+      })
+      return
+    }
+
+    void sync.syncNow().catch((error: unknown) => {
+      console.error('Unable to sync after group deletion', error)
+    })
+  }
+
   return (
     <div className="space-y-4">
       <Link to="/money/groups" className="text-sm text-primary">
@@ -72,25 +119,16 @@ export default function GroupDetail() {
         <Button
           variant="outline"
           className="w-full text-destructive"
-          disabled={removeGroup.isPending}
+          disabled={removeGroup.isPending || deleteStarting}
           onClick={() => {
             if (window.confirm(`Delete "${group?.name}"? This removes it for all members.`))
-              removeGroup.mutate(
-                { id: groupId },
-                {
-                  onSuccess: async () => {
-                    await db.groups.delete(groupId)
-                    await sync.syncNow()
-                    navigate('/money/groups')
-                  },
-                },
-              )
+              void deleteGroup()
           }}
         >
           Delete Group
         </Button>
       )}
-      {removeGroup.error && <p className="text-sm text-destructive">{removeGroup.error.message}</p>}
+      {deleteError && <p role="alert" className="text-sm text-destructive">{deleteError}</p>}
       <Card className="grid grid-cols-2 gap-2 text-center">
         <div>
           <div className="text-sm text-muted-foreground">Total expenses</div>

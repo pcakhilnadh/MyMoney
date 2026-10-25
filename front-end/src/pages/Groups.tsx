@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { ArrowLeft } from 'lucide-react'
 import {
   AddIconButton,
@@ -21,6 +21,7 @@ const TYPES = ['family', 'trip', 'roommates', 'friends', 'other']
 
 export default function Groups() {
   const { currency } = useCurrency()
+  const location = useLocation()
   const groups = useGroups()
   const invites = useInvitations()
   const sync = useSync()
@@ -35,6 +36,14 @@ export default function Groups() {
     (b) => `/money/groups/${b.id}/join`,
     [],
   )
+  const locationState = location.state
+  const groupDeleteError =
+    locationState &&
+    typeof locationState === 'object' &&
+    'groupDeleteError' in locationState &&
+    typeof locationState.groupDeleteError === 'string'
+      ? locationState.groupDeleteError
+      : null
 
   if (groups === undefined || invites === undefined)
     return <p className="text-muted-foreground">Loading groups…</p>
@@ -81,6 +90,11 @@ export default function Groups() {
           />
         )}
       </div>
+      {groupDeleteError && (
+        <p role="alert" className="text-sm text-destructive">
+          {groupDeleteError}
+        </p>
+      )}
       {!showForm && (
         <>
           {invites.map((g) => (

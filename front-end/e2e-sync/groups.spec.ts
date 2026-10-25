@@ -80,12 +80,64 @@ test('create group, invite by email, join, split expense, see balances, settle',
   await a.getByRole('button', { name: 'Invite again' }).click()
   await expect(a.getByText('Invited', { exact: true })).toBeVisible()
 
+  let releaseDelete = () => {}
+  let notifyDeleteRequested = () => {}
+  const deleteResponseGate = new Promise<void>((resolve) => {
+    releaseDelete = resolve
+  })
+  const deleteRequested = new Promise<void>((resolve) => {
+    notifyDeleteRequested = resolve
+  })
+  await a.route('**/money/groups/*', async (route) => {
+    if (route.request().method() === 'DELETE' && !route.request().url().endsWith('/members/me')) {
+      notifyDeleteRequested()
+      await deleteResponseGate
+    }
+    await route.continue()
+  })
   a.once('dialog', async (dialog) => {
     expect(dialog.type()).toBe('confirm')
     expect(dialog.message()).toContain('Goa Trip')
     await dialog.accept()
   })
   await a.getByRole('button', { name: 'Delete Group' }).click()
-  await expect(a).toHaveURL(/\/groups$/)
+  await deleteRequested
+  try {
+    await expect(a).toHaveURL(/\/groups$/)
+    await expect(a.getByText('No groups yet')).toBeVisible()
+  } finally {
+    releaseDelete()
+  }
   await expect(a.getByText('No groups yet')).toBeVisible()
+})
+
+test('restore a group and report an error when its deletion fails', async ({ page }) => {
+  await fakeSignIn(page, {
+    sub: 'g-delete-failure',
+    email: 'delete-failure@gmail.com',
+    name: 'Delete Failure',
+  })
+  await page.goto('/groups')
+  await page.getByRole('button', { name: 'Add group' }).click()
+  await page.getByPlaceholder('Group name').fill('Keep This Group')
+  await page.getByRole('button', { name: 'Create Group' }).click()
+  await page.getByText('Keep This Group').click()
+
+  await page.route('**/money/groups/*', async (route) => {
+    if (route.request().method() === 'DELETE' && !route.request().url().endsWith('/members/me')) {
+      await route.fulfill({
+        status: 503,
+        contentType: 'application/json',
+        body: JSON.stringify({ detail: 'Delete failed' }),
+      })
+      return
+    }
+    await route.continue()
+  })
+  page.once('dialog', (dialog) => dialog.accept())
+  await page.getByRole('button', { name: 'Delete Group' }).click()
+
+  await expect(page).toHaveURL(/\/groups$/)
+  await expect(page.getByRole('alert')).toContainText('Delete failed')
+  await expect(page.getByText('Keep This Group')).toBeVisible()
 })
