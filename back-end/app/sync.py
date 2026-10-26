@@ -67,7 +67,7 @@ class CategoryRec(Rec):
 
 
 class TransactionRec(Rec):
-    account_id: uuid.UUID
+    account_id: uuid.UUID | None = None
     transfer_to_account_id: uuid.UUID | None = None
     category_id: uuid.UUID | None = None
     context: str = "personal"
@@ -271,22 +271,38 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
     if name == "transactions":
         if rec.context != "personal":  # group data goes through /transactions
             raise HTTPException(422, "Only personal transactions can be synced")
-        account = db.get(Account, rec.account_id)
-        if account is None or account.user_id != user.id or account.status != "active":
-            raise HTTPException(422, "Unknown account")
+        account = db.get(Account, rec.account_id) if rec.account_id else None
         destination = (
             db.get(Account, rec.transfer_to_account_id) if rec.transfer_to_account_id else None
         )
         if rec.transaction_type == "transfer":
-            if (
-                destination is None
-                or rec.transfer_to_account_id == rec.account_id
-                or destination.user_id != user.id
-                or destination.status != "active"
+            if rec.category_id is None:
+                raise HTTPException(422, "A category is required for transfers")
+            category = db.get(Category, rec.category_id)
+            if category is None:
+                raise HTTPException(422, "Unknown category")
+            error = transfer_category_account_error(
+                category.name, bool(rec.account_id), bool(rec.transfer_to_account_id)
+            )
+            if error:
+                raise HTTPException(422, error)
+            if rec.account_id == rec.transfer_to_account_id:
+                raise HTTPException(422, "A transfer must use different accounts")
+            for account_id, selected in (
+                (rec.account_id, account),
+                (rec.transfer_to_account_id, destination),
             ):
-                raise HTTPException(422, "A different active destination account is required")
-        elif rec.transfer_to_account_id is not None:
-            raise HTTPException(422, "Only transfers can have a destination account")
+                if account_id is not None and (
+                    selected is None
+                    or selected.user_id != user.id
+                    or selected.status != "active"
+                ):
+                    raise HTTPException(422, "Unknown account")
+        else:
+            if rec.account_id is None or account is None or account.user_id != user.id or account.status != "active":
+                raise HTTPException(422, "Unknown account")
+            if rec.transfer_to_account_id is not None:
+                raise HTTPException(422, "Only transfers can have a destination account")
         if rec.transaction_type not in {"expense", "income", "refund", "transfer"}:
             raise HTTPException(422, "Unsupported transaction type")
         if not _owned_category_ref(db, rec.category_id, user):
@@ -296,12 +312,6 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
             expected_type = "expense" if rec.transaction_type == "refund" else rec.transaction_type
             if category.transaction_type != expected_type:
                 raise HTTPException(422, "Category does not match the transaction type")
-            if rec.transaction_type == "transfer":
-                error = transfer_category_account_error(
-                    category.name, account.account_type, destination.account_type
-                )
-                if error:
-                    raise HTTPException(422, error)
     elif name == "due_payments":
         account = db.get(Account, rec.account_id)
         if account is None or account.user_id != user.id:

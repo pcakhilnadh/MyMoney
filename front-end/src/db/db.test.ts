@@ -224,25 +224,25 @@ describe('repository', () => {
       transactionsRepo.create({
         ...base,
         account_id: source.id,
+        category_id: (await categoriesRepo.create({
+          name: 'Self Transfer',
+          icon: 'tag',
+          color: null,
+          transaction_type: 'transfer',
+          is_system: true,
+          is_hidden: false,
+        })).id,
         transaction_type: 'transfer',
         title: 'Move money',
         amount_minor: 2000,
         transaction_date: '2026-10-01T00:00:00Z',
       }),
-    ).rejects.toThrow('destination account is required')
+    ).rejects.toThrow('Self Transfer requires both')
   })
 
-  it('validates category type and accounting-aware transfer categories', async () => {
+  it('validates category type and directional transfer account requirements', async () => {
     const bank = await accountsRepo.create({
       name: 'Checking',
-      account_type: 'bank',
-      currency: 'INR',
-      opening_balance: 0,
-      credit_limit: null,
-      is_default: false,
-    })
-    const otherBank = await accountsRepo.create({
-      name: 'Savings',
       account_type: 'bank',
       currency: 'INR',
       opening_balance: 0,
@@ -258,31 +258,10 @@ describe('repository', () => {
       is_hidden: false,
     })
 
-    await expect(
-      transactionsRepo.create({
-        ...base,
-        account_id: bank.id,
-        transfer_to_account_id: otherBank.id,
-        category_id: lentCategory.id,
-        transaction_type: 'transfer',
-        title: 'Lend money',
-        amount_minor: 1000,
-        transaction_date: '2026-10-01T00:00:00Z',
-      }),
-    ).rejects.toThrow('Money Lent must go to an Asset account')
-
-    const asset = await accountsRepo.create({
-      name: 'Owed by Sam',
-      account_type: 'asset',
-      currency: 'INR',
-      opening_balance: 0,
-      credit_limit: null,
-      is_default: false,
-    })
     const transfer = await transactionsRepo.create({
       ...base,
       account_id: bank.id,
-      transfer_to_account_id: asset.id,
+      transfer_to_account_id: null,
       category_id: lentCategory.id,
       transaction_type: 'transfer',
       title: 'Lend money',
@@ -290,6 +269,27 @@ describe('repository', () => {
       transaction_date: '2026-10-01T00:00:00Z',
     })
     expect(transfer.category_id).toBe(lentCategory.id)
+
+    const borrowedCategory = await categoriesRepo.create({
+      name: 'Money Borrow',
+      icon: 'tag',
+      color: null,
+      transaction_type: 'transfer',
+      is_system: true,
+      is_hidden: false,
+    })
+    const borrowed = await transactionsRepo.create({
+      ...base,
+      account_id: null,
+      transfer_to_account_id: bank.id,
+      category_id: borrowedCategory.id,
+      transaction_type: 'transfer',
+      title: 'Borrow money',
+      amount_minor: 1000,
+      transaction_date: '2026-10-01T00:00:00Z',
+    })
+    expect(borrowed.account_id).toBeNull()
+    expect(borrowed.transfer_to_account_id).toBe(bank.id)
 
     const incomeCategory = await categoriesRepo.create({
       name: 'Salary',
@@ -310,6 +310,50 @@ describe('repository', () => {
         transaction_date: '2026-10-01T00:00:00Z',
       }),
     ).rejects.toThrow('category must match the transaction type')
+  })
+
+  it('allows Pocket Money transfers with either a from or to account', async () => {
+    const account = await accountsRepo.create({
+      name: 'Checking',
+      account_type: 'bank',
+      currency: 'INR',
+      opening_balance: 0,
+      credit_limit: null,
+      is_default: false,
+    })
+    const category = await categoriesRepo.create({
+      name: 'Pocket Money',
+      icon: 'tag',
+      color: null,
+      transaction_type: 'transfer',
+      is_system: true,
+      is_hidden: false,
+    })
+
+    const given = await transactionsRepo.create({
+      ...base,
+      account_id: account.id,
+      category_id: category.id,
+      transaction_type: 'transfer',
+      title: 'Pocket money given',
+      amount_minor: 1000,
+      transaction_date: '2026-10-01T00:00:00Z',
+    })
+    const received = await transactionsRepo.create({
+      ...base,
+      account_id: null,
+      transfer_to_account_id: account.id,
+      category_id: category.id,
+      transaction_type: 'transfer',
+      title: 'Pocket money received',
+      amount_minor: 500,
+      transaction_date: '2026-10-02T00:00:00Z',
+    })
+
+    expect(given.account_id).toBe(account.id)
+    expect(given.transfer_to_account_id).toBeNull()
+    expect(received.account_id).toBeNull()
+    expect(received.transfer_to_account_id).toBe(account.id)
   })
 })
 
@@ -454,7 +498,7 @@ describe('seed and money', () => {
   it('seeds once', async () => {
     await seedIfEmpty()
     await seedIfEmpty()
-    expect(await db.categories.count()).toBe(31)
+    expect(await db.categories.count()).toBe(32)
     expect(
       (await categoriesRepo.list()).filter((category) => category.transaction_type === 'expense'),
     ).toHaveLength(15)
@@ -463,7 +507,10 @@ describe('seed and money', () => {
     ).toHaveLength(9)
     expect(
       (await categoriesRepo.list()).filter((category) => category.transaction_type === 'transfer'),
-    ).toHaveLength(7)
+    ).toHaveLength(8)
+    expect(
+      (await categoriesRepo.list()).some((category) => category.name === 'Pocket Money'),
+    ).toBe(true)
     expect(await db.accounts.count()).toBe(0)
   })
 
@@ -479,7 +526,7 @@ describe('seed and money', () => {
     await seedIfEmpty()
 
     expect((await categoriesRepo.get(legacy.id))?.name).toBe('Food & Dining')
-    expect((await categoriesRepo.list()).filter((category) => category.is_system)).toHaveLength(31)
+    expect((await categoriesRepo.list()).filter((category) => category.is_system)).toHaveLength(32)
     expect(DEFAULT_CATEGORIES.expense).toContain('Food & Dining')
   })
 

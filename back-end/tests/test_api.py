@@ -174,6 +174,11 @@ def test_personal_transaction_requires_owned_active_account(client):
 
 
 def test_transfer_requires_two_different_owned_accounts(client):
+    category = client.post(
+        "/money/categories",
+        json={"name": "Self Transfer", "transaction_type": "transfer"},
+        headers=H("alice"),
+    ).json()
     source = make_account(client)
     destination = make_account(client)
     response = client.post(
@@ -181,6 +186,7 @@ def test_transfer_requires_two_different_owned_accounts(client):
         json=tx(
             account_id=source,
             transfer_to_account_id=destination,
+            category_id=category["id"],
             transaction_type="transfer",
         ),
         headers=H("alice"),
@@ -193,6 +199,7 @@ def test_transfer_requires_two_different_owned_accounts(client):
         json=tx(
             account_id=source,
             transfer_to_account_id=source,
+            category_id=category["id"],
             transaction_type="transfer",
         ),
         headers=H("alice"),
@@ -205,11 +212,142 @@ def test_transfer_requires_two_different_owned_accounts(client):
         json=tx(
             account_id=source,
             transfer_to_account_id=foreign_destination,
+            category_id=category["id"],
             transaction_type="transfer",
         ),
         headers=H("alice"),
     )
     assert foreign.status_code == 422
+
+    missing_destination = client.post(
+        "/money/transactions",
+        json=tx(account_id=source, category_id=category["id"], transaction_type="transfer"),
+        headers=H("alice"),
+    )
+    assert missing_destination.status_code == 422
+
+
+def test_savings_and_investments_requires_two_different_owned_accounts(client):
+    category = client.post(
+        "/money/categories",
+        json={"name": "Savings & Investments", "transaction_type": "transfer"},
+        headers=H("alice"),
+    ).json()
+    source = make_account(client)
+    destination = make_account(client)
+
+    response = client.post(
+        "/money/transactions",
+        json=tx(
+            account_id=source,
+            transfer_to_account_id=destination,
+            category_id=category["id"],
+            transaction_type="transfer",
+        ),
+        headers=H("alice"),
+    )
+    assert response.status_code == 201
+
+    missing_destination = client.post(
+        "/money/transactions",
+        json=tx(
+            account_id=source,
+            category_id=category["id"],
+            transaction_type="transfer",
+        ),
+        headers=H("alice"),
+    )
+    assert missing_destination.status_code == 422
+
+
+def test_directional_transfer_categories_require_only_the_users_account(client):
+    source = make_account(client)
+    destination = make_account(client)
+    lent_category = client.post(
+        "/money/categories",
+        json={"name": "Money Lent", "transaction_type": "transfer"},
+        headers=H("alice"),
+    ).json()
+    borrowed_category = client.post(
+        "/money/categories",
+        json={"name": "Money Borrow", "transaction_type": "transfer"},
+        headers=H("alice"),
+    ).json()
+
+    lent = client.post(
+        "/money/transactions",
+        json=tx(
+            account_id=source,
+            category_id=lent_category["id"],
+            transaction_type="transfer",
+        ),
+        headers=H("alice"),
+    )
+    assert lent.status_code == 201
+    assert lent.json()["account_id"] == source
+    assert lent.json()["transfer_to_account_id"] is None
+
+    borrowed = client.post(
+        "/money/transactions",
+        json=tx(
+            account_id=None,
+            transfer_to_account_id=destination,
+            category_id=borrowed_category["id"],
+            transaction_type="transfer",
+        ),
+        headers=H("alice"),
+    )
+    assert borrowed.status_code == 201
+    assert borrowed.json()["account_id"] is None
+    assert borrowed.json()["transfer_to_account_id"] == destination
+
+    invalid_lent = client.post(
+        "/money/transactions",
+        json=tx(
+            account_id=None,
+            transfer_to_account_id=destination,
+            category_id=lent_category["id"],
+            transaction_type="transfer",
+        ),
+        headers=H("alice"),
+    )
+    assert invalid_lent.status_code == 422
+
+
+def test_pocket_money_can_be_given_or_received_through_either_account(client):
+    account = make_account(client)
+    category = client.post(
+        "/money/categories",
+        json={"name": "Pocket Money", "transaction_type": "transfer"},
+        headers=H("alice"),
+    ).json()
+
+    given = client.post(
+        "/money/transactions",
+        json=tx(
+            account_id=account,
+            category_id=category["id"],
+            transaction_type="transfer",
+        ),
+        headers=H("alice"),
+    )
+    received = client.post(
+        "/money/transactions",
+        json=tx(
+            account_id=None,
+            transfer_to_account_id=account,
+            category_id=category["id"],
+            transaction_type="transfer",
+        ),
+        headers=H("alice"),
+    )
+
+    assert given.status_code == 201
+    assert given.json()["account_id"] == account
+    assert given.json()["transfer_to_account_id"] is None
+    assert received.status_code == 201
+    assert received.json()["account_id"] is None
+    assert received.json()["transfer_to_account_id"] == account
 
 
 def test_personal_rejects_group_fields(client):

@@ -1,38 +1,36 @@
-import type { AccountType, CategoryType, TransactionType } from '@/db/types'
+import type { CategoryType, TransactionType } from '@/db/types'
 
 export function categoryTypeForTransaction(type: TransactionType): CategoryType {
   return type === 'refund' ? 'expense' : type
 }
 
-const LIABILITY_TYPES: AccountType[] = ['credit_card', 'loan', 'liability', 'loan_payable']
-const RECEIVABLE_TYPES: AccountType[] = ['asset', 'money_lent']
+export type TransferAccountRequirement = 'both' | 'source' | 'destination' | 'either'
+
+export function transferAccountRequirement(category: string): TransferAccountRequirement {
+  const normalized = category.trim().replace(/\s+/g, ' ').toLowerCase()
+  if (normalized === 'self transfer' || normalized === 'savings & investments') return 'both'
+  if (normalized === 'money lent' || normalized === 'loan repayment') return 'source'
+  if (normalized === 'money borrow' || normalized === 'loan collection') return 'destination'
+  return 'either'
+}
 
 export function transferCategoryAccountError(
   category: string,
-  sourceType: AccountType,
-  destinationType: AccountType,
+  hasSource: boolean,
+  hasDestination: boolean,
 ): string | null {
-  if (category === 'Money Lent' && !RECEIVABLE_TYPES.includes(destinationType)) {
-    return 'Money Lent must go to an Asset account.'
+  const requirement = transferAccountRequirement(category)
+  if (requirement === 'both' && (!hasSource || !hasDestination)) {
+    return `${category} requires both a from and a to account.`
   }
-
-  if (
-    category === 'Money Borrow' &&
-    (!LIABILITY_TYPES.includes(sourceType) || LIABILITY_TYPES.includes(destinationType))
-  ) {
-    return 'Money Borrow must come from a Loan, Liability, or Credit Card account and go to a non-liability account.'
+  if (requirement === 'source' && (!hasSource || hasDestination)) {
+    return `${category} requires a from account only.`
   }
-  if (
-    category === 'Loan Repayment' &&
-    (!LIABILITY_TYPES.includes(destinationType) || LIABILITY_TYPES.includes(sourceType))
-  ) {
-    return 'Loan Repayment must go to a Loan, Liability, or Credit Card account from a non-liability account.'
+  if (requirement === 'destination' && (hasSource || !hasDestination)) {
+    return `${category} requires a to account only.`
   }
-  if (
-    category === 'Loan Collection' &&
-    (!RECEIVABLE_TYPES.includes(sourceType) || RECEIVABLE_TYPES.includes(destinationType))
-  ) {
-    return 'Loan Collection must come from an Asset account and go to a non-Asset account.'
+  if (requirement === 'either' && hasSource === hasDestination) {
+    return 'Choose either a from account or a to account.'
   }
   return null
 }

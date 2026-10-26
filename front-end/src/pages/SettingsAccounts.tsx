@@ -185,14 +185,14 @@ export default function SettingsAccounts() {
           )}
           {isLiability && !isCard && (
             <p className="text-sm text-muted-foreground">
-              For money you owe (loans, lines of credit). Record loan disbursals as transfers from
-              your bank or cash account to this account; record repayments by transferring back.
+              For a balance you owe. Borrowing and repayment transfers affect only the account
+              where you receive or pay the money.
             </p>
           )}
           {isAsset && (
             <p className="text-sm text-muted-foreground">
-              For money someone owes you. Record lending as a transfer from your bank or cash
-              account to this account; record repayments by transferring back.
+              For a balance someone owes you. Lending and collection transfers affect only the
+              account the money leaves or returns to.
             </p>
           )}
           <Button className="w-full" disabled={!name.trim()} onClick={() => void save()}>

@@ -64,7 +64,7 @@ class TransactionIn(BaseModel):
     context: str = "personal"
     transaction_type: str = "expense"
     group_id: uuid.UUID | None = None
-    account_id: uuid.UUID
+    account_id: uuid.UUID | None = None
     transfer_to_account_id: uuid.UUID | None = None
     category_id: uuid.UUID | None = None
     title: str = Field(validation_alias=AliasChoices("title", "description"))

@@ -66,7 +66,7 @@ export interface Merchant extends Syncable {
 }
 
 export interface Transaction extends Syncable {
-  account_id: string
+  account_id: string | null
   transfer_to_account_id: string | null
   category_id: string | null
   group_id: string | null

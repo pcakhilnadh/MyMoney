@@ -4,7 +4,7 @@ import { dueAlerts, interestPaid, nextDueDate, summarizeAccount } from './accoun
 
 const acc = (o: Partial<Account>) =>
   ({ id: 'a', account_type: 'bank', opening_balance: 0, credit_limit: null, ...o }) as Account
-const tx = (amount: number, type = 'expense', account = 'a') =>
+const tx = (amount: number, type = 'expense', account: string | null = 'a') =>
   ({
     account_id: account,
     amount_minor: amount,
@@ -75,6 +75,22 @@ describe('summarizeAccount', () => {
 
     expect(summarizeAccount(checking, [transfer]).balance).toBe(3800)
     expect(summarizeAccount(savings, [transfer]).balance).toBe(3200)
+  })
+
+  it('applies one-sided transfers only to the user account selected', () => {
+    const checking = acc({ id: 'checking', opening_balance: 5000 })
+    const lentAccount = acc({ id: 'lent', account_type: 'asset', opening_balance: 0 })
+    const lent = {
+      ...tx(1200, 'transfer', 'checking'),
+      transfer_to_account_id: null,
+    } as Transaction
+    const borrowed = {
+      ...tx(800, 'transfer', null),
+      transfer_to_account_id: 'checking',
+    } as Transaction
+
+    expect(summarizeAccount(checking, [lent, borrowed]).balance).toBe(4600)
+    expect(summarizeAccount(lentAccount, [lent, borrowed]).balance).toBe(0)
   })
 
   it('tracks borrowed balances as liabilities and reduces them on repayment', () => {

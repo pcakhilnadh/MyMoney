@@ -68,6 +68,7 @@ export const DEFAULT_CATEGORIES = {
     'Money Borrow',
     'Loan Repayment',
     'Loan Collection',
+    'Pocket Money',
     'Other',
   ],
 } as const

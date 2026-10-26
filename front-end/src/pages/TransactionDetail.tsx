@@ -140,9 +140,13 @@ export default function TransactionDetail() {
           <DetailRow label="Date" value={dateLabel} />
           <DetailRow label="Type" value={kind.label} />
           <DetailRow label="Category" value={categoryName ?? 'Uncategorised'} />
-          <DetailRow label="Account" value={accountName ?? 'Account'} />
-          {selectedTransaction.transaction_type === 'transfer' && (
-            <DetailRow label="Transfer to" value={destinationName ?? 'Account'} />
+          {selectedTransaction.transaction_type === 'transfer' ? (
+            <>
+              {accountName && <DetailRow label="From account" value={accountName} />}
+              {destinationName && <DetailRow label="To account" value={destinationName} />}
+            </>
+          ) : (
+            <DetailRow label="Account" value={accountName ?? 'Account'} />
           )}
           {selectedTransaction.merchant && (
             <DetailRow label="Merchant" value={selectedTransaction.merchant} />

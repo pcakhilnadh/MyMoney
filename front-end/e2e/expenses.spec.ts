@@ -113,22 +113,6 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await page.getByPlaceholder('e.g., ICICI Bank').fill('Savings')
   await page.getByRole('button', { name: 'Add Account' }).click()
   await expect(page.getByRole('heading', { name: 'Savings' })).toBeVisible()
-  await page.getByRole('button', { name: 'Add payment account' }).click()
-  await page.getByPlaceholder('e.g., ICICI Bank').fill('Loan — Alex')
-  await chooseOption(page, 'Account type', 'Loan')
-  await expect(
-    page.getByText(/For money you owe \(loans, lines of credit\)\. Record loan disbursals/),
-  ).toBeVisible()
-  await page.getByRole('button', { name: 'Add Account' }).click()
-  await expect(page.getByRole('heading', { name: 'Loan — Alex' })).toBeVisible()
-  await page.getByRole('button', { name: 'Add payment account' }).click()
-  await page.getByPlaceholder('e.g., ICICI Bank').fill('Money lent — Sam')
-  await chooseOption(page, 'Account type', 'Asset (Money Owed to You)')
-  await expect(
-    page.getByText(/Record lending as a transfer from your bank or cash account/),
-  ).toBeVisible()
-  await page.getByRole('button', { name: 'Add Account' }).click()
-  await expect(page.getByRole('heading', { name: 'Money lent — Sam' })).toBeVisible()
 
   await page.getByRole('link', { name: 'Add expense' }).click()
   await page.getByRole('button', { name: 'Income' }).click()
@@ -136,12 +120,7 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await page.getByRole('button', { name: 'Salary' }).click()
   await page.getByPlaceholder('0').fill('2500')
   await page.getByLabel('Received into').click()
-  await expect(page.getByRole('option')).toHaveText([
-    'Checking',
-    'Loan — Alex',
-    'Money lent — Sam',
-    'Savings',
-  ])
+  await expect(page.getByRole('option')).toHaveText(['Checking', 'Savings'])
   await page.getByRole('option', { name: 'Checking', exact: true }).click()
   await expect(page.getByLabel('Received into')).toContainText('Checking')
   await page.getByRole('button', { name: 'Save Income' }).click()
@@ -163,16 +142,11 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await page.getByPlaceholder('Title').fill('Move to savings')
   await page.getByPlaceholder('0').fill('1000')
   await page.getByLabel('From account').click()
-  await expect(page.getByRole('option')).toHaveText([
-    'Checking',
-    'Loan — Alex',
-    'Money lent — Sam',
-    'Savings',
-  ])
+  await expect(page.getByRole('option')).toHaveText(['Checking', 'Savings'])
   await page.getByRole('option', { name: 'Checking', exact: true }).click()
   await expect(page.getByLabel('From account')).toContainText('Checking')
   await page.getByLabel('To account').click()
-  await expect(page.getByRole('option')).toHaveText(['Loan — Alex', 'Money lent — Sam', 'Savings'])
+  await expect(page.getByRole('option')).toHaveText(['Savings'])
   await page.getByRole('option', { name: 'Savings', exact: true }).click()
   await expect(page.getByLabel('To account')).toContainText('Savings')
   await page.getByRole('button', { name: 'Save Transfer' }).click()
@@ -183,7 +157,6 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await page.getByRole('button', { name: 'Money Borrow' }).click()
   await page.getByPlaceholder('Title').fill('Borrow from Alex')
   await page.getByPlaceholder('0').fill('500')
-  await chooseOption(page, 'From account', 'Loan — Alex')
   await chooseOption(page, 'To account', 'Checking')
   await page.getByRole('button', { name: 'Save Transfer' }).click()
 
@@ -193,7 +166,6 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await page.getByPlaceholder('Title').fill('Repay Alex')
   await page.getByPlaceholder('0').fill('100')
   await chooseOption(page, 'From account', 'Checking')
-  await chooseOption(page, 'To account', 'Loan — Alex')
   await page.getByRole('button', { name: 'Save Transfer' }).click()
 
   await page.getByRole('link', { name: 'Add expense' }).click()
@@ -202,7 +174,6 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await page.getByPlaceholder('Title').fill('Lend to Sam')
   await page.getByPlaceholder('0').fill('300')
   await chooseOption(page, 'From account', 'Checking')
-  await chooseOption(page, 'To account', 'Money lent — Sam')
   await page.getByRole('button', { name: 'Save Transfer' }).click()
 
   await page.getByRole('link', { name: 'Add expense' }).click()
@@ -210,17 +181,30 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await page.getByRole('button', { name: 'Loan Collection' }).click()
   await page.getByPlaceholder('Title').fill('Sam repaid')
   await page.getByPlaceholder('0').fill('50')
-  await chooseOption(page, 'From account', 'Money lent — Sam')
+  await chooseOption(page, 'To account', 'Checking')
+  await page.getByRole('button', { name: 'Save Transfer' }).click()
+
+  await page.getByRole('link', { name: 'Add expense' }).click()
+  await page.getByRole('button', { name: 'Transfer', exact: true }).click()
+  await expect(page.getByRole('button', { name: 'Pocket Money', exact: true })).toBeVisible()
+  await page.getByRole('button', { name: 'Pocket Money', exact: true }).click()
+  await page.getByPlaceholder('Title').fill('Pocket money given')
+  await page.getByPlaceholder('0').fill('25')
+  await chooseOption(page, 'From account', 'Checking')
+  await page.getByRole('button', { name: 'Save Transfer' }).click()
+
+  await page.getByRole('link', { name: 'Add expense' }).click()
+  await page.getByRole('button', { name: 'Transfer', exact: true }).click()
+  await page.getByRole('button', { name: 'Pocket Money', exact: true }).click()
+  await page.getByRole('button', { name: 'To', exact: true }).click()
+  await page.getByPlaceholder('Title').fill('Pocket money received')
+  await page.getByPlaceholder('0').fill('15')
   await chooseOption(page, 'To account', 'Checking')
   await page.getByRole('button', { name: 'Save Transfer' }).click()
 
   await page.getByRole('link', { name: 'Settings' }).click()
   await page.getByRole('link', { name: 'Payment Account' }).click()
-  await page.getByRole('heading', { name: 'Loan — Alex' }).click()
-  await expect(page.getByText('Amount owed')).toBeVisible()
-  await expect(page.getByText('₹400.00')).toBeVisible()
-  await page.getByRole('link', { name: '← Payment Account' }).click()
-  await page.getByRole('heading', { name: 'Money lent — Sam' }).click()
-  await expect(page.getByText('Owed to you', { exact: true })).toBeVisible()
-  await expect(page.getByText('₹250.00')).toBeVisible()
+  await page.getByRole('heading', { name: 'Checking' }).click()
+  await expect(page.getByText('Current balance')).toBeVisible()
+  await expect(page.getByText('₹1,890.00')).toBeVisible()
 })

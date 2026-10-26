@@ -123,9 +123,7 @@ def _validated_splits(db: Session, body: s.TransactionIn, user: Profile):
     if body.context == "personal":
         if body.group_id or body.splits:
             raise HTTPException(422, "Personal transactions cannot have a group or splits")
-        account = db.get(Account, body.account_id)
-        if account is None or account.user_id != user.id or account.status != "active":
-            raise HTTPException(422, "An active account owned by the caller is required")
+        account = db.get(Account, body.account_id) if body.account_id else None
         category = db.get(Category, body.category_id) if body.category_id else None
         if body.category_id and (
             category is None
@@ -147,27 +145,36 @@ def _validated_splits(db: Session, body: s.TransactionIn, user: Profile):
                 if body.transfer_to_account_id
                 else None
             )
-            if (
-                destination is None
-                or body.transfer_to_account_id == body.account_id
-                or destination.user_id != user.id
-                or destination.status != "active"
+            if category is None:
+                raise HTTPException(422, "A category is required for transfers")
+            error = transfer_category_account_error(
+                category.name, bool(body.account_id), bool(body.transfer_to_account_id)
+            )
+            if error:
+                raise HTTPException(422, error)
+            if body.account_id == body.transfer_to_account_id:
+                raise HTTPException(422, "A transfer must use different accounts")
+            for account_id, selected in (
+                (body.account_id, account),
+                (body.transfer_to_account_id, destination),
             ):
-                raise HTTPException(422, "A different active destination account is required")
-            if category is not None:
-                error = transfer_category_account_error(
-                    category.name, account.account_type, destination.account_type
-                )
-                if error:
-                    raise HTTPException(422, error)
-        elif body.transfer_to_account_id is not None:
-            raise HTTPException(422, "Only transfers can have a destination account")
+                if account_id is not None and (
+                    selected is None
+                    or selected.user_id != user.id
+                    or selected.status != "active"
+                ):
+                    raise HTTPException(422, "An active account owned by the caller is required")
+        else:
+            if body.transfer_to_account_id is not None:
+                raise HTTPException(422, "Only transfers can have a destination account")
+            if account is None or account.user_id != user.id or account.status != "active":
+                raise HTTPException(422, "An active account owned by the caller is required")
         return []
     if body.group_id is None:
         raise HTTPException(422, "group_id required for family/group transactions")
     require_member(db, body.group_id, user)
     active_group(db, body.group_id)
-    account = db.get(Account, body.account_id)
+    account = db.get(Account, body.account_id) if body.account_id else None
     if account is None or account.user_id != user.id or account.status != "active":
         raise HTTPException(422, "An active account owned by the caller is required")
     if body.transaction_type != "expense":

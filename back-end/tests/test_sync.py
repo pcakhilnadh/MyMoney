@@ -6,6 +6,7 @@ from tests.conftest import H
 CAT = "aaaaaaaa-0000-0000-0000-000000000001"
 ACC = "aaaaaaaa-0000-0000-0000-000000000002"
 ACC_TO = "aaaaaaaa-0000-0000-0000-000000000004"
+CAT_LENT = "aaaaaaaa-0000-0000-0000-000000000013"
 TX = "aaaaaaaa-0000-0000-0000-000000000003"
 MERCHANT = "aaaaaaaa-0000-0000-0000-000000000006"
 OTHER_MERCHANT = "aaaaaaaa-0000-0000-0000-000000000007"
@@ -169,29 +170,44 @@ def test_rejects_foreign_references_and_group_context(client):
     assert c.post("/sync/push", json=grp, headers=H("alice")).status_code == 422
 
 
-def test_transfer_sync_requires_and_persists_destination(client):
+def test_transfer_sync_validates_account_direction(client):
     body = payload()
-    body["accounts"][0].update({"name": "Loan — Alex", "account_type": "loan_payable"})
+    body["accounts"][0].update({"name": "Checking", "account_type": "bank"})
     body["accounts"].append(
-        {"id": ACC_TO, "version": 1, "name": "Money lent — Sam", "account_type": "money_lent"}
+        {"id": ACC_TO, "version": 1, "name": "Savings", "account_type": "bank"}
     )
     transaction = body["transactions"][0]
     transaction["transaction_type"] = "transfer"
     transaction["transfer_to_account_id"] = ACC_TO
-    body["categories"][0].update({"name": "Other", "transaction_type": "transfer"})
+    body["categories"][0].update({"name": "Self Transfer", "transaction_type": "transfer"})
     response = client.post("/sync/push", json=body, headers=H("alice"))
 
     assert response.status_code == 200
     pulled = client.get("/sync/pull", headers=H("alice")).json()
     assert pulled["transactions"][0]["transfer_to_account_id"] == ACC_TO
-    assert {account["account_type"] for account in pulled["accounts"]} == {
-        "loan_payable",
-        "money_lent",
-    }
+    assert len(pulled["accounts"]) == 2
 
     body["transactions"][0]["id"] = "aaaaaaaa-0000-0000-0000-000000000005"
     body["transactions"][0]["transfer_to_account_id"] = ACC
     assert client.post("/sync/push", json=body, headers=H("alice")).status_code == 422
+
+    body["transactions"][0].update(
+        {
+            "id": "aaaaaaaa-0000-0000-0000-000000000012",
+            "account_id": ACC,
+            "transfer_to_account_id": None,
+            "category_id": CAT_LENT,
+        }
+    )
+    body["categories"].append(
+        {
+            "id": CAT_LENT,
+            "version": 1,
+            "name": "Money Lent",
+            "transaction_type": "transfer",
+        }
+    )
+    assert client.post("/sync/push", json=body, headers=H("alice")).status_code == 200
 
 
 def test_category_hidden_state_syncs_and_category_type_is_enforced(client):

@@ -1,31 +1,24 @@
-LIABILITY_ACCOUNT_TYPES = {"credit_card", "loan", "liability", "loan_payable"}
-RECEIVABLE_ACCOUNT_TYPES = {"asset", "money_lent"}
+def transfer_account_requirement(category: str) -> str:
+    normalized = " ".join(category.split()).casefold()
+    if normalized in {"self transfer", "savings & investments"}:
+        return "both"
+    if normalized in {"money lent", "loan repayment"}:
+        return "source"
+    if normalized in {"money borrow", "loan collection"}:
+        return "destination"
+    return "either"
 
 
 def transfer_category_account_error(
-    category: str, source_type: str, destination_type: str
+    category: str, has_source: bool, has_destination: bool
 ) -> str | None:
-    if category == "Money Lent" and destination_type not in RECEIVABLE_ACCOUNT_TYPES:
-        return "Money Lent must go to an Asset account."
-    if category == "Money Borrow" and (
-        source_type not in LIABILITY_ACCOUNT_TYPES
-        or destination_type in LIABILITY_ACCOUNT_TYPES
-    ):
-        return (
-            "Money Borrow must come from a Loan, Liability, or Credit Card account "
-            "and go to a non-liability account."
-        )
-    if category == "Loan Repayment" and (
-        destination_type not in LIABILITY_ACCOUNT_TYPES
-        or source_type in LIABILITY_ACCOUNT_TYPES
-    ):
-        return (
-            "Loan Repayment must go to a Loan, Liability, or Credit Card account "
-            "from a non-liability account."
-        )
-    if category == "Loan Collection" and (
-        source_type not in RECEIVABLE_ACCOUNT_TYPES
-        or destination_type in RECEIVABLE_ACCOUNT_TYPES
-    ):
-        return "Loan Collection must come from an Asset account and go to a non-Asset account."
+    requirement = transfer_account_requirement(category)
+    if requirement == "both" and (not has_source or not has_destination):
+        return f"{category} requires both a from and a to account"
+    if requirement == "source" and (not has_source or has_destination):
+        return f"{category} requires a from account only"
+    if requirement == "destination" and (has_source or not has_destination):
+        return f"{category} requires a to account only"
+    if requirement == "either" and has_source == has_destination:
+        return "Choose either a from account or a to account"
     return None

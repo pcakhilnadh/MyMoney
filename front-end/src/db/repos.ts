@@ -91,17 +91,15 @@ class TransactionsRepository extends Repository<Transaction> {
     >,
   ): Promise<Transaction> {
     const account = data.account_id ? await accountsRepo.get(data.account_id) : undefined
-    if (account?.status !== 'active') {
+    if (data.transaction_type !== 'transfer' && account?.status !== 'active') {
       throw new Error('An active account is required to create a transaction')
     }
-    if (
-      data.transaction_type === 'transfer' &&
-      (!data.transfer_to_account_id ||
-        data.transfer_to_account_id === data.account_id ||
-        !(await accountsRepo.get(data.transfer_to_account_id)))
-    ) {
-      throw new Error('A different destination account is required for a transfer')
+    if (data.transaction_type !== 'transfer' && data.transfer_to_account_id !== null) {
+      throw new Error('Only transfers can have a destination account')
     }
+    const destination = data.transfer_to_account_id
+      ? await accountsRepo.get(data.transfer_to_account_id)
+      : undefined
     if (data.category_id) {
       const category = await categoriesRepo.get(data.category_id)
       if (
@@ -113,17 +111,21 @@ class TransactionsRepository extends Repository<Transaction> {
       if (category.is_hidden)
         throw new Error('Hidden categories cannot be used for new transactions')
       if (data.transaction_type === 'transfer') {
-        if (!data.transfer_to_account_id || !account) {
-          throw new Error('A transfer category and two accounts are required')
-        }
-        const destination = await accountsRepo.get(data.transfer_to_account_id)
-        if (!destination) throw new Error('An active destination account is required')
         const error = transferCategoryAccountError(
           category.name,
-          account.account_type,
-          destination.account_type,
+          !!account,
+          !!destination,
         )
         if (error) throw new Error(error)
+        if (data.account_id && data.account_id === data.transfer_to_account_id) {
+          throw new Error('A transfer must use different accounts')
+        }
+        if (data.account_id && account?.status !== 'active') {
+          throw new Error('An active source account is required')
+        }
+        if (data.transfer_to_account_id && destination?.status !== 'active') {
+          throw new Error('An active destination account is required')
+        }
       }
     } else if (data.transaction_type === 'transfer') {
       throw new Error('A category is required for transfers')

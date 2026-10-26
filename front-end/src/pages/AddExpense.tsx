@@ -19,6 +19,7 @@ import { useAction, useGroups, useMe, useMembers } from '@/groups/hooks'
 import { memberLabel } from '@/groups/types'
 import {
   categoryTypeForTransaction,
+  transferAccountRequirement,
   transferCategoryAccountError,
 } from '@/lib/transaction-categories'
 import { toMinor } from '@/lib/money'
@@ -187,6 +188,7 @@ export default function AddExpense() {
   const [date, setDate] = useState(today())
   const [accountId, setAccountId] = useState('')
   const [transferToAccountId, setTransferToAccountId] = useState('')
+  const [transferAccountDirection, setTransferAccountDirection] = useState<'From' | 'To'>('From')
   const [groupId, setGroupId] = useState(presetGroup)
   const post = useAction<object>('/money/transactions', [['gtx'], ['balances']])
 
@@ -201,32 +203,53 @@ export default function AddExpense() {
         item.status === 'active' && !item.is_hidden && item.transaction_type === categoryType,
     ) ?? []
   const selectedCategory = visibleCategories.find((item) => item.name === category)
-  const sourceAccount = activeAccounts.find((account) => account.id === accountId)
-  const destinationAccount = activeAccounts.find((account) => account.id === transferToAccountId)
+  const transferRequirement =
+    transactionType === 'transfer' && selectedCategory
+      ? transferAccountRequirement(selectedCategory.name)
+      : null
+  const transferUsesSource =
+    transferRequirement === 'both' ||
+    transferRequirement === 'source' ||
+    (transferRequirement === 'either' && transferAccountDirection === 'From')
+  const transferUsesDestination =
+    transferRequirement === 'both' ||
+    transferRequirement === 'destination' ||
+    (transferRequirement === 'either' && transferAccountDirection === 'To')
+  const sourceAccountId =
+    transactionType === 'transfer' ? (transferUsesSource ? accountId : null) : accountId
+  const destinationAccountId = transferUsesDestination ? transferToAccountId : null
+  const sourceAccount = activeAccounts.find((account) => account.id === sourceAccountId)
+  const destinationAccount = activeAccounts.find(
+    (account) => account.id === destinationAccountId,
+  )
   const transferCategoryError =
-    transactionType === 'transfer' && selectedCategory && sourceAccount && destinationAccount
+    transactionType === 'transfer' && selectedCategory
       ? transferCategoryAccountError(
           selectedCategory.name,
-          sourceAccount.account_type,
-          destinationAccount.account_type,
+          !!sourceAccount,
+          !!destinationAccount,
         )
       : null
+  const transferAccountsValid =
+    transferCategoryError === null &&
+    (!sourceAccountId || !!sourceAccount) &&
+    (!destinationAccountId || !!destinationAccount) &&
+    (!sourceAccountId || sourceAccountId !== destinationAccountId)
   const valid = amount > 0 && title.trim().length > 0
-  const accountSelected = activeAccounts.some((account) => account.id === accountId)
-  const transferDestinationSelected =
-    transactionType !== 'transfer' ||
-    (transferToAccountId !== accountId &&
-      activeAccounts.some((account) => account.id === transferToAccountId))
+  const accountSelected =
+    transactionType === 'transfer'
+      ? !!selectedCategory && transferAccountsValid
+      : activeAccounts.some((account) => account.id === accountId)
 
   async function savePersonal() {
-    if (!accountSelected || !transferDestinationSelected || !valid) return
+    if (!accountSelected || !valid) return
     if (transactionType === 'transfer' && (!selectedCategory || transferCategoryError)) return
     const savedMerchant =
       context === 'Personal' && transactionType === 'expense' ? merchant.trim() : ''
     if (savedMerchant) await merchantsRepo.ensure(savedMerchant)
     await transactionsRepo.create({
-      account_id: accountId,
-      transfer_to_account_id: transactionType === 'transfer' ? transferToAccountId : null,
+      account_id: sourceAccountId,
+      transfer_to_account_id: transactionType === 'transfer' ? destinationAccountId : null,
       category_id: selectedCategory?.id ?? null,
       group_id: null,
       context: 'personal',
@@ -276,6 +299,9 @@ export default function AddExpense() {
           const nextType = value.toLowerCase() as TransactionType
           setTransactionType(nextType)
           setCategory(null)
+          setAccountId('')
+          setTransferToAccountId('')
+          setTransferAccountDirection('From')
           if (nextType !== 'expense') setContext('Personal')
         }}
       />
@@ -308,7 +334,14 @@ export default function AddExpense() {
       </label>
       <CategorySelector
         value={category}
-        onChange={setCategory}
+        onChange={(nextCategory) => {
+          setCategory(nextCategory)
+          if (transactionType === 'transfer') {
+            setAccountId('')
+            setTransferToAccountId('')
+            setTransferAccountDirection('From')
+          }
+        }}
         options={visibleCategories.map((item) => item.name)}
         label={transactionType === 'refund' ? 'Expense category' : 'Category'}
       />
@@ -317,54 +350,93 @@ export default function AddExpense() {
       )}
       {transferCategoryError && <p className="text-sm text-destructive">{transferCategoryError}</p>}
       <DatePicker value={date} onChange={setDate} />
-      <label className="block">
-        <span className="label">
-          {transactionType === 'income' || transactionType === 'refund'
-            ? 'Received into'
-            : transactionType === 'transfer'
-              ? 'From account'
-              : 'Paid from'}
-        </span>
-        {activeAccounts.length > 0 ? (
-          <Select
-            aria-label={
-              transactionType === 'income' || transactionType === 'refund'
-                ? 'Received into'
-                : transactionType === 'transfer'
-                  ? 'From account'
-                  : 'Paid from'
-            }
-            value={accountId}
-            onValueChange={setAccountId}
-            className="mt-1 normal-case"
-            placeholder="Select an account…"
-            options={activeAccounts.map((account) => ({
-              value: account.id,
-              label: account.name,
-            }))}
-          />
+      {transactionType === 'transfer' ? (
+        transferRequirement ? (
+          <>
+            {transferRequirement === 'either' && (
+              <SegmentedControl
+                options={['From', 'To']}
+                value={transferAccountDirection}
+                onChange={(direction) => {
+                  setTransferAccountDirection(direction)
+                  setAccountId('')
+                  setTransferToAccountId('')
+                }}
+              />
+            )}
+            {transferUsesSource && (
+              <label className="block">
+                <span className="label">From account</span>
+                <Select
+                  aria-label="From account"
+                  value={accountId}
+                  onValueChange={setAccountId}
+                  className="mt-1 normal-case"
+                  placeholder="Select an account…"
+                  options={activeAccounts
+                    .filter(
+                      (account) =>
+                        transferRequirement !== 'both' || account.id !== transferToAccountId,
+                    )
+                    .map((account) => ({ value: account.id, label: account.name }))}
+                />
+              </label>
+            )}
+            {transferUsesDestination && (
+              <label className="block">
+                <span className="label">To account</span>
+                <Select
+                  aria-label="To account"
+                  value={transferToAccountId}
+                  onValueChange={setTransferToAccountId}
+                  className="mt-1 normal-case"
+                  placeholder="Select an account…"
+                  options={activeAccounts
+                    .filter(
+                      (account) =>
+                        transferRequirement !== 'both' || account.id !== accountId,
+                    )
+                    .map((account) => ({ value: account.id, label: account.name }))}
+                />
+              </label>
+            )}
+          </>
         ) : (
-          <p className="mt-2 text-sm text-muted-foreground">
-            Add an account before creating a transaction.{' '}
-            <Link to="/money/settings/accounts" className="text-primary underline">
-              Add account
-            </Link>
+          <p className="text-sm text-muted-foreground">
+            Choose a category to select the account direction.
           </p>
-        )}
-      </label>
-      {transactionType === 'transfer' && (
+        )
+      ) : (
         <label className="block">
-          <span className="label">To account</span>
-          <Select
-            aria-label="To account"
-            value={transferToAccountId}
-            onValueChange={setTransferToAccountId}
-            className="mt-1 normal-case"
-            placeholder="Select destination account…"
-            options={activeAccounts
-              .filter((account) => account.id !== accountId)
-              .map((account) => ({ value: account.id, label: account.name }))}
-          />
+          <span className="label">
+            {transactionType === 'income' || transactionType === 'refund'
+              ? 'Received into'
+              : 'Paid from'}
+          </span>
+          {activeAccounts.length > 0 ? (
+            <Select
+              aria-label={
+                transactionType === 'income' || transactionType === 'refund'
+                  ? 'Received into'
+                  : 'Paid from'
+              }
+              value={accountId}
+              onValueChange={setAccountId}
+              className="mt-1 normal-case"
+              placeholder="Select an account…"
+              options={activeAccounts.map((account) => ({
+                value: account.id,
+                label: account.name,
+              }))}
+            />
+          ) : (
+            <p className="mt-2 text-sm text-muted-foreground">
+              Add an account before creating a transaction.{' '}
+              <Link to="/money/settings/accounts" className="text-primary underline">
+                Add account
+              </Link>
+            </p>
+          )}
         </label>
       )}
       {context === 'Personal' ? (
@@ -373,7 +445,6 @@ export default function AddExpense() {
           disabled={
             !valid ||
             !accountSelected ||
-            !transferDestinationSelected ||
             !selectedCategory ||
             !!transferCategoryError
           }
