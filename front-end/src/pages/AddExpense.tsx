@@ -34,7 +34,14 @@ const METHODS = {
   'By %': 'percentage',
   Shares: 'shares',
 } as const
-const today = () => new Date().toISOString().slice(0, 10)
+const localDate = (date: Date) =>
+  `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-${String(date.getDate()).padStart(2, '0')}`
+const today = () => localDate(new Date())
+
+function toTransactionTimestamp(date: string): string {
+  const now = new Date()
+  return (date === localDate(now) ? now : new Date(`${date}T12:00:00`)).toISOString()
+}
 
 function GroupFields({
   groupId,
@@ -259,7 +266,7 @@ export default function AddExpense() {
       merchant: savedMerchant || null,
       amount_minor: amount,
       currency,
-      transaction_date: new Date(date + 'T12:00:00').toISOString(),
+      transaction_date: toTransactionTimestamp(date),
       notes: null,
       is_shared: false,
       split_method: null,
@@ -281,7 +288,7 @@ export default function AddExpense() {
         long_description: longDescription.trim() || null,
         merchant: null,
         amount_minor: amount,
-        transaction_date: new Date(date + 'T12:00:00').toISOString(),
+        transaction_date: toTransactionTimestamp(date),
         split_method: method,
         splits,
       },

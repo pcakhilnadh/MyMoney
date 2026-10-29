@@ -139,22 +139,22 @@ describe('repository', () => {
       account_id: account.id,
       title: 'Saved earlier',
       amount_minor: 100,
-      transaction_date: '2026-10-01T12:00:00Z',
+      transaction_date: '2026-10-01T18:00:00Z',
     })
     const savedLater = await transactionsRepo.create({
       ...base,
       account_id: account.id,
       title: 'Saved later',
       amount_minor: 100,
-      transaction_date: '2026-10-01T12:00:00Z',
+      transaction_date: '2026-10-01T06:00:00Z',
     })
     await db.transactions.update(savedEarlier.id, {
       created_at: '2026-10-01T09:00:00Z',
-      updated_at: '2026-10-01T09:00:00Z',
+      updated_at: '2026-10-01T23:00:00Z',
     })
     await db.transactions.update(savedLater.id, {
       created_at: '2026-10-01T10:00:00Z',
-      updated_at: '2026-10-01T10:00:00Z',
+      updated_at: '2026-10-01T08:00:00Z',
     })
 
     expect((await transactionsRepo.listByDate()).map((transaction) => transaction.title)).toEqual([

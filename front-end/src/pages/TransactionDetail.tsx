@@ -128,10 +128,11 @@ export default function TransactionDetail() {
       })) ?? []
   const accountOptions = accountOptionsFor(selectedTransaction.account_id)
   const destinationAccountOptions = accountOptionsFor(selectedTransaction.transfer_to_account_id)
-  const date = new Date(selectedTransaction.transaction_date)
+  const dateValue = selectedTransaction.transaction_date.slice(0, 10)
+  const date = new Date(`${dateValue}T12:00:00`)
   const dateLabel = Number.isNaN(date.getTime())
-    ? selectedTransaction.transaction_date
-    : date.toLocaleString('en-IN', { dateStyle: 'long', timeStyle: 'short' })
+    ? dateValue
+    : date.toLocaleDateString('en-IN', { dateStyle: 'long' })
 
   function startEditing() {
     setEditAmount(selectedTransaction.amount_minor)

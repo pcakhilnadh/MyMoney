@@ -76,10 +76,8 @@ export const merchantsRepo = new MerchantsRepository(db.merchants)
 
 function newestTransactionFirst(a: Transaction, b: Transaction): number {
   return (
-    b.transaction_date.localeCompare(a.transaction_date) ||
-    b.updated_at.localeCompare(a.updated_at) ||
-    b.created_at.localeCompare(a.created_at) ||
-    b.id.localeCompare(a.id)
+    b.transaction_date.slice(0, 10).localeCompare(a.transaction_date.slice(0, 10)) ||
+    b.created_at.localeCompare(a.created_at)
   )
 }
 
