@@ -1,3 +1,5 @@
+import { useState } from 'react'
+import { X } from 'lucide-react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext'
 import AddExpense from './pages/AddExpense'
@@ -25,7 +27,8 @@ import { useInstall } from './pwa/useInstall'
 
 function InstallPrompt() {
   const { canPrompt, installed, install } = useInstall()
-  if (!canPrompt || installed) return null
+  const [dismissed, setDismissed] = useState(false)
+  if (!canPrompt || installed || dismissed) return null
 
   return (
     <aside
@@ -49,6 +52,14 @@ function InstallPrompt() {
           className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
         >
           Install
+        </button>
+        <button
+          type="button"
+          aria-label="Dismiss install prompt"
+          onClick={() => setDismissed(true)}
+          className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+        >
+          <X className="size-4" />
         </button>
       </div>
     </aside>
