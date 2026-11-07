@@ -1,91 +1,166 @@
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useState } from 'react'
+import type { ComponentType } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router-dom'
-import { AddIconButton, Input, PageHeader, SegmentedControl } from '@/components/kit'
+import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CornerUpLeft, Receipt } from 'lucide-react'
+import { AddIconButton, PageHeader } from '@/components/kit'
+import { MonthSwitcher } from '@/components/MonthSwitcher'
 import { TransactionList } from '@/components/TransactionList'
 import { transactionsRepo } from '@/db/repos'
+import type { TransactionType } from '@/db/types'
+import { formatCompactMinor, formatMinor } from '@/lib/money'
+import { formatMonth, monthKey, shiftMonth } from '@/lib/months'
+import { useCurrency } from '@/money/CurrencyContext'
 
 const FILTERS = ['All', 'Personal', 'Groups'] as const
-const PAGE_SIZE_MONTHS = 1
 
-function monthStart(monthsBack: number): string {
-  const date = new Date()
-  date.setDate(1)
-  date.setMonth(date.getMonth() - monthsBack)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`
-}
+function SummaryStat({
+  label,
+  amount,
+  color,
+  Icon,
+}: {
+  label: string
+  amount: number
+  color: string
+  Icon: ComponentType<{ size?: number; strokeWidth?: number }>
+}) {
+  const { currency } = useCurrency()
+  const empty = amount === 0
 
-function nextMonthStart(monthsBack: number): string {
-  const date = new Date()
-  date.setDate(1)
-  date.setMonth(date.getMonth() - monthsBack + 1)
-  return `${date.getFullYear()}-${String(date.getMonth() + 1).padStart(2, '0')}-01`
+  return (
+    <div
+      role="group"
+      aria-label={`${label}: ${formatMinor(amount, currency)}`}
+      title={formatMinor(amount, currency)}
+      className="min-w-0 space-y-0.5 px-3 first:pl-0 last:pr-0"
+    >
+      <div
+        className={`flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide ${empty ? 'text-muted-foreground' : color}`}
+      >
+        <Icon size={12} strokeWidth={2.4} />
+        {label}
+      </div>
+      <div
+        className={`money truncate text-base leading-tight font-bold ${empty ? 'text-muted-foreground' : ''}`}
+      >
+        {formatCompactMinor(amount, currency)}
+      </div>
+    </div>
+  )
 }
 
 export default function Transactions() {
   const navigate = useNavigate()
   const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All')
-  const [q, setQ] = useState('')
-  const [monthsBack, setMonthsBack] = useState(0)
-  const loadMoreRef = useRef<HTMLDivElement>(null)
-  const startDate = useMemo(() => monthStart(monthsBack), [monthsBack])
-  const endDate = useMemo(() => nextMonthStart(0), [])
-  const loaded = useLiveQuery(async () => {
-    const [transactions, hasOlder] = await Promise.all([
-      transactionsRepo.listByDateRange(startDate, endDate),
-      transactionsRepo.hasByDateBefore(startDate),
-    ])
-    return { transactions, hasOlder }
-  }, [startDate, endDate])
-  const txs = loaded?.transactions ?? []
-
-  useEffect(() => {
-    const target = loadMoreRef.current
-    if (!target || !loaded?.hasOlder) return
-    const observer = new IntersectionObserver(
-      (entries) => {
-        if (entries.some((entry) => entry.isIntersecting))
-          setMonthsBack((current) => current + PAGE_SIZE_MONTHS)
-      },
-      { rootMargin: '200px' },
-    )
-    observer.observe(target)
-    return () => observer.disconnect()
-  }, [loaded?.hasOlder, monthsBack])
-
-  const shown = txs.filter(
-    (transaction) =>
-      (filter === 'All' ||
-        (filter === 'Personal'
-          ? transaction.context === 'personal'
-          : transaction.context !== 'personal')) &&
-      `${transaction.title} ${transaction.merchant ?? ''} ${transaction.long_description ?? ''}`
-        .toLowerCase()
-        .includes(q.toLowerCase()),
+  const [currentMonth] = useState(() => monthKey(new Date()))
+  const [selectedMonth, setSelectedMonth] = useState(currentMonth)
+  const startDate = `${selectedMonth}-01`
+  const endDate = `${shiftMonth(selectedMonth, 1)}-01`
+  const loaded = useLiveQuery(
+    () => transactionsRepo.listByDateRange(startDate, endDate),
+    [startDate, endDate],
   )
+  const shown = (loaded ?? []).filter(
+    (transaction) =>
+      filter === 'All' ||
+      (filter === 'Personal'
+        ? transaction.context === 'personal'
+        : transaction.context !== 'personal'),
+  )
+  const monthLabel = formatMonth(selectedMonth)
+  const totals = shown.reduce<Record<TransactionType, number>>(
+    (sum, transaction) => {
+      sum[transaction.transaction_type] += transaction.amount_minor
+      return sum
+    },
+    { expense: 0, income: 0, refund: 0, transfer: 0 },
+  )
+  const netSpend = totals.expense - totals.refund
+  const isNetRefund = netSpend < 0
+
   return (
-    <div className="space-y-4">
+    <div className="space-y-3">
       <div className="flex items-center justify-between">
         <PageHeader title="Transactions" />
-        <AddIconButton
-          label="Add transaction"
-          onClick={() => navigate('/money/expenses/new')}
-        />
+        <AddIconButton label="Add transaction" onClick={() => navigate('/money/expenses/new')} />
       </div>
-      <Input
-        placeholder="Search transactions or merchants"
-        value={q}
-        onChange={(event) => setQ(event.target.value)}
-      />
-      <SegmentedControl options={[...FILTERS]} value={filter} onChange={setFilter} />
+
+      <div className="surface space-y-3 rounded-2xl p-4">
+        <MonthSwitcher
+          value={selectedMonth}
+          max={currentMonth}
+          prev={shiftMonth(selectedMonth, -1)}
+          next={shiftMonth(selectedMonth, 1)}
+          onChange={setSelectedMonth}
+        />
+        <div
+          role="group"
+          aria-label="Monthly transaction summary"
+          className="grid grid-cols-3 divide-x divide-border/60"
+        >
+          <SummaryStat
+            label={isNetRefund ? 'Refunded' : 'Spent'}
+            amount={Math.abs(netSpend)}
+            color={isNetRefund ? 'text-positive' : 'text-destructive'}
+            Icon={isNetRefund ? CornerUpLeft : ArrowUpRight}
+          />
+          <SummaryStat
+            label="Income"
+            amount={totals.income}
+            color="text-positive"
+            Icon={ArrowDownLeft}
+          />
+          <SummaryStat
+            label="Transfers"
+            amount={totals.transfer}
+            color="text-primary"
+            Icon={ArrowLeftRight}
+          />
+        </div>
+        <div
+          role="group"
+          aria-label="Filter transactions"
+          className="flex rounded-xl bg-muted/40 p-0.5"
+        >
+          {FILTERS.map((option) => (
+            <button
+              key={option}
+              type="button"
+              aria-pressed={option === filter}
+              onClick={() => setFilter(option)}
+              className={`flex-1 rounded-[10px] py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+                option === filter ? 'gloss text-primary-foreground' : 'text-muted-foreground'
+              }`}
+            >
+              {option}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {!loaded && <p className="py-10 text-center text-muted-foreground">Loading transactions…</p>}
       {loaded && shown.length === 0 && (
-        <p className="py-8 text-center text-muted-foreground">No transactions yet</p>
+        <div className="flex flex-col items-center gap-3 py-10 text-center">
+          <span
+            aria-hidden="true"
+            className="flex size-14 items-center justify-center rounded-full bg-muted/50 text-muted-foreground"
+          >
+            <Receipt size={26} />
+          </span>
+          <p className="font-medium">No transactions in {monthLabel}</p>
+          {selectedMonth === currentMonth && (
+            <button
+              type="button"
+              onClick={() => navigate('/money/expenses/new')}
+              className="text-sm font-medium text-primary"
+            >
+              Add your first one
+            </button>
+          )}
+        </div>
       )}
       {shown.length > 0 && <TransactionList transactions={shown} />}
-      {!loaded && <p className="py-8 text-center text-muted-foreground">Loading transactions…</p>}
-      {loaded?.hasOlder && (
-        <div ref={loadMoreRef} aria-label="Loading older transactions" className="h-2" />
-      )}
     </div>
   )
 }
