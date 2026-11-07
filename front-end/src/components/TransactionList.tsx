@@ -109,7 +109,7 @@ export function TransactionList({ transactions }: { transactions: Transaction[] 
                 )}
               </span>
             </h2>
-            <div className="surface divide-y divide-border/60 overflow-hidden rounded-2xl">
+            <div className="surface divide-y divide-border/60 overflow-hidden rounded-lg">
               {dayTransactions.map((transaction) => {
                 const kind = TYPE_STYLE[transaction.transaction_type]
                 const { Icon } = kind

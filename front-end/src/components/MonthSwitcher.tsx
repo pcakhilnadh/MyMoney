@@ -1,9 +1,10 @@
 import { useEffect, useRef, useState } from 'react'
+import type { ReactNode } from 'react'
 import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
 import { formatMonth } from '@/lib/months'
 
 const ARROW_BUTTON =
-  'flex size-8 shrink-0 items-center justify-center rounded-lg text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-30'
+  'flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-30'
 
 /** Compact month header (title + calendar picker + prev/next) meant to live inside a card. */
 export function MonthSwitcher({
@@ -12,12 +13,14 @@ export function MonthSwitcher({
   onChange,
   prev,
   next,
+  trailing,
 }: {
   value: string
   max: string
   onChange: (month: string) => void
   prev: string
   next: string
+  trailing?: ReactNode
 }) {
   const [open, setOpen] = useState(false)
   const [year, setYear] = useState(() => Number(value.slice(0, 4)))
@@ -59,29 +62,32 @@ export function MonthSwitcher({
           aria-haspopup="dialog"
           aria-expanded={open}
           onClick={toggle}
-          className="-ml-1 flex min-h-8 items-center gap-2 rounded-lg px-1 text-lg font-bold transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className="-ml-1 flex min-h-8 min-w-0 items-center gap-1.5 rounded-md px-1 text-base font-bold whitespace-nowrap transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         >
           {formatMonth(value)}
-          <CalendarDays aria-hidden="true" size={17} className="text-primary" />
+          <CalendarDays aria-hidden="true" size={16} className="text-primary" />
         </button>
-        <div className="flex items-center">
-          <button
-            type="button"
-            aria-label="Previous month"
-            onClick={() => onChange(prev)}
-            className={ARROW_BUTTON}
-          >
-            <ChevronLeft size={18} />
-          </button>
-          <button
-            type="button"
-            aria-label="Next month"
-            disabled={value >= max}
-            onClick={() => onChange(next)}
-            className={ARROW_BUTTON}
-          >
-            <ChevronRight size={18} />
-          </button>
+        <div className="flex items-center gap-1.5">
+          <div className="flex items-center">
+            <button
+              type="button"
+              aria-label="Previous month"
+              onClick={() => onChange(prev)}
+              className={ARROW_BUTTON}
+            >
+              <ChevronLeft size={18} />
+            </button>
+            <button
+              type="button"
+              aria-label="Next month"
+              disabled={value >= max}
+              onClick={() => onChange(next)}
+              className={ARROW_BUTTON}
+            >
+              <ChevronRight size={18} />
+            </button>
+          </div>
+          {trailing}
         </div>
       </div>
 
@@ -89,7 +95,7 @@ export function MonthSwitcher({
         <div
           role="dialog"
           aria-label="Choose month"
-          className="surface absolute inset-x-0 top-full z-20 mt-2 space-y-3 rounded-2xl p-3 shadow-2xl"
+          className="surface absolute inset-x-0 top-full z-20 mt-2 space-y-3 rounded-lg p-3 shadow-2xl"
         >
           <div className="flex items-center justify-between">
             <button
@@ -123,7 +129,7 @@ export function MonthSwitcher({
                   aria-pressed={selected}
                   disabled={month > max}
                   onClick={() => choose(month)}
-                  className={`rounded-xl py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-30 ${
+                  className={`rounded-md py-2.5 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-30 ${
                     selected ? 'gloss text-primary-foreground' : 'text-foreground hover:bg-muted/60'
                   }`}
                 >
@@ -136,7 +142,7 @@ export function MonthSwitcher({
             <button
               type="button"
               onClick={() => choose(max)}
-              className="w-full rounded-xl py-2 text-sm font-medium text-primary transition-colors hover:bg-muted/60"
+              className="w-full rounded-md py-2 text-sm font-medium text-primary transition-colors hover:bg-muted/60"
             >
               Jump to this month
             </button>

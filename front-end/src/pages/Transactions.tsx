@@ -4,6 +4,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useNavigate } from 'react-router-dom'
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CornerUpLeft, Receipt } from 'lucide-react'
 import { AddIconButton, PageHeader } from '@/components/kit'
+import { FilterMenu } from '@/components/FilterMenu'
 import { MonthSwitcher } from '@/components/MonthSwitcher'
 import { TransactionList } from '@/components/TransactionList'
 import { transactionsRepo } from '@/db/repos'
@@ -36,13 +37,13 @@ function SummaryStat({
       className="min-w-0 space-y-0.5 px-3 first:pl-0 last:pr-0"
     >
       <div
-        className={`flex items-center gap-1 text-[11px] font-medium uppercase tracking-wide ${empty ? 'text-muted-foreground' : color}`}
+        className={`flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide ${empty ? 'text-muted-foreground' : color}`}
       >
         <Icon size={12} strokeWidth={2.4} />
         {label}
       </div>
       <div
-        className={`money truncate text-base leading-tight font-bold ${empty ? 'text-muted-foreground' : ''}`}
+        className={`money truncate text-base leading-tight font-bold ${empty ? 'text-muted-foreground' : color}`}
       >
         {formatCompactMinor(amount, currency)}
       </div>
@@ -86,18 +87,30 @@ export default function Transactions() {
         <AddIconButton label="Add transaction" onClick={() => navigate('/money/expenses/new')} />
       </div>
 
-      <div className="surface space-y-3 rounded-2xl p-4">
+      <div className="surface relative space-y-3 rounded-lg p-4">
+        <div
+          aria-hidden="true"
+          className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-white/[0.12] via-white/[0.03] to-transparent"
+        />
         <MonthSwitcher
           value={selectedMonth}
           max={currentMonth}
           prev={shiftMonth(selectedMonth, -1)}
           next={shiftMonth(selectedMonth, 1)}
           onChange={setSelectedMonth}
+          trailing={
+            <FilterMenu
+              label="Filter transactions"
+              options={FILTERS}
+              value={filter}
+              onChange={setFilter}
+            />
+          }
         />
         <div
           role="group"
           aria-label="Monthly transaction summary"
-          className="grid grid-cols-3 divide-x divide-border/60"
+          className="grid grid-cols-3 divide-x divide-white/10 border-t border-white/10 pt-3"
         >
           <SummaryStat
             label={isNetRefund ? 'Refunded' : 'Spent'}
@@ -118,25 +131,6 @@ export default function Transactions() {
             Icon={ArrowLeftRight}
           />
         </div>
-        <div
-          role="group"
-          aria-label="Filter transactions"
-          className="flex rounded-xl bg-muted/40 p-0.5"
-        >
-          {FILTERS.map((option) => (
-            <button
-              key={option}
-              type="button"
-              aria-pressed={option === filter}
-              onClick={() => setFilter(option)}
-              className={`flex-1 rounded-[10px] py-1.5 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
-                option === filter ? 'gloss text-primary-foreground' : 'text-muted-foreground'
-              }`}
-            >
-              {option}
-            </button>
-          ))}
-        </div>
       </div>
 
       {!loaded && <p className="py-10 text-center text-muted-foreground">Loading transactions…</p>}
@@ -148,8 +142,10 @@ export default function Transactions() {
           >
             <Receipt size={26} />
           </span>
-          <p className="font-medium">No transactions in {monthLabel}</p>
-          {selectedMonth === currentMonth && (
+          <p className="font-medium">
+            No {filter === 'All' ? '' : `${filter.toLowerCase()} `}transactions in {monthLabel}
+          </p>
+          {selectedMonth === currentMonth && filter === 'All' && (
             <button
               type="button"
               onClick={() => navigate('/money/expenses/new')}
