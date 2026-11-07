@@ -24,7 +24,11 @@ export function AccountCard({
   const [balanceVisible, setBalanceVisible] = useState(false)
   const isCredit = account.account_type === 'credit_card'
   const isLoan = account.account_type === 'loan'
-  const isLiability = isCredit || isLoan || account.account_type === 'liability' || account.account_type === 'loan_payable'
+  const isLiability =
+    isCredit ||
+    isLoan ||
+    account.account_type === 'liability' ||
+    account.account_type === 'loan_payable'
   const isAsset = account.account_type === 'asset' || account.account_type === 'money_lent'
 
   const balanceLabel = isLiability ? 'Amount Owed' : isAsset ? 'Owed to You' : 'Balance'
@@ -44,7 +48,9 @@ export function AccountCard({
             <MetalBadge label={account.name} variant="premium" />
             <div className="min-w-0 flex-1">
               <div className="truncate text-xs font-semibold text-foreground">{account.name}</div>
-              <div className="truncate text-[10px] text-muted-foreground">{account.account_type.replace(/_/g, ' ').toUpperCase()}</div>
+              <div className="truncate text-[10px] text-muted-foreground">
+                {account.account_type.replace(/_/g, ' ').toUpperCase()}
+              </div>
             </div>
           </div>
           <button
@@ -53,7 +59,11 @@ export function AccountCard({
             className="flex shrink-0 items-center gap-1.5"
           >
             <div className="money text-sm font-bold text-blue-200">{balanceDisplay}</div>
-            {balanceVisible ? <Eye size={14} className="text-blue-400" /> : <EyeOff size={14} className="text-muted-foreground" />}
+            {balanceVisible ? (
+              <Eye size={14} className="text-blue-400" />
+            ) : (
+              <EyeOff size={14} className="text-muted-foreground" />
+            )}
           </button>
         </div>
       </MetalCard>
@@ -72,6 +82,7 @@ export function AccountCard({
               <p className="truncate text-xs text-muted-foreground">
                 {account.account_type.replace(/_/g, ' ').toUpperCase()}
                 {isDefault && ' · Default'}
+                {account.status !== 'active' && ' · Inactive'}
               </p>
             </div>
           </div>
@@ -80,7 +91,9 @@ export function AccountCard({
         {/* Balance with eye toggle - minimal and compact */}
         <div className="flex items-end justify-between gap-2">
           <div className="flex-1">
-            <div className="text-[8px] font-medium tracking-widest text-blue-400/70 uppercase">{balanceLabel}</div>
+            <div className="text-[8px] font-medium tracking-widest text-blue-400/70 uppercase">
+              {balanceLabel}
+            </div>
             <div className="money text-xl font-bold text-blue-100 mt-1">{balanceDisplay}</div>
           </div>
           <button
@@ -107,7 +120,9 @@ export function AccountCard({
             {account.payment_due_day != null && (
               <div className="flex items-center justify-between px-1">
                 <span className="text-xs text-muted-foreground">Due Day</span>
-                <span className="text-xs font-medium text-foreground">{account.payment_due_day}</span>
+                <span className="text-xs font-medium text-foreground">
+                  {account.payment_due_day}
+                </span>
               </div>
             )}
           </div>

@@ -49,3 +49,39 @@ test('credit card limit and opening balances', async ({ page }) => {
   await page.getByRole('button', { name: 'Delete Visa Main' }).click()
   await expect(page.getByText('Visa Main')).not.toBeVisible()
 })
+
+test('accounts can be made inactive and reactivated', async ({ page, context }) => {
+  await page.route('**/auth/refresh', (route) => route.abort())
+  await page.route('**/auth/login', (route) => route.abort())
+  await fakeSignIn(page, { sub: 'account-status-user', email: 'status@gmail.com' })
+  await page.goto('/money/settings/accounts')
+  await context.setOffline(true)
+
+  await page.getByRole('button', { name: 'Add payment account' }).click()
+  await page.getByPlaceholder('e.g., ICICI Bank').fill('Travel Wallet')
+  await page.getByRole('button', { name: 'Add Account' }).click()
+  await page.getByRole('heading', { name: 'Travel Wallet' }).click()
+
+  page.once('dialog', async (dialog) => {
+    expect(dialog.type()).toBe('confirm')
+    expect(dialog.message()).toContain('history will remain')
+    await dialog.accept()
+  })
+  await page.getByRole('button', { name: 'Make Travel Wallet inactive' }).click()
+  await expect(page.getByText(/Inactive/)).toBeVisible()
+  await page.getByRole('link', { name: 'Home' }).click()
+  await page.getByRole('link', { name: 'Add expense' }).click()
+  await expect(
+    page.getByText('Add an account that supports transactions before creating a transaction.'),
+  ).toBeVisible()
+
+  await page.getByRole('link', { name: 'Settings' }).click()
+  await page.getByRole('link', { name: 'Payment Account' }).click()
+  await page.getByRole('heading', { name: 'Travel Wallet' }).click()
+  await page.getByRole('button', { name: 'Make Travel Wallet active' }).click()
+  await expect(page.getByText(/Inactive/)).not.toBeVisible()
+  await page.getByRole('link', { name: 'Home' }).click()
+  await page.getByRole('link', { name: 'Add expense' }).click()
+  await page.getByLabel('Paid from').click()
+  await expect(page.getByRole('option')).toHaveText(['Travel Wallet'])
+})

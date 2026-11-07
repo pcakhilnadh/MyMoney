@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
+import { Archive, ArrowLeft, Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import {
   Button,
   Card,
@@ -134,8 +134,7 @@ export default function AccountDetail() {
       currency,
       opening_balance: opening,
       credit_limit: isCreditCard && limit > 0 ? limit : null,
-      payment_due_day:
-        hasDueDay && Number.isInteger(day) && day >= 1 && day <= 31 ? day : null,
+      payment_due_day: hasDueDay && Number.isInteger(day) && day >= 1 && day <= 31 ? day : null,
       is_default: account.is_default,
     })
     setEditing(false)
@@ -153,6 +152,30 @@ export default function AccountDetail() {
     navigate('/money/settings/accounts', { replace: true })
   }
 
+  async function changeAccountStatus() {
+    if (!account) return
+    const activating = account.status !== 'active'
+    if (
+      !activating &&
+      !window.confirm(
+        `Make "${account.name}" inactive? It will no longer appear in transaction account selectors, but its history will remain.`,
+      )
+    )
+      return
+
+    if (!activating && account.is_default) {
+      const replacement = (await accountsRepo.list()).find(
+        (item) => item.id !== account.id && item.status === 'active',
+      )
+      if (replacement) await accountsRepo.update(replacement.id, { is_default: true })
+    }
+
+    await accountsRepo.update(account.id, {
+      status: activating ? 'active' : 'archived',
+      is_default: activating ? account.is_default : false,
+    })
+  }
+
   return (
     <div className="space-y-4">
       <Link to="/money/settings/accounts" className="text-sm text-primary">
@@ -161,11 +184,17 @@ export default function AccountDetail() {
       <div className="flex items-start justify-between gap-3">
         <PageHeader
           title={account.name}
-          subtitle={ACCOUNT_TYPE_LABELS[account.account_type] ?? 'Other'}
+          subtitle={`${ACCOUNT_TYPE_LABELS[account.account_type] ?? 'Other'}${account.status === 'active' ? '' : ' · Inactive'}`}
         />
         <div className="flex shrink-0 items-center gap-1.5">
           <MetalActionButton label={`Edit ${account.name}`} onClick={startEditing}>
             <Pencil size={15} />
+          </MetalActionButton>
+          <MetalActionButton
+            label={`Make ${account.name} ${account.status === 'active' ? 'inactive' : 'active'}`}
+            onClick={() => void changeAccountStatus()}
+          >
+            {account.status === 'active' ? <Archive size={15} /> : <RotateCcw size={15} />}
           </MetalActionButton>
           <MetalActionButton
             label={`Delete ${account.name}`}

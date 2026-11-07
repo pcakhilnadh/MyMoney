@@ -203,6 +203,12 @@ export default function AddExpense() {
     accounts
       ?.filter((account) => account.status === 'active')
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })) ?? []
+  const transactionAccounts = activeAccounts.filter(
+    (account) =>
+      account.account_type !== 'deposit' &&
+      account.account_type !== 'loan' &&
+      account.account_type !== 'loan_payable',
+  )
   const categoryType = categoryTypeForTransaction(transactionType)
   const visibleCategories =
     categories?.filter(
@@ -226,16 +232,10 @@ export default function AddExpense() {
     transactionType === 'transfer' ? (transferUsesSource ? accountId : null) : accountId
   const destinationAccountId = transferUsesDestination ? transferToAccountId : null
   const sourceAccount = activeAccounts.find((account) => account.id === sourceAccountId)
-  const destinationAccount = activeAccounts.find(
-    (account) => account.id === destinationAccountId,
-  )
+  const destinationAccount = activeAccounts.find((account) => account.id === destinationAccountId)
   const transferCategoryError =
     transactionType === 'transfer' && selectedCategory
-      ? transferCategoryAccountError(
-          selectedCategory.name,
-          !!sourceAccount,
-          !!destinationAccount,
-        )
+      ? transferCategoryAccountError(selectedCategory.name, !!sourceAccount, !!destinationAccount)
       : null
   const transferAccountsValid =
     transferCategoryError === null &&
@@ -246,7 +246,7 @@ export default function AddExpense() {
   const accountSelected =
     transactionType === 'transfer'
       ? !!selectedCategory && transferAccountsValid
-      : activeAccounts.some((account) => account.id === accountId)
+      : transactionAccounts.some((account) => account.id === accountId)
 
   async function savePersonal() {
     if (!accountSelected || !valid) return
@@ -399,10 +399,7 @@ export default function AddExpense() {
                   className="mt-1 normal-case"
                   placeholder="Select an account…"
                   options={activeAccounts
-                    .filter(
-                      (account) =>
-                        transferRequirement !== 'both' || account.id !== accountId,
-                    )
+                    .filter((account) => transferRequirement !== 'both' || account.id !== accountId)
                     .map((account) => ({ value: account.id, label: account.name }))}
                 />
               </label>
@@ -420,7 +417,7 @@ export default function AddExpense() {
               ? 'Received into'
               : 'Paid from'}
           </span>
-          {activeAccounts.length > 0 ? (
+          {transactionAccounts.length > 0 ? (
             <Select
               aria-label={
                 transactionType === 'income' || transactionType === 'refund'
@@ -431,14 +428,14 @@ export default function AddExpense() {
               onValueChange={setAccountId}
               className="mt-1 normal-case"
               placeholder="Select an account…"
-              options={activeAccounts.map((account) => ({
+              options={transactionAccounts.map((account) => ({
                 value: account.id,
                 label: account.name,
               }))}
             />
           ) : (
             <p className="mt-2 text-sm text-muted-foreground">
-              Add an account before creating a transaction.{' '}
+              Add an account that supports transactions before creating a transaction.{' '}
               <Link to="/money/settings/accounts" className="text-primary underline">
                 Add account
               </Link>
@@ -449,12 +446,7 @@ export default function AddExpense() {
       {context === 'Personal' ? (
         <Button
           className="h-12 w-full rounded-card"
-          disabled={
-            !valid ||
-            !accountSelected ||
-            !selectedCategory ||
-            !!transferCategoryError
-          }
+          disabled={!valid || !accountSelected || !selectedCategory || !!transferCategoryError}
           onClick={savePersonal}
         >
           Save {TRANSACTION_TYPES.find((option) => option.toLowerCase() === transactionType)}

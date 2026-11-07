@@ -43,7 +43,10 @@ export class Repository<T extends Syncable> {
     return record
   }
 
-  async update(id: string, changes: Partial<NewRecord<T>>): Promise<T> {
+  async update(
+    id: string,
+    changes: Partial<NewRecord<T>> & { status?: Exclude<Syncable['status'], 'deleted'> },
+  ): Promise<T> {
     const current = await this.table.get(id)
     if (!current) throw new Error(`Record ${id} not found`)
     const next = {

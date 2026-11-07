@@ -114,13 +114,29 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await page.getByRole('button', { name: 'Add Account' }).click()
   await expect(page.getByRole('heading', { name: 'Savings' })).toBeVisible()
 
+  await page.getByRole('button', { name: 'Add payment account' }).click()
+  await page.getByPlaceholder('e.g., ICICI Bank').fill('Fixed Deposit')
+  await chooseOption(page, 'Account type', 'Deposit')
+  await page.getByRole('button', { name: 'Add Account' }).click()
+  await page.getByRole('button', { name: 'Add payment account' }).click()
+  await page.getByPlaceholder('e.g., ICICI Bank').fill('Personal Loan')
+  await chooseOption(page, 'Account type', 'Loan')
+  await page.getByRole('button', { name: 'Add Account' }).click()
+  await page.getByRole('button', { name: 'Add payment account' }).click()
+  await page.getByPlaceholder('e.g., ICICI Bank').fill('Visa')
+  await chooseOption(page, 'Account type', 'Credit Card')
+  await page.getByRole('button', { name: 'Add Account' }).click()
+
   await page.getByRole('link', { name: 'Add expense' }).click()
+  await page.getByLabel('Paid from').click()
+  await expect(page.getByRole('option')).toHaveText(['Checking', 'Savings', 'Visa'])
+  await page.getByRole('option', { name: 'Visa', exact: true }).click()
   await page.getByRole('button', { name: 'Income' }).click()
   await page.getByPlaceholder('Title').fill('Payday')
   await page.getByRole('button', { name: 'Salary' }).click()
   await page.getByPlaceholder('0').fill('2500')
   await page.getByLabel('Received into').click()
-  await expect(page.getByRole('option')).toHaveText(['Checking', 'Savings'])
+  await expect(page.getByRole('option')).toHaveText(['Checking', 'Savings', 'Visa'])
   await page.getByRole('option', { name: 'Checking', exact: true }).click()
   await expect(page.getByLabel('Received into')).toContainText('Checking')
   await page.getByRole('button', { name: 'Save Income' }).click()
@@ -142,11 +158,22 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await page.getByPlaceholder('Title').fill('Move to savings')
   await page.getByPlaceholder('0').fill('1000')
   await page.getByLabel('From account').click()
-  await expect(page.getByRole('option')).toHaveText(['Checking', 'Savings'])
+  await expect(page.getByRole('option')).toHaveText([
+    'Checking',
+    'Fixed Deposit',
+    'Personal Loan',
+    'Savings',
+    'Visa',
+  ])
   await page.getByRole('option', { name: 'Checking', exact: true }).click()
   await expect(page.getByLabel('From account')).toContainText('Checking')
   await page.getByLabel('To account').click()
-  await expect(page.getByRole('option')).toHaveText(['Savings'])
+  await expect(page.getByRole('option')).toHaveText([
+    'Fixed Deposit',
+    'Personal Loan',
+    'Savings',
+    'Visa',
+  ])
   await page.getByRole('option', { name: 'Savings', exact: true }).click()
   await expect(page.getByLabel('To account')).toContainText('Savings')
   await page.getByRole('button', { name: 'Save Transfer' }).click()
