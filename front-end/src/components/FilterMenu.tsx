@@ -41,10 +41,10 @@ export function FilterMenu<T extends string>({
         aria-haspopup="menu"
         aria-expanded={open}
         onClick={() => setOpen((current) => !current)}
-        className={`flex h-8 items-center gap-1.5 rounded-md border px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary ${
+        className={`flex h-8 items-center gap-1.5 rounded-md border px-2 text-xs font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70 ${
           active
-            ? 'border-primary/50 bg-primary/15 text-primary'
-            : 'border-border/70 bg-white/[0.04] text-muted-foreground hover:text-foreground'
+            ? 'border-white/40 bg-white/25 text-white'
+            : 'border-white/20 bg-white/10 text-white/85 hover:bg-white/15 hover:text-white'
         }`}
       >
         <ListFilter aria-hidden="true" size={13} />

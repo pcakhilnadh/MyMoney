@@ -37,13 +37,13 @@ function SummaryStat({
       className="min-w-0 space-y-0.5 px-3 first:pl-0 last:pr-0"
     >
       <div
-        className={`flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide ${empty ? 'text-muted-foreground' : color}`}
+        className={`flex items-center gap-1 text-[11px] font-semibold uppercase tracking-wide ${empty ? 'text-white/60' : color}`}
       >
         <Icon size={12} strokeWidth={2.4} />
         {label}
       </div>
       <div
-        className={`money truncate text-base leading-tight font-bold ${empty ? 'text-muted-foreground' : color}`}
+        className={`money truncate text-base leading-tight font-bold ${empty ? 'text-white/60' : color}`}
       >
         {formatCompactMinor(amount, currency)}
       </div>
@@ -87,51 +87,49 @@ export default function Transactions() {
         <AddIconButton label="Add transaction" onClick={() => navigate('/money/expenses/new')} />
       </div>
 
-      <div className="surface relative space-y-3 rounded-lg p-4">
-        <div
-          aria-hidden="true"
-          className="pointer-events-none absolute inset-0 rounded-[inherit] bg-gradient-to-b from-white/[0.12] via-white/[0.03] to-transparent"
-        />
-        <MonthSwitcher
-          value={selectedMonth}
-          max={currentMonth}
-          prev={shiftMonth(selectedMonth, -1)}
-          next={shiftMonth(selectedMonth, 1)}
-          onChange={setSelectedMonth}
-          trailing={
-            <FilterMenu
-              label="Filter transactions"
-              options={FILTERS}
-              value={filter}
-              onChange={setFilter}
-            />
-          }
-        />
+      <section className="hero relative overflow-visible rounded-lg after:rounded-[inherit]">
+        <div className="relative z-20 px-4 pt-3.5 pb-3">
+          <MonthSwitcher
+            value={selectedMonth}
+            max={currentMonth}
+            prev={shiftMonth(selectedMonth, -1)}
+            next={shiftMonth(selectedMonth, 1)}
+            onChange={setSelectedMonth}
+            trailing={
+              <FilterMenu
+                label="Filter transactions"
+                options={FILTERS}
+                value={filter}
+                onChange={setFilter}
+              />
+            }
+          />
+        </div>
         <div
           role="group"
           aria-label="Monthly transaction summary"
-          className="grid grid-cols-3 divide-x divide-white/10 border-t border-white/10 pt-3"
+          className="relative z-10 grid grid-cols-3 divide-x divide-white/15 rounded-b-lg border-t border-white/15 bg-[#050b1a]/55 px-4 py-3"
         >
           <SummaryStat
             label={isNetRefund ? 'Refunded' : 'Spent'}
             amount={Math.abs(netSpend)}
-            color={isNetRefund ? 'text-positive' : 'text-destructive'}
+            color={isNetRefund ? 'text-[#4ae3b5]' : 'text-[#ff8b94]'}
             Icon={isNetRefund ? CornerUpLeft : ArrowUpRight}
           />
           <SummaryStat
             label="Income"
             amount={totals.income}
-            color="text-positive"
+            color="text-[#4ae3b5]"
             Icon={ArrowDownLeft}
           />
           <SummaryStat
             label="Transfers"
             amount={totals.transfer}
-            color="text-primary"
+            color="text-[#8db4ff]"
             Icon={ArrowLeftRight}
           />
         </div>
-      </div>
+      </section>
 
       {!loaded && <p className="py-10 text-center text-muted-foreground">Loading transactions…</p>}
       {loaded && shown.length === 0 && (

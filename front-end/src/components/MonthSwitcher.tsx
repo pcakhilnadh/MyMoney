@@ -1,9 +1,13 @@
 import { useEffect, useRef, useState } from 'react'
 import type { ReactNode } from 'react'
-import { CalendarDays, ChevronLeft, ChevronRight } from 'lucide-react'
+import { CalendarDays, ChevronDown, ChevronLeft, ChevronRight } from 'lucide-react'
 import { formatMonth } from '@/lib/months'
 
-const ARROW_BUTTON =
+const FOCUS = 'focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70'
+// Tight prev/next arrows that sit on the glossy hero panel.
+const ARROW_BUTTON = `flex h-8 w-6 shrink-0 items-center justify-center rounded-md text-white/70 transition-colors hover:bg-white/15 hover:text-white ${FOCUS} disabled:pointer-events-none disabled:opacity-30`
+// Larger year arrows used on the dark picker popover.
+const YEAR_BUTTON =
   'flex size-8 shrink-0 items-center justify-center rounded-md text-muted-foreground transition-colors hover:bg-muted/60 hover:text-foreground focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:pointer-events-none disabled:opacity-30'
 
 /** Compact month header (title + calendar picker + prev/next) meant to live inside a card. */
@@ -62,12 +66,17 @@ export function MonthSwitcher({
           aria-haspopup="dialog"
           aria-expanded={open}
           onClick={toggle}
-          className="-ml-1 flex min-h-8 min-w-0 items-center gap-1.5 rounded-md px-1 text-base font-bold whitespace-nowrap transition-colors hover:bg-muted/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+          className={`-ml-1 flex min-h-8 min-w-0 items-center gap-1.5 rounded-md px-1 text-base font-bold whitespace-nowrap text-white transition-colors hover:bg-white/10 ${FOCUS}`}
         >
           {formatMonth(value)}
-          <CalendarDays aria-hidden="true" size={16} className="text-primary" />
+          <CalendarDays aria-hidden="true" size={16} className="text-white/80" />
+          <ChevronDown
+            aria-hidden="true"
+            size={14}
+            className={`-ml-0.5 text-white/70 transition-transform ${open ? 'rotate-180' : ''}`}
+          />
         </button>
-        <div className="flex items-center gap-1.5">
+        <div className="flex items-center gap-2">
           <div className="flex items-center">
             <button
               type="button"
@@ -102,7 +111,7 @@ export function MonthSwitcher({
               type="button"
               aria-label="Previous year"
               onClick={() => setYear((current) => current - 1)}
-              className={ARROW_BUTTON}
+              className={YEAR_BUTTON}
             >
               <ChevronLeft size={18} />
             </button>
@@ -112,7 +121,7 @@ export function MonthSwitcher({
               aria-label="Next year"
               disabled={year >= maxYear}
               onClick={() => setYear((current) => current + 1)}
-              className={ARROW_BUTTON}
+              className={YEAR_BUTTON}
             >
               <ChevronRight size={18} />
             </button>
