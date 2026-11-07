@@ -1,7 +1,7 @@
 import { useLocation, useNavigate } from 'react-router-dom'
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CornerUpLeft } from 'lucide-react'
 import type { Transaction } from '@/db/types'
-import { formatMinor } from '@/lib/money'
+import { formatCompactMinor, formatMinor } from '@/lib/money'
 import { useCurrency } from '@/money/CurrencyContext'
 
 const TYPE_STYLE = {
@@ -39,25 +39,78 @@ export function TransactionList({ transactions }: { transactions: Transaction[] 
   const navigate = useNavigate()
   const { pathname } = useLocation()
   const { currency } = useCurrency()
-  const days = [
-    ...new Set(transactions.map((transaction) => transaction.transaction_date.slice(0, 10))),
-  ]
+  const days = new Map<string, Transaction[]>()
+  for (const transaction of transactions) {
+    const day = transaction.transaction_date.slice(0, 10)
+    const dayTransactions = days.get(day)
+    if (dayTransactions) dayTransactions.push(transaction)
+    else days.set(day, [transaction])
+  }
 
   return (
     <div className="space-y-4">
-      {days.map((day) => (
-        <section key={day} className="space-y-1.5">
-          <h2 className="label px-1">
-            {new Date(day + 'T12:00:00').toLocaleDateString('en-IN', {
-              weekday: 'short',
-              day: 'numeric',
-              month: 'short',
-            })}
-          </h2>
-          <div className="surface divide-y divide-border/60 overflow-hidden rounded-2xl">
-            {transactions
-              .filter((transaction) => transaction.transaction_date.startsWith(day))
-              .map((transaction) => {
+      {[...days].map(([day, dayTransactions]) => {
+        const totals = dayTransactions.reduce(
+          (sum, transaction) => {
+            sum[transaction.transaction_type] += transaction.amount_minor
+            return sum
+          },
+          { expense: 0, income: 0, refund: 0, transfer: 0 },
+        )
+        const netSpend = totals.expense - totals.refund
+        const netSpendLabel = netSpend < 0 ? 'Net refund' : 'Net spend'
+        const NetSpendIcon = netSpend < 0 ? CornerUpLeft : ArrowUpRight
+        const netSpendColor = netSpend < 0 ? 'text-positive' : 'text-destructive'
+        const netSpendAmount = Math.abs(netSpend)
+        const formattedDay = new Date(day + 'T12:00:00').toLocaleDateString('en-IN', {
+          weekday: 'short',
+          day: 'numeric',
+          month: 'short',
+        })
+
+        return (
+          <section key={day} className="space-y-1.5">
+            <h2 className="flex min-w-0 flex-wrap items-center justify-between gap-x-3 gap-y-1 px-1">
+              <span className="label">{formattedDay}</span>
+              <span
+                role="group"
+                aria-label={`Daily totals for ${formattedDay}`}
+                className="ml-auto flex flex-wrap items-center justify-end gap-x-2.5 gap-y-1"
+              >
+                {netSpendAmount > 0 && (
+                  <span
+                    aria-label={`${netSpendLabel}: ${formatMinor(netSpendAmount, currency)}`}
+                    title={`${netSpendLabel}: ${formatMinor(netSpendAmount, currency)}`}
+                    className={`inline-flex items-center gap-1 text-xs font-medium ${netSpendColor}`}
+                  >
+                    <NetSpendIcon aria-hidden="true" size={13} strokeWidth={2.2} />
+                    {formatCompactMinor(netSpendAmount, currency)}
+                  </span>
+                )}
+                {totals.income > 0 && (
+                  <span
+                    aria-label={`Income: ${formatMinor(totals.income, currency)}`}
+                    title={`Income: ${formatMinor(totals.income, currency)}`}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-positive"
+                  >
+                    <ArrowDownLeft aria-hidden="true" size={13} strokeWidth={2.2} />
+                    {formatCompactMinor(totals.income, currency)}
+                  </span>
+                )}
+                {totals.transfer > 0 && (
+                  <span
+                    aria-label={`Transfers: ${formatMinor(totals.transfer, currency)}`}
+                    title={`Transfers: ${formatMinor(totals.transfer, currency)}`}
+                    className="inline-flex items-center gap-1 text-xs font-medium text-primary"
+                  >
+                    <ArrowLeftRight aria-hidden="true" size={13} strokeWidth={2.2} />
+                    {formatCompactMinor(totals.transfer, currency)}
+                  </span>
+                )}
+              </span>
+            </h2>
+            <div className="surface divide-y divide-border/60 overflow-hidden rounded-2xl">
+              {dayTransactions.map((transaction) => {
                 const kind = TYPE_STYLE[transaction.transaction_type]
                 const { Icon } = kind
                 return (
@@ -88,9 +141,10 @@ export function TransactionList({ transactions }: { transactions: Transaction[] 
                   </button>
                 )
               })}
-          </div>
-        </section>
-      ))}
+            </div>
+          </section>
+        )
+      })}
     </div>
   )
 }
