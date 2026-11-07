@@ -17,6 +17,7 @@ import { merchantsRepo, transactionsRepo } from '@/db/repos'
 import type { TransactionType } from '@/db/types'
 import { useAction, useGroups, useMe, useMembers } from '@/groups/hooks'
 import { memberLabel } from '@/groups/types'
+import { canHaveDirectTransactions } from '@/lib/accounts'
 import {
   categoryTypeForTransaction,
   transferAccountRequirement,
@@ -203,11 +204,8 @@ export default function AddExpense() {
     accounts
       ?.filter((account) => account.status === 'active')
       .sort((a, b) => a.name.localeCompare(b.name, undefined, { sensitivity: 'base' })) ?? []
-  const transactionAccounts = activeAccounts.filter(
-    (account) =>
-      account.account_type !== 'deposit' &&
-      account.account_type !== 'loan' &&
-      account.account_type !== 'loan_payable',
+  const transactionAccounts = activeAccounts.filter((account) =>
+    canHaveDirectTransactions(account.account_type),
   )
   const categoryType = categoryTypeForTransaction(transactionType)
   const visibleCategories =

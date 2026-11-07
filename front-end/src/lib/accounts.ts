@@ -1,10 +1,15 @@
-import type { Account, DuePayment, Transaction } from '@/db/types'
+import type { Account, AccountType, DuePayment, Transaction } from '@/db/types'
 
 const DAY_MS = 86_400_000
 export const DUE_ALERT_DAYS = 7
 
+export function canHaveDirectTransactions(accountType: AccountType): boolean {
+  return accountType !== 'deposit' && accountType !== 'loan' && accountType !== 'loan_payable'
+}
+
 const pad = (n: number) => String(n).padStart(2, '0')
-export const isoDate = (d: Date) => `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
+export const isoDate = (d: Date) =>
+  `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`
 
 export const hasDueDate = (account: Account) =>
   account.account_type === 'credit_card' ||
