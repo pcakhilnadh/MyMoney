@@ -15,6 +15,18 @@ IMAGE = base64.b64encode(b"\x89PNG\r\n\x1a\nexample").decode()
 BODY = {"images": [{"mime_type": "image/png", "data": IMAGE}], "categories": ["Food", "Travel"]}
 
 
+def test_provider_uses_180_second_read_timeout(monkeypatch):
+    seen = {}
+
+    def post(url, **kwargs):
+        seen.update(kwargs)
+        return requests.Response()
+
+    monkeypatch.setattr(requests, "post", post)
+    NvidiaProvider("https://example.com", "test-key").send({"model": "test"})
+    assert seen["timeout"] == (10, 180)
+
+
 def provider_response(content, status=200):
     response = requests.Response()
     response.status_code = status
@@ -93,7 +105,7 @@ def test_failure_is_audited_and_invalid_input_does_not_call_provider(client, mon
         assert details["exception"] == "Timeout"
         assert details["endpoint_host"] == "integrate.api.nvidia.com"
         assert details["connect_timeout_seconds"] == 10
-        assert details["read_timeout_seconds"] == 90
+        assert details["read_timeout_seconds"] == 180
         assert "private connection details" not in logs[0].error
         assert logs[0].completed_at is not None
 

@@ -5,7 +5,7 @@ import requests
 from app.ai.prompts import expense_prompt
 
 CONNECT_TIMEOUT_SECONDS = 10
-READ_TIMEOUT_SECONDS = 90
+READ_TIMEOUT_SECONDS = 180
 
 
 class Provider(Protocol):
