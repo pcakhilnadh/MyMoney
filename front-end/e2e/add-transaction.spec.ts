@@ -173,6 +173,75 @@ test('the account selector toggles across its whole trigger', async ({ page }) =
 })
 
 test.describe('bill capture', () => {
+  for (const mirrored of [true, false]) {
+    test(`camera capture and submitted image match the ${mirrored ? 'mirrored' : 'unmirrored'} preview`, async ({ page }) => {
+      await page.route('**/auth/refresh', (route) => route.fulfill({
+        json: {
+          access_token: 'test-access-token',
+          token_type: 'bearer',
+          user: { sub: 'add-txn-user', email: 'addtxn@gmail.com', name: 'Add Txn User' },
+        },
+      }))
+      await page.addInitScript(() => {
+        const canvas = document.createElement('canvas')
+        canvas.width = 640
+        canvas.height = 480
+        const context = canvas.getContext('2d')!
+        const draw = () => {
+          context.fillStyle = '#ff0000'
+          context.fillRect(0, 0, 320, 480)
+          context.fillStyle = '#0000ff'
+          context.fillRect(320, 0, 320, 480)
+        }
+        navigator.mediaDevices.getUserMedia = async () => {
+          const stream = canvas.captureStream(10)
+          draw()
+          window.setInterval(draw, 100)
+          return stream
+        }
+      })
+      let submittedImage = ''
+      await page.route('**/money/ai/expense', async (route) => {
+        submittedImage = route.request().postDataJSON().images[0].data
+        await route.fulfill({ json: { is_bill: false } })
+      })
+      await page.goto('/money/expenses/new')
+      await page.getByRole('button', { name: 'Scan a bill' }).click()
+      if (!mirrored) await page.getByRole('button', { name: 'Mirror preview on' }).click()
+      await expect(page.getByRole('button', { name: 'Capture photo' })).toBeEnabled()
+      await page.getByRole('button', { name: 'Capture photo' }).click()
+      const preview = page.getByRole('dialog', { name: 'Review bill photo' })
+      const image = preview.getByRole('img', { name: 'Captured bill' })
+      await expect(image).toBeVisible()
+      const pixels = await image.evaluate(async (element) => {
+        const image = element as HTMLImageElement
+        await image.decode()
+        const canvas = document.createElement('canvas')
+        canvas.width = image.naturalWidth
+        canvas.height = image.naturalHeight
+        const context = canvas.getContext('2d')!
+        context.drawImage(image, 0, 0)
+        const sample = (x: number) => Array.from(context.getImageData(
+          Math.floor(canvas.width * x), Math.floor(canvas.height / 2), 1, 1,
+        ).data)
+        const response = await fetch(image.src)
+        const data = await response.blob()
+        const encoded = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader()
+          reader.onload = () => resolve((reader.result as string).split(',')[1])
+          reader.onerror = () => reject(reader.error)
+          reader.readAsDataURL(data)
+        })
+        return { left: sample(0.25), right: sample(0.75), encoded }
+      })
+      expect(pixels.left[mirrored ? 2 : 0]).toBeGreaterThan(200)
+      expect(pixels.right[mirrored ? 0 : 2]).toBeGreaterThan(200)
+      await preview.getByRole('button', { name: 'Analyse with AI' }).click()
+      await expect(preview.getByRole('alert')).toHaveText('This image is not a valid bill.')
+      expect(submittedImage).toBe(pixels.encoded)
+    })
+  }
+
   test('captures a photo and fills the form after AI analysis', async ({
     page,
   }) => {

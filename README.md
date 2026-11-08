@@ -46,6 +46,7 @@ Expense transactions can be personal or shared with a group. Opening the form fr
 preselects that group.
 
 The expense camera button captures or uploads up to three JPEG, PNG, or WebP images (3 MB total).
+Captured photos match the camera's mirror-preview setting and are sent in the same orientation.
 **Analyse with AI** sends them to the configured AI provider and suggests transaction fields.
 Review the suggestions and select an account before saving; analysis does not save a transaction.
 An internet connection is required. During analysis the countdown shows the 100-second browser

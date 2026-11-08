@@ -113,6 +113,10 @@ function CameraView({
       setError('Unable to capture the photo. Try uploading an image instead.')
       return
     }
+    if (mirrored) {
+      context.translate(canvas.width, 0)
+      context.scale(-1, 1)
+    }
     context.drawImage(video, x, y, width, height, 0, 0, canvas.width, canvas.height)
     canvas.toBlob(
       (blob) => {
