@@ -11,6 +11,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from pydantic import BaseModel, Field, StrictBool, ValidationError, field_validator
 from sqlalchemy.orm import Session
 
+from app.ai.diagnostics import request_error_details, response_error_details
 from app.ai.provider import NvidiaProvider, Provider
 from app.auth import get_current_user
 from app.config import settings
@@ -149,11 +150,17 @@ def analyse_expense(
             result.category = None
         log.status = "success"
         return result
-    except requests.RequestException:
-        log.error = "Provider request failed"
-        raise HTTPException(502, "Could not reach the AI provider")
-    except (ValueError, KeyError, IndexError, TypeError, ValidationError):
-        log.error = "Invalid provider response"
+    except requests.Timeout as exc:
+        log.error = request_error_details(exc, settings.nvidia_base_url)
+        raise HTTPException(504, "AI provider timed out. Please try again later.") from exc
+    except requests.ConnectionError as exc:
+        log.error = request_error_details(exc, settings.nvidia_base_url)
+        raise HTTPException(502, "Could not connect to the AI provider. Please try again later.") from exc
+    except requests.RequestException as exc:
+        log.error = request_error_details(exc, settings.nvidia_base_url)
+        raise HTTPException(502, "AI provider request failed. Please try again later.") from exc
+    except (ValueError, KeyError, IndexError, TypeError, ValidationError) as exc:
+        log.error = response_error_details(exc)
         raise HTTPException(502, "AI provider returned an invalid response")
     finally:
         if log.status != "success":

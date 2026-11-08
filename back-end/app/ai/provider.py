@@ -4,6 +4,9 @@ import requests
 
 from app.ai.prompts import expense_prompt
 
+CONNECT_TIMEOUT_SECONDS = 10
+READ_TIMEOUT_SECONDS = 90
+
 
 class Provider(Protocol):
     def expense_request(self, model: str, images: list[tuple[str, str]], categories: list[str]) -> dict: ...
@@ -40,7 +43,7 @@ class NvidiaProvider:
             self.url,
             headers={"Authorization": f"Bearer {self.api_key}", "Accept": "application/json"},
             json=payload,
-            timeout=(10, 90),
+            timeout=(CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS),
         )
 
     def content(self, response: dict) -> str:

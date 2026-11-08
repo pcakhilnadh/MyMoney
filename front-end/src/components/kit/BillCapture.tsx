@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 type Stage = 'closed' | 'camera' | 'preview'
 type Captured = { blob: Blob; url: string }
 
+const ANALYSIS_TIMEOUT_MS = 100_000
 const cameraSupported = () => typeof navigator.mediaDevices?.getUserMedia === 'function'
 
 function Modal({
@@ -224,15 +225,80 @@ function CameraView({
   )
 }
 
-export function BillCapture({ onAnalyse }: { onAnalyse: (images: Blob[]) => Promise<void> }) {
+export function BillCapture({ onAnalyse }: { onAnalyse: (images: Blob[], signal: AbortSignal) => Promise<void> }) {
   const [stage, setStage] = useState<Stage>('closed')
   const [images, setImages] = useState<Captured[]>([])
   const [busy, setBusy] = useState(false)
   const [error, setError] = useState<string | null>(null)
+  const [remainingMs, setRemainingMs] = useState(ANALYSIS_TIMEOUT_MS)
+  const controllerRef = useRef<AbortController | null>(null)
+  const analysisButtonRef = useRef<HTMLDivElement>(null)
+  const [outline, setOutline] = useState({ width: 0, height: 0, radius: 0 })
 
   useEffect(() => {
     return () => images.forEach((image) => URL.revokeObjectURL(image.url))
   }, [images])
+
+  useEffect(() => () => {
+    const controller = controllerRef.current
+    controllerRef.current = null
+    controller?.abort()
+  }, [])
+
+  useEffect(() => {
+    if (!busy) return
+    const wrapper = analysisButtonRef.current
+    const button = wrapper?.querySelector('button')
+    if (!wrapper || !button) return
+    const updateOutline = () => {
+      const { width, height } = button.getBoundingClientRect()
+      const radius = parseFloat(getComputedStyle(button).borderTopLeftRadius)
+      setOutline({ width, height, radius: Math.min(radius, width / 2, height / 2) })
+    }
+    updateOutline()
+    const observer = new ResizeObserver(updateOutline)
+    observer.observe(button)
+    return () => observer.disconnect()
+  }, [busy])
+
+  async function analyse() {
+    const controller = new AbortController()
+    controllerRef.current = controller
+    const deadline = Date.now() + ANALYSIS_TIMEOUT_MS
+    setRemainingMs(ANALYSIS_TIMEOUT_MS)
+    setBusy(true)
+    setError(null)
+    const interval = window.setInterval(() => {
+      setRemainingMs(Math.max(0, deadline - Date.now()))
+    }, 250)
+    let timeout = 0
+    try {
+      await Promise.race([
+        onAnalyse(images.map((image) => image.blob), controller.signal),
+        new Promise<never>((_, reject) => {
+          controller.signal.addEventListener('abort', () => reject(controller.signal.reason), { once: true })
+          timeout = window.setTimeout(() => {
+            controller.abort(new Error('Analysis timed out. The server may still be processing; please wait before retrying.'))
+          }, ANALYSIS_TIMEOUT_MS)
+        }),
+      ])
+      if (controllerRef.current === controller) {
+        setStage('closed')
+        setImages([])
+      }
+    } catch (reason) {
+      if (controllerRef.current === controller) {
+        setError(reason instanceof Error ? reason.message : 'Unable to analyse the bill.')
+      }
+    } finally {
+      window.clearTimeout(timeout)
+      window.clearInterval(interval)
+      if (controllerRef.current === controller) {
+        controllerRef.current = null
+        setBusy(false)
+      }
+    }
+  }
 
   function close() {
     if (busy) return
@@ -293,43 +359,45 @@ export function BillCapture({ onAnalyse }: { onAnalyse: (images: Blob[]) => Prom
                 <X aria-hidden="true" size={18} />
               </button>
             </div>
-            <div className="flex min-h-0 flex-1 gap-1 overflow-auto rounded-2xl bg-black">
-              {images.map((image, index) => (
-                <img
-                  key={image.url}
-                  src={image.url}
-                  alt={index === 0 ? 'Captured bill' : `Bill photo ${index + 1}`}
-                  className="min-w-0 flex-1 object-contain"
-                />
-              ))}
+            <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-black">
+              <div className="flex size-full gap-1 overflow-auto">
+                {images.map((image, index) => (
+                  <img
+                    key={image.url}
+                    src={image.url}
+                    alt={index === 0 ? 'Captured bill' : `Bill photo ${index + 1}`}
+                    className="min-w-0 flex-1 object-contain"
+                  />
+                ))}
+              </div>
+              {busy && <div aria-hidden="true" className="bill-scan-overlay" />}
             </div>
             <p className="flex h-10 shrink-0 items-center justify-center text-center text-xs text-muted-foreground">
-              Images are sent to the AI provider and stored in the audit log. Verify the results before saving.
+              {busy
+                ? `Analysing your bill · ${Math.ceil(remainingMs / 1000)}s`
+                : 'Images are sent to the AI provider and stored in the audit log. Verify the results before saving.'}
             </p>
+            {busy && <span role="status" className="sr-only">AI analysis in progress. The timer shows the time limit, not analysis progress.</span>}
             {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             <div className="flex min-h-16 items-center gap-3">
               <Button variant="outline" className="flex-1" disabled={busy} onClick={() => setStage('camera')}>
                 <RefreshCw aria-hidden="true" /> Retake
               </Button>
-              <Button
-                className="flex-1"
-                disabled={busy}
-                onClick={async () => {
-                  setBusy(true)
-                  setError(null)
-                  try {
-                    await onAnalyse(images.map((image) => image.blob))
-                    setStage('closed')
-                    setImages([])
-                  } catch (reason) {
-                    setError(reason instanceof Error ? reason.message : 'Unable to analyse the bill.')
-                  } finally {
-                    setBusy(false)
-                  }
-                }}
-              >
-                <Sparkles aria-hidden="true" /> {busy ? 'Analysing…' : 'Analyse with AI'}
-              </Button>
+              <div ref={analysisButtonRef} className="relative min-w-0 flex-1">
+                <Button className="w-full" disabled={busy} onClick={() => void analyse()}>
+                  <Sparkles aria-hidden="true" /> {busy ? 'Analysing…' : 'Analyse with AI'}
+                </Button>
+                {busy && outline.width > 0 && (
+                  <svg aria-hidden="true" className="pointer-events-none absolute inset-0 size-full">
+                    <rect
+                      x="1.5" y="1.5" width={outline.width - 3} height={outline.height - 3}
+                      rx={Math.max(0, outline.radius - 1.5)}
+                      fill="none" stroke="#ffab70" strokeWidth="3" pathLength="100"
+                      strokeDasharray="100" strokeDashoffset={100 * (1 - remainingMs / ANALYSIS_TIMEOUT_MS)}
+                    />
+                  </svg>
+                )}
+              </div>
             </div>
           </div>
         )}

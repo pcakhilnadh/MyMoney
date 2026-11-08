@@ -300,7 +300,7 @@ export default function AddExpense() {
     !accountSelected && 'Account',
   ].filter((item): item is string => !!item)
 
-  async function analyseBill(images: Blob[]) {
+  async function analyseBill(images: Blob[], signal: AbortSignal) {
     const encoded = await Promise.all(images.map((image) => new Promise<{ mime_type: string; data: string }>((resolve, reject) => {
       const reader = new FileReader()
       reader.onerror = () => reject(new Error('Could not read the bill photo.'))
@@ -313,6 +313,7 @@ export default function AddExpense() {
       }
       reader.readAsDataURL(image)
     })))
+    signal.throwIfAborted()
     const result = await api<{
       is_bill: boolean
       title: string | null
@@ -324,7 +325,9 @@ export default function AddExpense() {
     }>('/money/ai/expense', token ?? '', {
       method: 'POST',
       body: JSON.stringify({ images: encoded, categories: visibleCategories.map((item) => item.name) }),
+      signal,
     })
+    signal.throwIfAborted()
     if (!result.is_bill) throw new Error('This image is not a valid bill.')
     if (result.title !== null) setTitle(result.title)
     if (result.total_amount !== null) setAmount(toMinor(result.total_amount))

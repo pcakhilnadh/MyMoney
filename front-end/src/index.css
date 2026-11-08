@@ -103,6 +103,33 @@
   border-radius: 0;
 }
 
+.bill-scan-overlay {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  overflow: hidden;
+  background: rgba(75, 139, 255, 0.06);
+}
+.bill-scan-overlay::after {
+  content: '';
+  position: absolute;
+  inset: -20% 0 auto;
+  height: 20%;
+  background: linear-gradient(to bottom, transparent, rgba(112, 175, 255, 0.35), rgba(195, 228, 255, 0.85), transparent);
+  filter: drop-shadow(0 0 8px rgba(75, 139, 255, 0.9));
+  animation: bill-scan 2.4s ease-in-out infinite alternate;
+}
+@keyframes bill-scan {
+  from { transform: translateY(0); }
+  to { transform: translateY(600%); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .bill-scan-overlay::after {
+    animation: none;
+    top: 45%;
+  }
+}
+
 /* Welcome / initial sync: one 6s breath cycle drives every element. */
 .welcome-orb {
   position: relative;

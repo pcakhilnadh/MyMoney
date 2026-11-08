@@ -48,8 +48,13 @@ preselects that group.
 The expense camera button captures or uploads up to three JPEG, PNG, or WebP images (3 MB total).
 **Analyse with AI** sends them to the configured AI provider and suggests transaction fields.
 Review the suggestions and select an account before saving; analysis does not save a transaction.
-An internet connection is required. The server stores full AI requests (including receipt images)
+An internet connection is required. During analysis the countdown shows the 100-second browser
+time limit, not AI completion progress. If it expires, the browser stops waiting; the server or
+provider may still finish processing, so wait before retrying. The server stores full AI requests (including receipt images)
 and responses in `ai_call_logs` for auditing, including failures and token usage when provided.
+For transport and response-format failures, the `error` column contains JSON diagnostics such as
+exception-chain types, network error codes, timeout settings, and validation error types. Raw
+exception messages are excluded to avoid logging credentials or receipt data in that column.
 These logs contain sensitive financial information: restrict database access, secure backups, and
 establish a retention/deletion policy before deploying.
 

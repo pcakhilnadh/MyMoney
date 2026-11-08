@@ -1,5 +1,6 @@
 import base64
 import json
+import socket
 
 import requests
 from sqlalchemy import select
@@ -82,13 +83,38 @@ def test_failure_is_audited_and_invalid_input_does_not_call_provider(client, mon
     invalid = {**BODY, "images": [{"mime_type": "image/png", "data": "aGVsbG8="}]}
     assert client.post("/money/ai/expense", json=invalid, headers=H("alice")).status_code == 422
     result = client.post("/money/ai/expense", json=BODY, headers=H("alice"))
-    assert result.status_code == 502
+    assert result.status_code == 504
+    assert result.json()["detail"] == "AI provider timed out. Please try again later."
     with client.session_factory() as db:
         logs = db.scalars(select(AICallLog)).all()
         assert len(logs) == 1
         assert logs[0].status == "failed"
-        assert logs[0].error == "Provider request failed"
+        details = json.loads(logs[0].error)
+        assert details["exception"] == "Timeout"
+        assert details["endpoint_host"] == "integrate.api.nvidia.com"
+        assert details["connect_timeout_seconds"] == 10
+        assert details["read_timeout_seconds"] == 90
+        assert "private connection details" not in logs[0].error
         assert logs[0].completed_at is not None
+
+
+def test_connection_error_is_distinct_from_non_bill(client, monkeypatch):
+    monkeypatch.setattr(settings, "nvidia_api_key", "test-key")
+
+    def fail(self, payload):
+        raise requests.ConnectionError(socket.gaierror(-2, "private connection details"))
+
+    monkeypatch.setattr(NvidiaProvider, "send", fail)
+    result = client.post("/money/ai/expense", json=BODY, headers=H("alice"))
+    assert result.status_code == 502
+    assert result.json()["detail"] == "Could not connect to the AI provider. Please try again later."
+    with client.session_factory() as db:
+        log = db.scalar(select(AICallLog))
+        details = json.loads(log.error)
+        assert details["exception"] == "ConnectionError"
+        assert details["exception_chain"][1]["kind"] == "dns_resolution"
+        assert details["exception_chain"][1]["errno"] == -2
+        assert "private connection details" not in log.error
 
 
 def test_provider_error_and_bad_json_are_logged(client, monkeypatch):
@@ -105,4 +131,21 @@ def test_provider_error_and_bad_json_are_logged(client, monkeypatch):
         assert logs[0].http_status == 429
         assert logs[0].total_tokens == 35
         assert "test-key" not in json.dumps(logs[0].response_payload)
-        assert logs[1].error == "Invalid provider response"
+        details = json.loads(logs[1].error)
+        assert details["reason"] == "schema_validation"
+        assert details["validation_errors"][0]["type"] == "model_type"
+
+
+def test_invalid_response_diagnostics_exclude_sensitive_input(client, monkeypatch):
+    monkeypatch.setattr(settings, "nvidia_api_key", "test-key")
+    monkeypatch.setattr(NvidiaProvider, "send", lambda self, payload: provider_response({
+        "is_bill": True, "total_amount": "private receipt data",
+    }))
+    result = client.post("/money/ai/expense", json=BODY, headers=H("alice"))
+    assert result.status_code == 502
+    with client.session_factory() as db:
+        log = db.scalar(select(AICallLog))
+        details = json.loads(log.error)
+        assert details["validation_errors"][0]["field"] == "total_amount"
+        assert details["validation_errors"][0]["type"] == "decimal_parsing"
+        assert "private receipt data" not in log.error

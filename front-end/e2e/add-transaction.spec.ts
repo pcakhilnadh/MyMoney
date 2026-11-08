@@ -276,6 +276,70 @@ test.describe('bill capture', () => {
     await expect(page.getByLabel('Title')).toHaveValue('Existing title')
   })
 
+  test('shows a scanning animation and counts down until the analysis timeout', async ({ page }) => {
+    await page.route('**/auth/refresh', (route) => route.fulfill({
+      json: {
+        access_token: 'test-access-token',
+        token_type: 'bearer',
+        user: { sub: 'add-txn-user', email: 'addtxn@gmail.com', name: 'Add Txn User' },
+      },
+    }))
+    let releaseRequest: (() => void) | undefined
+    await page.route('**/money/ai/expense', async (route) => {
+      await new Promise<void>((resolve) => { releaseRequest = resolve })
+      await route.fulfill({ json: { is_bill: true, title: 'Late result' } }).catch(() => {})
+    })
+    await page.goto('/money/expenses/new')
+    await page.getByLabel('Title').fill('Existing title')
+    await page.getByRole('button', { name: 'Scan a bill' }).click()
+    await page.getByLabel('Upload a bill photo').setInputFiles('public\\icon-192.png')
+    const preview = page.getByRole('dialog', { name: 'Review bill photo' })
+    await page.clock.install()
+    await page.clock.pauseAt(Date.now())
+    await preview.getByRole('button', { name: 'Analyse with AI' }).click()
+    await expect(preview.getByRole('button', { name: 'Analysing…' })).toBeDisabled()
+    await expect(preview.locator('.bill-scan-overlay')).toBeVisible()
+    await expect(preview.getByRole('status')).toContainText('time limit, not analysis progress')
+    await expect(preview.getByText('Analysing your bill · 100s')).toBeVisible()
+    await page.emulateMedia({ reducedMotion: 'reduce' })
+    expect(await preview.locator('.bill-scan-overlay').evaluate(
+      (element) => getComputedStyle(element, '::after').animationName,
+    )).toBe('none')
+    await page.setViewportSize({ width: 640, height: 360 })
+    expect(await preview.evaluate((element) => element.scrollHeight <= element.clientHeight)).toBe(true)
+    const buttonBounds = await preview.getByRole('button', { name: 'Analysing…' }).boundingBox()
+    expect(buttonBounds!.y + buttonBounds!.height).toBeLessThanOrEqual(360)
+    await expect.poll(() => releaseRequest !== undefined).toBe(true)
+    const outline = preview.locator('svg rect[stroke-dashoffset]')
+    await expect(outline).toHaveAttribute('stroke-dashoffset', '0')
+    await expect(outline).toHaveAttribute('stroke', '#ffab70')
+    const dimensions = await outline.evaluate((rect) => {
+      const svg = rect.ownerSVGElement!
+      const button = svg.parentElement!.querySelector('button')!
+      const { width, height } = button.getBoundingClientRect()
+      return {
+        width,
+        height,
+        radius: Math.min(parseFloat(getComputedStyle(button).borderTopLeftRadius), width / 2, height / 2),
+        outlineWidth: Number(rect.getAttribute('width')),
+        outlineHeight: Number(rect.getAttribute('height')),
+        outlineRadius: Number(rect.getAttribute('rx')),
+      }
+    })
+    expect(dimensions.outlineWidth).toBeCloseTo(dimensions.width - 3)
+    expect(dimensions.outlineHeight).toBeCloseTo(dimensions.height - 3)
+    expect(dimensions.outlineRadius).toBeCloseTo(dimensions.radius - 1.5)
+    await page.clock.fastForward(10_000)
+    await expect(preview.getByText('Analysing your bill · 90s')).toBeVisible()
+    await expect(outline).toHaveAttribute('stroke-dashoffset', /^(9\.9|10)/)
+    await page.clock.fastForward(90_000)
+    await expect(preview.getByRole('alert')).toContainText('Analysis timed out')
+    await expect(preview.getByRole('button', { name: 'Analyse with AI' })).toBeEnabled()
+    await expect(preview.locator('.bill-scan-overlay')).toHaveCount(0)
+    releaseRequest?.()
+    await expect(page.getByLabel('Title')).toHaveValue('Existing title')
+  })
+
   for (const viewport of [
     { width: 390, height: 600 },
     { width: 640, height: 360 },
