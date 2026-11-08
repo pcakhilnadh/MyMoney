@@ -45,8 +45,13 @@ from the category dropdown; transfers default to Self Transfer when that categor
 Expense transactions can be personal or shared with a group. Opening the form from a group
 preselects that group.
 
-The expense camera button previews a bill locally. **Analyse with AI** currently only dismisses
-the preview: the image is not saved, uploaded, or analysed, and no transaction fields are filled.
+The expense camera button captures or uploads up to three JPEG, PNG, or WebP images (3 MB total).
+**Analyse with AI** sends them to the configured AI provider and suggests transaction fields.
+Review the suggestions and select an account before saving; analysis does not save a transaction.
+An internet connection is required. The server stores full AI requests (including receipt images)
+and responses in `ai_call_logs` for auditing, including failures and token usage when provided.
+These logs contain sensitive financial information: restrict database access, secure backups, and
+establish a retention/deletion policy before deploying.
 
 ## Repository layout
 
@@ -102,6 +107,10 @@ Open http://localhost:5173 and sign in with Google.
 | `back-end/.env` | `SESSION_COOKIE_SECURE` | No | Optional override; defaults to secure for HTTPS requests |
 | `back-end/.env` | `SESSION_COOKIE_SAMESITE` | No | Defaults to `lax`; use `none` with HTTPS only for a separately hosted frontend/API |
 | `back-end/.env` | `SMTP_HOST/PORT/USER/PASSWORD/FROM` | **Yes** (password) | Optional. Without them, invite emails are skipped (a "mailto" link is offered in the UI) |
+| `back-end/.env` | `NVIDIA_API_KEY` | **Yes** | Required for bill analysis; never place it in the frontend or commit it |
+| `back-end/.env` | `EXPENSE_AI_PROVIDER` | No | Defaults to `nvidia` |
+| `back-end/.env` | `EXPENSE_AI_MODEL` | No | Defaults to `mistralai/mistral-large-4-1t-a52b`; must support image input |
+| `back-end/.env` | `NVIDIA_BASE_URL` | No | Defaults to NVIDIA's chat completions endpoint |
 | `front-end/.env` | `VITE_GOOGLE_CLIENT_ID` | No (public) | Same client ID |
 | `front-end/.env` | `VITE_API_URL` | No | Defaults to `http://localhost:8000` |
 
@@ -124,6 +133,8 @@ Environment Variables**:
 | `GOOGLE_CLIENT_ID` | Your Google OAuth Web client ID | Development, Preview, Production |
 | `APP_URL` | `https://YOUR-PRODUCTION-DOMAIN` | Optional for initial deployment; set in Production after the first deployment |
 | `CORS_ORIGINS` | `[]` | Development, Preview, Production; same-origin `/api` calls do not need CORS |
+| `NVIDIA_API_KEY` | Your NVIDIA API key | Required for bill analysis; mark sensitive |
+| `EXPENSE_AI_MODEL` | Vision-capable NVIDIA model | Optional; defaults to `mistralai/mistral-large-4-1t-a52b` |
 | `VITE_GOOGLE_CLIENT_ID` | Same Google OAuth Web client ID | Development, Preview, Production; public build-time variable |
 | `VITE_API_URL` | `/api` | Development, Preview, Production; public build-time variable |
 

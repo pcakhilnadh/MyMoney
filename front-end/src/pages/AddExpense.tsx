@@ -30,6 +30,8 @@ import {
 import { toMinor } from '@/lib/money'
 import { currencySymbol } from '@/lib/currency'
 import { useCurrency } from '@/money/CurrencyContext'
+import { api } from '@/auth/api'
+import { useAuth } from '@/auth/AuthContext'
 
 const CONTEXTS = ['Personal', 'Group'] as const
 const TRANSACTION_TYPES = ['Expense', 'Income', 'Transfer', 'Refund'] as const
@@ -216,6 +218,7 @@ function GroupFields({
 
 export default function AddExpense() {
   const { currency } = useCurrency()
+  const { token } = useAuth()
   const nav = useNavigate()
   const [params] = useSearchParams()
   const presetGroup = params.get('groupId') ?? ''
@@ -297,6 +300,42 @@ export default function AddExpense() {
     !accountSelected && 'Account',
   ].filter((item): item is string => !!item)
 
+  async function analyseBill(images: Blob[]) {
+    const encoded = await Promise.all(images.map((image) => new Promise<{ mime_type: string; data: string }>((resolve, reject) => {
+      const reader = new FileReader()
+      reader.onerror = () => reject(new Error('Could not read the bill photo.'))
+      reader.onload = () => {
+        if (typeof reader.result !== 'string') {
+          reject(new Error('Could not read the bill photo.'))
+          return
+        }
+        resolve({ mime_type: image.type, data: reader.result.split(',')[1] })
+      }
+      reader.readAsDataURL(image)
+    })))
+    const result = await api<{
+      is_bill: boolean
+      title: string | null
+      total_amount: string | null
+      bill_date: string | null
+      merchant_name: string | null
+      summary: string | null
+      category: string | null
+    }>('/money/ai/expense', token ?? '', {
+      method: 'POST',
+      body: JSON.stringify({ images: encoded, categories: visibleCategories.map((item) => item.name) }),
+    })
+    if (!result.is_bill) throw new Error('This image is not a valid bill.')
+    if (result.title !== null) setTitle(result.title)
+    if (result.total_amount !== null) setAmount(toMinor(result.total_amount))
+    if (result.bill_date !== null) setDate(result.bill_date)
+    if (result.merchant_name !== null) setMerchant(result.merchant_name)
+    if (result.summary !== null) setLongDescription(result.summary)
+    if (result.category !== null && visibleCategories.some((item) => item.name === result.category)) {
+      setCategory(result.category)
+    }
+  }
+
   async function createCategory(name: string) {
     const existing = categories?.find(
       (item) =>
@@ -358,7 +397,7 @@ export default function AddExpense() {
         transaction_type: 'expense',
         title: title.trim(),
         long_description: longDescription.trim() || null,
-        merchant: null,
+        merchant: merchant.trim() || null,
         amount_minor: amount,
         transaction_date: toTransactionTimestamp(date),
         split_method: method,
@@ -400,7 +439,7 @@ export default function AddExpense() {
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <PageHeader title="Add Transaction" />
-        {transactionType === 'expense' && <BillCapture />}
+        {transactionType === 'expense' && <BillCapture onAnalyse={analyseBill} />}
       </div>
       <SegmentedControl
         options={[...TRANSACTION_TYPES]}
@@ -532,7 +571,7 @@ export default function AddExpense() {
         </label>
       )}
       <SectionTitle>Optional details</SectionTitle>
-      {context === 'Personal' && transactionType === 'expense' && (
+      {transactionType === 'expense' && (
         <Field label="Merchant" optional>
           <AutocompleteInput
             aria-label="Merchant"

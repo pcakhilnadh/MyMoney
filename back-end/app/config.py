@@ -15,6 +15,10 @@ class Settings(BaseSettings):
     smtp_user: str = ""
     smtp_password: str = ""
     smtp_from: str = ""
+    nvidia_api_key: str = ""
+    nvidia_base_url: str = "https://integrate.api.nvidia.com/v1/chat/completions"
+    expense_ai_provider: str = "nvidia"
+    expense_ai_model: str = "mistralai/mistral-large-4-1t-a52b"
 
     model_config = {"env_file": ".env"}
 

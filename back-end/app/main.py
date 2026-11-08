@@ -9,6 +9,7 @@ from app.db import engine
 from app.routers_auth import router as auth_router
 from app.routers_money import router as money_router
 from app.sync import router as sync_router
+from app.ai.expense import router as ai_router
 
 app = FastAPI(title="MyTracker API")
 app.add_middleware(
@@ -25,9 +26,11 @@ app.add_middleware(
 app.include_router(auth_router)
 app.include_router(sync_router)
 app.include_router(money_router)
+app.include_router(ai_router)
 app.include_router(auth_router, prefix="/api")
 app.include_router(sync_router, prefix="/api")
 app.include_router(money_router, prefix="/api")
+app.include_router(ai_router, prefix="/api")
 
 
 @app.get("/health", response_model=None)

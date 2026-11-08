@@ -11,11 +11,13 @@ function Modal({
   open,
   label,
   onClose,
+  busy = false,
   children,
 }: {
   open: boolean
   label: string
   onClose: () => void
+  busy?: boolean
   children: React.ReactNode
 }) {
   const ref = useRef<HTMLDialogElement>(null)
@@ -31,6 +33,9 @@ function Modal({
     <dialog
       ref={ref}
       aria-label={label}
+      onCancel={(event) => {
+        if (busy) event.preventDefault()
+      }}
       onClose={onClose}
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
@@ -46,7 +51,7 @@ function CameraView({
   onCapture,
   onCancel,
 }: {
-  onCapture: (blob: Blob) => void
+  onCapture: (blobs: Blob[]) => void
   onCancel: () => void
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
@@ -110,7 +115,7 @@ function CameraView({
     context.drawImage(video, x, y, width, height, 0, 0, canvas.width, canvas.height)
     canvas.toBlob(
       (blob) => {
-        if (blob) onCapture(blob)
+        if (blob) onCapture([blob])
         else setError('Unable to capture the photo. Try uploading an image instead.')
       },
       'image/jpeg',
@@ -126,15 +131,16 @@ function CameraView({
     <input
       ref={ref}
       type="file"
-      accept="image/*"
+      accept="image/jpeg,image/png,image/webp"
+      multiple={!capture}
       capture={capture ? 'environment' : undefined}
       aria-label={id}
       className="sr-only"
       tabIndex={-1}
       onChange={(event) => {
-        const file = event.target.files?.[0]
+        const files = Array.from(event.target.files ?? [])
         event.target.value = ''
-        if (file) onCapture(file)
+        if (files.length) onCapture(files)
       }}
     />
   )
@@ -218,25 +224,35 @@ function CameraView({
   )
 }
 
-/**
- * Bill/receipt capture: opens the camera, shows the photo in a popup for review, and offers an
- * "Analyse with AI" action.
- *
- * TODO(ai): upload the captured image to the backend and run it through an AI module that
- * extracts title, amount, date, merchant and category, then pre-fill the form with the result.
- */
-export function BillCapture({ onAnalyse }: { onAnalyse?: (image: Blob) => void }) {
+export function BillCapture({ onAnalyse }: { onAnalyse: (images: Blob[]) => Promise<void> }) {
   const [stage, setStage] = useState<Stage>('closed')
-  const [image, setImage] = useState<Captured | null>(null)
+  const [images, setImages] = useState<Captured[]>([])
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!image) return
-    return () => URL.revokeObjectURL(image.url)
-  }, [image])
+    return () => images.forEach((image) => URL.revokeObjectURL(image.url))
+  }, [images])
 
   function close() {
+    if (busy) return
     setStage('closed')
-    setImage(null)
+    setImages([])
+    setError(null)
+  }
+
+  function selectImages(blobs: Blob[]) {
+    if (blobs.length > 3 || blobs.some((blob) => !['image/jpeg', 'image/png', 'image/webp'].includes(blob.type))) {
+      setError('Choose up to 3 JPEG, PNG or WebP images.')
+      return
+    }
+    if (blobs.reduce((sum, blob) => sum + blob.size, 0) > 3 * 1024 * 1024) {
+      setError('Images must total at most 3 MB.')
+      return
+    }
+    setError(null)
+    setImages(blobs.map((blob) => ({ blob, url: URL.createObjectURL(blob) })))
+    setStage('preview')
   }
 
   return (
@@ -254,17 +270,16 @@ export function BillCapture({ onAnalyse }: { onAnalyse?: (image: Blob) => void }
         open={stage !== 'closed'}
         label={stage === 'preview' ? 'Review bill photo' : 'Scan a bill'}
         onClose={close}
+        busy={busy}
       >
         {stage === 'camera' && (
           <CameraView
             onCancel={close}
-            onCapture={(blob) => {
-              setImage({ blob, url: URL.createObjectURL(blob) })
-              setStage('preview')
-            }}
+            onCapture={selectImages}
           />
         )}
-        {stage === 'preview' && image && (
+        {stage === 'camera' && error && <p role="alert" className="text-sm text-destructive">{error}</p>}
+        {stage === 'preview' && images.length > 0 && (
           <div className="flex h-[min(40rem,calc(100dvh-3rem))] flex-col gap-2">
             <div className="flex items-center justify-between">
               <h2 className="text-lg font-semibold">Review your bill</h2>
@@ -272,33 +287,48 @@ export function BillCapture({ onAnalyse }: { onAnalyse?: (image: Blob) => void }
                 type="button"
                 aria-label="Close preview"
                 onClick={close}
+                disabled={busy}
                 className="flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-primary/10 hover:text-foreground"
               >
                 <X aria-hidden="true" size={18} />
               </button>
             </div>
-            <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-black">
-              <img
-                src={image.url}
-                alt="Captured bill"
-                className="absolute inset-0 size-full object-contain"
-              />
+            <div className="flex min-h-0 flex-1 gap-1 overflow-auto rounded-2xl bg-black">
+              {images.map((image, index) => (
+                <img
+                  key={image.url}
+                  src={image.url}
+                  alt={index === 0 ? 'Captured bill' : `Bill photo ${index + 1}`}
+                  className="min-w-0 flex-1 object-contain"
+                />
+              ))}
             </div>
             <p className="flex h-10 shrink-0 items-center justify-center text-center text-xs text-muted-foreground">
-              Make sure the amount and date are readable. AI analysis is coming soon.
+              Images are sent to the AI provider and stored in the audit log. Verify the results before saving.
             </p>
+            {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
             <div className="flex min-h-16 items-center gap-3">
-              <Button variant="outline" className="flex-1" onClick={() => setStage('camera')}>
+              <Button variant="outline" className="flex-1" disabled={busy} onClick={() => setStage('camera')}>
                 <RefreshCw aria-hidden="true" /> Retake
               </Button>
               <Button
                 className="flex-1"
-                onClick={() => {
-                  onAnalyse?.(image.blob)
-                  close()
+                disabled={busy}
+                onClick={async () => {
+                  setBusy(true)
+                  setError(null)
+                  try {
+                    await onAnalyse(images.map((image) => image.blob))
+                    setStage('closed')
+                    setImages([])
+                  } catch (reason) {
+                    setError(reason instanceof Error ? reason.message : 'Unable to analyse the bill.')
+                  } finally {
+                    setBusy(false)
+                  }
                 }}
               >
-                <Sparkles aria-hidden="true" /> Analyse with AI
+                <Sparkles aria-hidden="true" /> {busy ? 'Analysing…' : 'Analyse with AI'}
               </Button>
             </div>
           </div>

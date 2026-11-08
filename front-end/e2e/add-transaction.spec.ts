@@ -173,10 +173,30 @@ test('the account selector toggles across its whole trigger', async ({ page }) =
 })
 
 test.describe('bill capture', () => {
-  test('captures a photo, shows it in a popup, and dismisses on Analyse with AI', async ({
+  test('captures a photo and fills the form after AI analysis', async ({
     page,
   }) => {
+    await page.route('**/auth/refresh', (route) => route.fulfill({
+      json: {
+        access_token: 'test-access-token',
+        token_type: 'bearer',
+        user: { sub: 'add-txn-user', email: 'addtxn@gmail.com', name: 'Add Txn User' },
+      },
+    }))
+    let requestBody: { images: { data: string }[]; categories: string[] } | undefined
+    await page.route('**/money/ai/expense', async (route) => {
+      requestBody = route.request().postDataJSON()
+      await route.fulfill({ json: {
+        is_bill: true, title: 'Lunch', total_amount: '123.45', bill_date: '2026-11-08',
+        merchant_name: 'Cafe', summary: 'Meal and drink', category: 'AI test category',
+        items: [],
+      } })
+    })
     await page.goto('/money/expenses/new')
+    const category = page.getByRole('combobox', { name: 'Category', exact: true })
+    await category.fill('AI test category')
+    await page.getByRole('option', { name: 'Add category AI test category' }).click()
+    await page.getByRole('button', { name: 'Clear selection' }).click()
     await page.getByRole('button', { name: /Scan a bill/ }).click()
     const dialog = page.getByRole('dialog', { name: 'Scan a bill' })
     await expect(dialog).toBeVisible()
@@ -199,6 +219,7 @@ test.describe('bill capture', () => {
 
     const preview = page.getByRole('dialog', { name: 'Review bill photo' })
     await expect(preview.getByRole('img', { name: 'Captured bill' })).toBeVisible()
+    await expect(preview.getByRole('button', { name: 'Add', exact: true })).toHaveCount(0)
     await expect(preview.getByRole('img', { name: 'Captured bill' })).toHaveCSS(
       'transform',
       'none',
@@ -210,7 +231,49 @@ test.describe('bill capture', () => {
     await page.getByRole('button', { name: 'Capture photo' }).click()
     await preview.getByRole('button', { name: 'Analyse with AI' }).click()
     await expect(page.getByRole('dialog')).toHaveCount(0)
-    await expect(page.getByLabel('Title')).toBeVisible()
+    expect(requestBody?.images[0].data.length).toBeGreaterThan(0)
+    await expect(page.getByLabel('Title')).toHaveValue('Lunch')
+    await expect(page.getByLabel('Amount')).toHaveValue('123.45')
+    await page.getByRole('button', { name: 'Date', exact: true }).click()
+    await expect(page.getByRole('button', { name: /Sunday, November 8, 2026/ })).toHaveAttribute('aria-pressed', 'true')
+    await page.getByRole('button', { name: 'Date', exact: true }).click()
+    await expect(page.getByLabel('Merchant')).toHaveValue('Cafe')
+    await expect(page.getByLabel('Long Description')).toHaveValue('Meal and drink')
+    expect(requestBody?.categories).toContain('AI test category')
+    await expect(category).toHaveValue('AI test category')
+  })
+
+  test('sends multiple uploaded images and reports a non-bill without changing the form', async ({ page }) => {
+    await page.route('**/auth/refresh', (route) => route.fulfill({
+      json: {
+        access_token: 'test-access-token',
+        token_type: 'bearer',
+        user: { sub: 'add-txn-user', email: 'addtxn@gmail.com', name: 'Add Txn User' },
+      },
+    }))
+    let imageCount = 0
+    await page.route('**/money/ai/expense', async (route) => {
+      imageCount = route.request().postDataJSON().images.length
+      await route.fulfill({ json: { is_bill: false } })
+    })
+    await page.goto('/money/expenses/new')
+    await page.getByLabel('Title').fill('Existing title')
+    await page.getByRole('button', { name: 'Scan a bill' }).click()
+    await page.getByLabel('Upload a bill photo').setInputFiles([
+      'public\\icon-192.png',
+      'public\\icon-512.png',
+    ])
+    const preview = page.getByRole('dialog', { name: 'Review bill photo' })
+    await preview.getByRole('button', { name: 'Analyse with AI' }).click()
+    await expect(preview.getByRole('alert')).toHaveText('This image is not a valid bill.')
+    await expect(page.getByLabel('Title')).toHaveValue('Existing title')
+    expect(imageCount).toBe(2)
+    await page.route('**/money/ai/expense', (route) =>
+      route.fulfill({ status: 502, json: { detail: 'AI provider unavailable' } }),
+    )
+    await preview.getByRole('button', { name: 'Analyse with AI' }).click()
+    await expect(preview.getByRole('alert')).toHaveText('AI provider unavailable')
+    await expect(page.getByLabel('Title')).toHaveValue('Existing title')
   })
 
   for (const viewport of [
