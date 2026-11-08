@@ -66,7 +66,7 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
   return (
     <div
       data-app={selectedApp ?? 'money'}
-      className={`mx-auto min-h-screen max-w-md ${isPersonal ? '' : 'pb-32'}`}
+      className="mx-auto min-h-screen max-w-md"
     >
       <div
         role="group"
@@ -163,7 +163,7 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
           isPersonal
             ? 'min-h-[calc(100vh-4rem)] bg-card pb-5'
             : selectedApp
-              ? 'app-connected-surface min-h-[calc(100vh-4rem)] pb-5'
+              ? 'app-connected-surface min-h-[calc(100vh-4rem)] pb-[calc(8rem+1.25rem)]'
               : ''
         }`}
       >

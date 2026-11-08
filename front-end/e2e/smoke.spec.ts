@@ -11,6 +11,44 @@ test('signed-out users are sent to login', async ({ page }) => {
   await expect(page.locator('.gloss svg')).toBeVisible()
 })
 
+test('scrolling to the bottom keeps navigation clearance on the app surface', async ({ page }) => {
+  await page.setViewportSize({ width: 390, height: 600 })
+  await page.route('**/auth/refresh', (route) => route.abort())
+  await page.route('**/auth/login', (route) => route.abort())
+  await fakeSignIn(page)
+
+  for (const path of ['/money/home', '/food/home', '/habits/today']) {
+    await page.goto(path)
+    const main = page.locator('main')
+    await expect(main).toHaveClass(/app-connected-surface/)
+    await expect(main).toHaveCSS('padding-bottom', '148px')
+    await main.evaluate((element) => {
+      const spacer = document.createElement('div')
+      spacer.style.height = '1000px'
+      element.appendChild(spacer)
+    })
+    await page.evaluate(() => window.scrollTo(0, document.documentElement.scrollHeight))
+
+    const geometry = await page.evaluate(() => {
+      const main = document.querySelector('main')!
+      const nav = document.querySelector('.bottom-nav')!
+      const mainBounds = main.getBoundingClientRect()
+      const navBounds = nav.getBoundingClientRect()
+      const contentBounds = main.lastElementChild!.getBoundingClientRect()
+      const aboveNav = document.elementFromPoint(window.innerWidth / 2, navBounds.top - 10)
+      return {
+        mainBottom: mainBounds.bottom,
+        navTop: navBounds.top,
+        contentBottom: contentBounds.bottom,
+        aboveNavIsMain: aboveNav === main,
+      }
+    })
+    expect(geometry.mainBottom).toBeGreaterThanOrEqual(geometry.navTop)
+    expect(geometry.contentBottom).toBeLessThan(geometry.navTop)
+    expect(geometry.aboveNavIsMain).toBe(true)
+  }
+})
+
 test('signed-in shell shows tabs and settings', async ({ page }) => {
   await page.route('**/auth/refresh', (route) => route.abort())
   await page.route('**/auth/login', (route) => route.abort())
