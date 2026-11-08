@@ -5,7 +5,7 @@ import { Button } from '@/components/ui/button'
 type Stage = 'closed' | 'camera' | 'preview'
 type Captured = { blob: Blob; url: string }
 
-const ANALYSIS_TIMEOUT_MS = 200_000
+const ANALYSIS_TIMEOUT_MS = 3 * 60 * 1000
 const cameraSupported = () => typeof navigator.mediaDevices?.getUserMedia === 'function'
 
 function Modal({

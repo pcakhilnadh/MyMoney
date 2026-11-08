@@ -111,10 +111,12 @@ def analyse_expense(
         [(image.mime_type, image.data) for image in body.images],
         body.categories,
     )
+    started_at = datetime.now(timezone.utc)
     log = AICallLog(
         user_id=user.id, task="expense_analysis", provider="nvidia",
         model=settings.expense_ai_model, status="pending",
         request_payload=_redact_secret(payload, settings.nvidia_api_key),
+        created_at=started_at,
     )
     db.add(log)
     db.commit()
@@ -166,4 +168,5 @@ def analyse_expense(
         if log.status != "success":
             log.status = "failed"
         log.completed_at = datetime.now(timezone.utc)
+        log.elapsed_ms = max(0, round((log.completed_at - started_at).total_seconds() * 1000))
         db.commit()

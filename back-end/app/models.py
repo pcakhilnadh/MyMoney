@@ -57,6 +57,7 @@ class AICallLog(Base):
     error: Mapped[str | None] = mapped_column(Text)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     completed_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    elapsed_ms: Mapped[int | None] = mapped_column(Integer, default=None)
 
 
 class AuthSession(Base):

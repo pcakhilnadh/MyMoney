@@ -49,10 +49,14 @@ The expense camera button captures or uploads up to three JPEG, PNG, or WebP ima
 Captured photos match the camera's mirror-preview setting and are sent in the same orientation.
 **Analyse with AI** sends them to the configured AI provider and suggests transaction fields.
 Review the suggestions and select an account before saving; analysis does not save a transaction.
-An internet connection is required. The provider has a 180-second read timeout. During analysis
-the countdown shows the 200-second browser time limit, not AI completion progress. If it expires, the browser stops waiting; the server or
-provider may still finish processing, so wait before retrying. The server stores full AI requests (including receipt images)
+An internet connection is required. The provider has a three-minute read timeout, configured in
+`back-end/app/ai/provider.py`. The browser has a separate three-minute limit, configured in
+`front-end/src/components/kit/BillCapture.tsx`; its countdown is not AI completion progress. Since
+the browser's limit includes upload and server processing, it can expire before the backend's read
+timeout. The server or provider may still finish processing, so wait before retrying. The server stores full AI requests (including receipt images)
 and responses in `ai_call_logs` for auditing, including failures and token usage when provided.
+Completed calls record elapsed time in milliseconds in `elapsed_ms`; pending and existing logs
+without a calculated duration have a null value.
 For transport and response-format failures, the `error` column contains JSON diagnostics such as
 exception-chain types, network error codes, timeout settings, and validation error types. Raw
 exception messages are excluded to avoid logging credentials or receipt data in that column.

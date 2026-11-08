@@ -1,10 +1,12 @@
 import base64
 import json
 import socket
+from datetime import datetime, timedelta, timezone
 
 import requests
 from sqlalchemy import select
 
+from app.ai import expense
 from app.ai.provider import NvidiaProvider
 from app.config import settings
 from app.models import AICallLog
@@ -67,6 +69,38 @@ def test_expense_analysis_logs_full_request_response_and_usage(client, monkeypat
         assert log.response_payload["usage"]["total_tokens"] == 35
         assert (log.input_tokens, log.output_tokens, log.total_tokens) == (23, 12, 35)
         assert log.completed_at is not None
+        assert log.elapsed_ms is not None
+        assert log.elapsed_ms >= 0
+
+
+def test_elapsed_time_is_null_while_pending_and_recorded_on_completion(client, monkeypatch):
+    monkeypatch.setattr(settings, "nvidia_api_key", "test-key")
+    started = datetime(2026, 11, 8, 10, 6, 29, 317830, tzinfo=timezone.utc)
+    finished = started + timedelta(seconds=175, microseconds=62515)
+
+    class FixedClock:
+        times = iter((started, finished))
+
+        @classmethod
+        def now(cls, tz):
+            return next(cls.times)
+
+    monkeypatch.setattr(expense, "datetime", FixedClock)
+
+    def send(self, payload):
+        with client.session_factory() as db:
+            log = db.scalar(select(AICallLog))
+            assert log.status == "pending"
+            assert log.completed_at is None
+            assert log.elapsed_ms is None
+        return provider_response({"is_bill": False})
+
+    monkeypatch.setattr(NvidiaProvider, "send", send)
+    assert client.post("/money/ai/expense", json=BODY, headers=H("alice")).status_code == 200
+    with client.session_factory() as db:
+        log = db.scalar(select(AICallLog))
+        assert log.elapsed_ms == 175063
+        assert log.completed_at is not None
 
 
 def test_non_bill_and_unknown_category(client, monkeypatch):
@@ -108,6 +142,8 @@ def test_failure_is_audited_and_invalid_input_does_not_call_provider(client, mon
         assert details["read_timeout_seconds"] == 180
         assert "private connection details" not in logs[0].error
         assert logs[0].completed_at is not None
+        assert logs[0].elapsed_ms is not None
+        assert logs[0].elapsed_ms >= 0
 
 
 def test_connection_error_is_distinct_from_non_bill(client, monkeypatch):

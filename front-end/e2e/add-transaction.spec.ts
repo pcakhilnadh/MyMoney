@@ -369,7 +369,7 @@ test.describe('bill capture', () => {
     await expect(preview.getByRole('button', { name: 'Analysing…' })).toBeDisabled()
     await expect(preview.locator('.bill-scan-overlay')).toBeVisible()
     await expect(preview.getByRole('status')).toContainText('time limit, not analysis progress')
-    await expect(preview.getByText('Analysing your bill · 200s')).toBeVisible()
+    await expect(preview.getByText('Analysing your bill · 180s')).toBeVisible()
     await page.emulateMedia({ reducedMotion: 'reduce' })
     expect(await preview.locator('.bill-scan-overlay').evaluate(
       (element) => getComputedStyle(element, '::after').animationName,
@@ -399,9 +399,9 @@ test.describe('bill capture', () => {
     expect(dimensions.outlineHeight).toBeCloseTo(dimensions.height - 3)
     expect(dimensions.outlineRadius).toBeCloseTo(dimensions.radius - 1.5)
     await page.clock.fastForward(10_000)
-    await expect(preview.getByText('Analysing your bill · 190s')).toBeVisible()
-    await expect(outline).toHaveAttribute('stroke-dashoffset', /^(4\.9|5)/)
-    await page.clock.fastForward(190_000)
+    await expect(preview.getByText('Analysing your bill · 170s')).toBeVisible()
+    await expect(outline).toHaveAttribute('stroke-dashoffset', /^5\.55/)
+    await page.clock.fastForward(170_000)
     await expect(preview.getByRole('alert')).toContainText('Analysis timed out')
     await expect(preview.getByRole('button', { name: 'Analyse with AI' })).toBeEnabled()
     await expect(preview.locator('.bill-scan-overlay')).toHaveCount(0)
