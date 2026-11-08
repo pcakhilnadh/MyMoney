@@ -16,6 +16,53 @@ import {
 export { Button } from '@/components/ui/button'
 export { MetalActionButton, MetalBadge, MetalCard } from './MetalCard'
 export { AccountCard } from './AccountCard'
+export { CategoryCombobox } from './CategoryCombobox'
+export { BillCapture } from './BillCapture'
+
+export function RequiredMark() {
+  return (
+    <span aria-hidden="true" className="ml-0.5 text-destructive">
+      *
+    </span>
+  )
+}
+
+/** Labelled form row with a required `*` marker, plus an inline error or hint line. */
+export function Field({
+  label,
+  required = false,
+  optional = false,
+  error,
+  hint,
+  children,
+}: {
+  label: string
+  required?: boolean
+  optional?: boolean
+  error?: string | null
+  hint?: ReactNode
+  children: ReactNode
+}) {
+  return (
+    <div className="space-y-1.5">
+      <label className="block space-y-1.5">
+        <span className="label">
+          {label}
+          {required && <RequiredMark />}
+          {optional && <span className="ml-1 font-normal normal-case opacity-70">(optional)</span>}
+        </span>
+        {children}
+      </label>
+      {error ? (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      ) : hint ? (
+        <p className="text-xs text-muted-foreground">{hint}</p>
+      ) : null}
+    </div>
+  )
+}
 
 export function AddIconButton({
   label,
@@ -63,6 +110,7 @@ export function Select({
   disabled = false,
   required = false,
   className,
+  alignItemWithTrigger = true,
   'aria-label': ariaLabel,
 }: {
   options: readonly { value: string; label: ReactNode; disabled?: boolean }[]
@@ -72,6 +120,7 @@ export function Select({
   disabled?: boolean
   required?: boolean
   className?: string
+  alignItemWithTrigger?: boolean
   'aria-label'?: string
 }) {
   const items = options.map((option) => ({ value: option.value, label: option.label }))
@@ -87,7 +136,7 @@ export function Select({
       <SelectTrigger className={className} aria-label={ariaLabel}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
-      <SelectContent>
+      <SelectContent alignItemWithTrigger={alignItemWithTrigger}>
         {options.map((option) => (
           <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
             {option.label}
@@ -247,10 +296,12 @@ export function SegmentedControl<T extends string>({
   options,
   value,
   onChange,
+  variant = 'primary',
 }: {
   options: T[]
   value: T
   onChange: (v: T) => void
+  variant?: 'primary' | 'neutral'
 }) {
   return (
     <div className="surface flex rounded-2xl p-1">
@@ -258,10 +309,15 @@ export function SegmentedControl<T extends string>({
         <button
           key={o}
           type="button"
+          aria-pressed={o === value}
           onClick={() => onChange(o)}
           className={cn(
-            'flex-1 rounded-xl py-2 text-sm font-medium transition-colors',
-            o === value ? 'gloss text-primary-foreground' : 'text-muted-foreground',
+            'flex-1 rounded-xl py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
+            o === value
+              ? variant === 'neutral'
+                ? 'bg-secondary font-semibold text-primary shadow-sm ring-1 ring-primary/40'
+                : 'gloss text-primary-foreground'
+              : 'text-muted-foreground hover:text-foreground',
           )}
         >
           {o}
@@ -276,10 +332,16 @@ export function CurrencyInput({
   value,
   onChange,
   label = 'Amount',
+  required = false,
+  error,
+  onBlur,
 }: {
   value: number
   onChange: (minor: number) => void
   label?: string
+  required?: boolean
+  error?: string | null
+  onBlur?: () => void
 }) {
   const { currency } = useCurrency()
   const formatValue = (minor: number) => (minor ? (minor / 100).toFixed(2) : '')
@@ -292,17 +354,29 @@ export function CurrencyInput({
   }, [value])
 
   return (
+    <div className="space-y-1.5">
     <label className="block space-y-1.5">
-      <span className="label">{label}</span>
-      <div className="field flex items-center gap-2 !py-3">
+      <span className="label">
+        {label}
+        {required && <RequiredMark />}
+      </span>
+      <div
+        className={cn(
+          'field flex items-center gap-2 !py-3 focus-within:!border-primary',
+          error && '!border-destructive',
+        )}
+      >
         <span className="text-2xl font-semibold text-muted-foreground">
           {currencySymbol(currency)}
         </span>
         <input
           inputMode="decimal"
+          aria-required={required || undefined}
+          aria-invalid={error ? true : undefined}
           className="money w-full bg-transparent text-3xl font-bold outline-none placeholder:text-[#3d3d4a]"
           value={rawValue}
           placeholder="0"
+          onBlur={onBlur}
           onChange={(e) => {
             const next = normalizeMoneyInput(e.target.value)
             const minor = toMinor(next)
@@ -313,6 +387,12 @@ export function CurrencyInput({
         />
       </div>
     </label>
+    {error && (
+      <p role="alert" className="text-sm text-destructive">
+        {error}
+      </p>
+    )}
+    </div>
   )
 }
 
@@ -357,21 +437,26 @@ export function DatePicker({
   value,
   onChange,
   label = 'Date',
+  required = false,
+  max,
 }: {
   value: string
   onChange: (isoDate: string) => void
   label?: string
+  required?: boolean
+  max?: string
 }) {
   return (
-    <label className="block space-y-1.5">
-      <span className="label">{label}</span>
+    <Field label={label} required={required} error={required && !value ? 'Pick a date.' : null}>
       <input
         type="date"
         value={value}
+        max={max}
+        required={required}
         onChange={(e) => onChange(e.target.value)}
         className="field"
       />
-    </label>
+    </Field>
   )
 }
 

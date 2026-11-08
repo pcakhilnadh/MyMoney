@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { chooseOption, fakeSignIn } from '../e2e/helpers'
+import { chooseCategory, chooseOption, fakeSignIn } from '../e2e/helpers'
 
 const API = 'http://localhost:8001'
 
@@ -18,10 +18,10 @@ test('local expense reaches the server, and a fresh device pulls it back', async
   await page.goto('/expenses/new')
   await chooseOption(page, 'Paid from', 'Everyday')
   await page.getByPlaceholder('0').fill('120')
-  await page.getByPlaceholder('Title').fill('Synced coffee')
+  await page.getByLabel('Title').fill('Synced coffee')
   await page.getByLabel('Merchant').fill('Amazon')
   await page.getByLabel('Long Description').fill('Coffee before work')
-  await page.getByRole('button', { name: 'Food' }).click()
+  await chooseCategory(page, 'Food & Dining')
   await page.getByRole('button', { name: 'Save Expense' }).click()
   await expect(page.getByText('Synced coffee')).toBeVisible()
 

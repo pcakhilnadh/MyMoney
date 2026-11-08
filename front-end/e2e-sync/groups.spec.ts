@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { chooseOption, fakeSignIn } from '../e2e/helpers'
+import { chooseCategory, chooseOption, fakeSignIn } from '../e2e/helpers'
 
 const alice = { sub: 'g-alice', email: 'alice@gmail.com', name: 'Alice A' }
 const bob = { sub: 'g-bob', email: 'bob@gmail.com', name: 'Bob B' }
@@ -43,11 +43,12 @@ test('create group, invite by email, join, split expense, see balances, settle',
   // Alice adds a 600 expense split equally
   await a.getByRole('button', { name: 'Expenses' }).click()
   await a.getByRole('button', { name: 'Add Expense' }).click()
+  await expect(a.getByLabel('Group', { exact: true })).toContainText('Goa Trip')
   await chooseOption(a, 'Paid from', 'Checking')
   await a.getByPlaceholder('0').fill('600')
-  await a.getByPlaceholder('Title').fill('Hotel')
+  await a.getByLabel('Title').fill('Hotel')
   await expect(a.getByRole('button', { name: 'Save and Split' })).toBeDisabled()
-  await a.getByRole('button', { name: 'Food & Dining' }).click()
+  await chooseCategory(a, 'Food & Dining')
   await expect(a.getByRole('button', { name: 'Save and Split' })).toBeEnabled()
   await a.getByRole('button', { name: 'Save and Split' }).click()
   await expect(a.getByText('Hotel')).toBeVisible()

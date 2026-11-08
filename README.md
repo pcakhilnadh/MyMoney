@@ -38,6 +38,16 @@ Key ideas
   to renew sign-in. A member's Google name is saved on `group_members.display_name` only when they join a group.
 - Money is stored as integer **minor units** (paise) everywhere.
 
+## Adding a transaction
+
+Choose a transaction type, then enter its required details. Categories can be searched or created
+from the category dropdown; transfers default to Self Transfer when that category is visible.
+Expense transactions can be personal or shared with a group. Opening the form from a group
+preselects that group.
+
+The expense camera button previews a bill locally. **Analyse with AI** currently only dismisses
+the preview: the image is not saved, uploaded, or analysed, and no transaction fields are filled.
+
 ## Repository layout
 
 ```

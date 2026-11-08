@@ -19,3 +19,9 @@ export async function chooseOption(page: Page, label: string, option: string) {
   await page.getByLabel(label).click()
   await page.getByRole('option', { name: option, exact: true }).click()
 }
+
+/** Pick a category from the searchable Category combobox on the add-transaction page. */
+export async function chooseCategory(page: Page, name: string, label = 'Category') {
+  await page.getByRole('combobox', { name: label, exact: true }).click()
+  await page.getByRole('option', { name, exact: true }).click()
+}

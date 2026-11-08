@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { chooseOption, fakeSignIn } from './helpers'
+import { chooseCategory, chooseOption, fakeSignIn } from './helpers'
 
 test('category types, hiding, and expense-only budgets', async ({ page }) => {
   await page.route('**/auth/refresh', (route) => route.abort())
@@ -17,20 +17,30 @@ test('category types, hiding, and expense-only budgets', async ({ page }) => {
   await expect(page.getByText('Default · Hidden')).toBeVisible()
 
   await page.goto('/money/expenses/new')
-  const categoryButtons = page.getByRole('group', { name: 'Category' }).getByRole('button')
-  const categoryNames = await categoryButtons.allTextContents()
+  const category = page.getByRole('combobox', { name: 'Category', exact: true })
+  await expect(category).toHaveValue('')
+  await category.click()
+  const categoryNames = await page.getByRole('option').allTextContents()
+  expect(categoryNames).not.toContain('Food & Dining')
   expect(categoryNames).toEqual([...categoryNames].sort((a, b) => a.localeCompare(b)))
+  await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Refund' }).click()
   await expect(page.getByText('Expense category')).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Food & Dining' })).toHaveCount(0)
-  await expect(page.getByRole('button', { name: 'Shopping' })).toBeVisible()
+  const refundCategory = page.getByRole('combobox', { name: 'Expense category', exact: true })
+  await refundCategory.click()
+  await expect(page.getByRole('option', { name: 'Food & Dining', exact: true })).toHaveCount(0)
+  await expect(page.getByRole('option', { name: 'Shopping', exact: true })).toBeVisible()
+  await page.keyboard.press('Escape')
 
   await page.getByRole('button', { name: 'Income' }).click()
-  await expect(page.getByRole('button', { name: 'Salary' })).toBeVisible()
-  await expect(page.getByRole('button', { name: 'Shopping' })).toHaveCount(0)
+  await page.getByRole('combobox', { name: 'Category', exact: true }).click()
+  await expect(page.getByRole('option', { name: 'Salary', exact: true })).toBeVisible()
+  await expect(page.getByRole('option', { name: 'Shopping', exact: true })).toHaveCount(0)
+  await page.keyboard.press('Escape')
 
-  await page.getByRole('button', { name: 'Transfer' }).click()
-  await expect(page.getByRole('button', { name: 'Money Lent' })).toBeVisible()
+  await page.getByRole('button', { name: 'Transfer', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Category', exact: true }).click()
+  await expect(page.getByRole('option', { name: 'Money Lent', exact: true })).toBeVisible()
 
   await page.goto('/money/settings/categories')
   await page.getByRole('button', { name: 'Add category' }).click()
@@ -47,8 +57,8 @@ test('category types, hiding, and expense-only budgets', async ({ page }) => {
   await page.goBack()
   await chooseOption(page, 'Paid from', 'Category test account')
   await page.getByLabel('Amount').fill('123.45')
-  await page.getByPlaceholder('Title').fill('Test category expense')
-  await page.getByRole('button', { name: 'Test category' }).click()
+  await page.getByLabel('Title').fill('Test category expense')
+  await chooseCategory(page, 'Test category')
   await expect(page.getByRole('button', { name: 'Save Expense' })).toBeEnabled()
   await page.getByRole('button', { name: 'Save Expense' }).click()
   await expect(page).toHaveURL(/\/money\/transactions/)

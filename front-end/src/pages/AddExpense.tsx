@@ -2,18 +2,22 @@ import { useState } from 'react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
+  BillCapture,
   Button,
   AutocompleteInput,
-  CategorySelector,
+  CategoryCombobox,
   CurrencyInput,
-  DatePicker,
+  Field,
   Input,
   PageHeader,
+  RequiredMark,
+  SectionTitle,
   SegmentedControl,
   Select,
 } from '@/components/kit'
+import { TransactionDatePicker } from '@/components/kit/TransactionDatePicker'
 import { db } from '@/db/db'
-import { merchantsRepo, transactionsRepo } from '@/db/repos'
+import { categoriesRepo, merchantsRepo, transactionsRepo } from '@/db/repos'
 import type { TransactionType } from '@/db/types'
 import { useAction, useGroups, useMe, useMembers } from '@/groups/hooks'
 import { memberLabel } from '@/groups/types'
@@ -44,12 +48,28 @@ function toTransactionTimestamp(date: string): string {
   return (date === localDate(now) ? now : new Date(`${date}T12:00:00`)).toISOString()
 }
 
+function MissingHint({ missing }: { missing: string[] }) {
+  return (
+    <p
+      aria-live="polite"
+      className={
+        missing.length > 0
+          ? 'text-center text-sm text-muted-foreground'
+          : 'text-center text-sm text-primary'
+      }
+    >
+      {missing.length > 0 ? `Still needed: ${missing.join(', ')}` : '✓ All set — ready to save'}
+    </p>
+  )
+}
+
 function GroupFields({
   groupId,
   setGroupId,
   accountSelected,
   categorySelected,
   amount,
+  missing,
   onSubmit,
   busy,
   error,
@@ -59,6 +79,7 @@ function GroupFields({
   accountSelected: boolean
   categorySelected: boolean
   amount: number
+  missing: string[]
   onSubmit: (
     method: string,
     splits: { user_id: string; value: number | null; paid_minor: number }[],
@@ -67,7 +88,7 @@ function GroupFields({
   error: string | null
 }) {
   const { currency } = useCurrency()
-  const groups = useGroups() ?? []
+  const groups = useGroups()
   const members = (useMembers(groupId).data ?? []).filter((m) => m.status === 'active' && m.user_id)
   const me = useMe().data
   const [method, setMethod] = useState<keyof typeof METHODS>('Equal')
@@ -77,6 +98,7 @@ function GroupFields({
 
   const chosen = members.filter((m) => included[m.user_id as string] ?? true)
   const payerId = payer || me?.id || ''
+  const groupSelected = !!groups?.some((group) => group.id === groupId)
 
   function submit() {
     onSubmit(
@@ -93,14 +115,29 @@ function GroupFields({
 
   return (
     <div className="space-y-3">
-      <Select
-        aria-label="Group"
-        value={groupId}
-        onValueChange={setGroupId}
-        placeholder="Select group…"
-        options={groups.map((group) => ({ value: group.id, label: group.name }))}
-      />
-      {groupId && (
+      {groups === undefined ? (
+        <p className="text-sm text-muted-foreground">Loading groups…</p>
+      ) : groups.length === 0 ? (
+        <p className="text-sm text-muted-foreground">
+          You don't have a group yet.{' '}
+          <Link to="/money/groups" className="text-primary underline">
+            Add a group
+          </Link>
+        </p>
+      ) : (
+        <Field label="Group" required>
+          <Select
+            aria-label="Group"
+            value={groupId}
+            onValueChange={setGroupId}
+            placeholder="Select group…"
+            options={[...groups]
+              .sort((a, b) => a.name.localeCompare(b.name))
+              .map((group) => ({ value: group.id, label: group.name }))}
+          />
+        </Field>
+      )}
+      {groupSelected && (
         <>
           <SegmentedControl
             options={Object.keys(METHODS) as (keyof typeof METHODS)[]}
@@ -158,10 +195,11 @@ function GroupFields({
         </>
       )}
       {error && <p className="text-sm text-destructive">{error}</p>}
+      <MissingHint missing={groupSelected ? missing : ['Group', ...missing]} />
       <Button
         className="h-12 w-full rounded-card"
         disabled={
-          !groupId ||
+          !groupSelected ||
           !accountSelected ||
           !categorySelected ||
           amount <= 0 ||
@@ -194,7 +232,7 @@ export default function AddExpense() {
   const [merchant, setMerchant] = useState('')
   const [category, setCategory] = useState<string | null>(null)
   const [date, setDate] = useState(today())
-  const [accountId, setAccountId] = useState('')
+  const [chosenAccountId, setAccountId] = useState('')
   const [transferToAccountId, setTransferToAccountId] = useState('')
   const [transferAccountDirection, setTransferAccountDirection] = useState<'From' | 'To'>('From')
   const [groupId, setGroupId] = useState(presetGroup)
@@ -207,6 +245,12 @@ export default function AddExpense() {
   const transactionAccounts = activeAccounts.filter((account) =>
     canHaveDirectTransactions(account.account_type),
   )
+  // With a single eligible account there is nothing to choose, so it is picked for the user.
+  const accountId =
+    chosenAccountId ||
+    (transactionType !== 'transfer' && transactionAccounts.length === 1
+      ? transactionAccounts[0].id
+      : '')
   const categoryType = categoryTypeForTransaction(transactionType)
   const visibleCategories =
     categories?.filter(
@@ -240,11 +284,41 @@ export default function AddExpense() {
     (!sourceAccountId || !!sourceAccount) &&
     (!destinationAccountId || !!destinationAccount) &&
     (!sourceAccountId || sourceAccountId !== destinationAccountId)
-  const valid = amount > 0 && title.trim().length > 0
+  const valid = amount > 0 && title.trim().length > 0 && !!date
   const accountSelected =
     transactionType === 'transfer'
       ? !!selectedCategory && transferAccountsValid
       : transactionAccounts.some((account) => account.id === accountId)
+  const missing = [
+    !title.trim() && 'Title',
+    amount <= 0 && 'Amount',
+    !date && 'Date',
+    !selectedCategory && 'Category',
+    !accountSelected && 'Account',
+  ].filter((item): item is string => !!item)
+
+  async function createCategory(name: string) {
+    const existing = categories?.find(
+      (item) =>
+        item.status === 'active' &&
+        item.transaction_type === categoryType &&
+        item.name.toLocaleLowerCase() === name.toLocaleLowerCase(),
+    )
+    // A hidden category with this name already exists: bring it back instead of duplicating it.
+    if (existing) {
+      if (existing.is_hidden) await categoriesRepo.update(existing.id, { is_hidden: false })
+      return existing.name
+    }
+    await categoriesRepo.create({
+      name,
+      icon: 'tag',
+      color: null,
+      transaction_type: categoryType,
+      is_system: false,
+      is_hidden: false,
+    })
+    return name
+  }
 
   async function savePersonal() {
     if (!accountSelected || !valid) return
@@ -294,51 +368,20 @@ export default function AddExpense() {
     )
   }
 
-  return (
-    <div className="space-y-4">
-      <PageHeader title="Add Transaction" />
-      <SegmentedControl
-        options={[...TRANSACTION_TYPES]}
-        value={TRANSACTION_TYPES.find((option) => option.toLowerCase() === transactionType)!}
-        onChange={(value) => {
-          const nextType = value.toLowerCase() as TransactionType
-          setTransactionType(nextType)
-          setCategory(null)
-          setAccountId('')
-          setTransferToAccountId('')
-          setTransferAccountDirection('From')
-          if (nextType !== 'expense') setContext('Personal')
-        }}
-      />
-      {transactionType === 'expense' && (
-        <SegmentedControl options={[...CONTEXTS]} value={context} onChange={setContext} />
-      )}
-      <CurrencyInput value={amount} onChange={setAmount} />
-      <Input placeholder="Title" value={title} onChange={(e) => setTitle(e.target.value)} />
-      {context === 'Personal' && transactionType === 'expense' && (
-        <label className="block space-y-1.5">
-          <span className="label">Merchant (optional)</span>
-          <AutocompleteInput
-            aria-label="Merchant"
-            placeholder="Choose or enter a merchant"
-            value={merchant}
-            onChange={setMerchant}
-            options={merchants.map((item) => item.name)}
-          />
-        </label>
-      )}
-      <label className="block space-y-1.5">
-        <span className="label">Long Description (optional)</span>
-        <textarea
-          aria-label="Long Description"
-          rows={4}
-          value={longDescription}
-          onChange={(e) => setLongDescription(e.target.value)}
-          className="field min-h-24 resize-y"
-        />
-      </label>
-      <CategorySelector
-        value={category}
+  const categoryLabel = transactionType === 'refund' ? 'Expense category' : 'Category'
+  const categoryField = (
+    <Field
+      label={categoryLabel}
+      required
+      hint={
+        visibleCategories.length === 0
+          ? 'No categories yet. Type a name to add your first one.'
+          : undefined
+      }
+    >
+      <CategoryCombobox
+        aria-label={categoryLabel}
+        value={selectedCategory?.name ?? null}
         onChange={(nextCategory) => {
           setCategory(nextCategory)
           if (transactionType === 'transfer') {
@@ -347,14 +390,51 @@ export default function AddExpense() {
             setTransferAccountDirection('From')
           }
         }}
+        onCreate={createCategory}
         options={visibleCategories.map((item) => item.name)}
-        label={transactionType === 'refund' ? 'Expense category' : 'Category'}
       />
-      {!selectedCategory && (
-        <p className="text-sm text-destructive">Choose a category to save this transaction.</p>
-      )}
-      {transferCategoryError && <p className="text-sm text-destructive">{transferCategoryError}</p>}
-      <DatePicker value={date} onChange={setDate} />
+    </Field>
+  )
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between gap-3">
+        <PageHeader title="Add Transaction" />
+        {transactionType === 'expense' && <BillCapture />}
+      </div>
+      <SegmentedControl
+        options={[...TRANSACTION_TYPES]}
+        value={TRANSACTION_TYPES.find((option) => option.toLowerCase() === transactionType)!}
+        onChange={(value) => {
+          const nextType = value.toLowerCase() as TransactionType
+          setTransactionType(nextType)
+          setCategory(nextType === 'transfer' ? 'Self Transfer' : null)
+          setAccountId('')
+          setTransferToAccountId('')
+          setTransferAccountDirection('From')
+          if (nextType !== 'expense') setContext('Personal')
+        }}
+      />
+      <p className="text-xs text-muted-foreground">
+        <span aria-hidden="true" className="text-destructive">
+          *
+        </span>{' '}
+        Required
+      </p>
+      <Field label="Title" required>
+        <Input
+          autoFocus
+          aria-required="true"
+          placeholder="e.g., Lunch with team"
+          maxLength={120}
+          enterKeyHint="next"
+          value={title}
+          onChange={(e) => setTitle(e.target.value)}
+        />
+      </Field>
+      <CurrencyInput required value={amount} onChange={setAmount} />
+      <TransactionDatePicker value={date} onChange={setDate} />
+      {categoryField}
       {transactionType === 'transfer' ? (
         transferRequirement ? (
           <>
@@ -371,9 +451,13 @@ export default function AddExpense() {
             )}
             {transferUsesSource && (
               <label className="block">
-                <span className="label">From account</span>
+                <span className="label">
+                  From account
+                  <RequiredMark />
+                </span>
                 <Select
                   aria-label="From account"
+                  alignItemWithTrigger={false}
                   value={accountId}
                   onValueChange={setAccountId}
                   className="mt-1 normal-case"
@@ -389,9 +473,13 @@ export default function AddExpense() {
             )}
             {transferUsesDestination && (
               <label className="block">
-                <span className="label">To account</span>
+                <span className="label">
+                  To account
+                  <RequiredMark />
+                </span>
                 <Select
                   aria-label="To account"
+                  alignItemWithTrigger={false}
                   value={transferToAccountId}
                   onValueChange={setTransferToAccountId}
                   className="mt-1 normal-case"
@@ -414,9 +502,11 @@ export default function AddExpense() {
             {transactionType === 'income' || transactionType === 'refund'
               ? 'Received into'
               : 'Paid from'}
+            <RequiredMark />
           </span>
           {transactionAccounts.length > 0 ? (
             <Select
+              alignItemWithTrigger={false}
               aria-label={
                 transactionType === 'income' || transactionType === 'refund'
                   ? 'Received into'
@@ -441,14 +531,51 @@ export default function AddExpense() {
           )}
         </label>
       )}
+      <SectionTitle>Optional details</SectionTitle>
+      {context === 'Personal' && transactionType === 'expense' && (
+        <Field label="Merchant" optional>
+          <AutocompleteInput
+            aria-label="Merchant"
+            placeholder="Choose or enter a merchant"
+            value={merchant}
+            onChange={setMerchant}
+            options={merchants.map((item) => item.name)}
+          />
+        </Field>
+      )}
+      <Field label="Long Description" optional>
+        <textarea
+          aria-label="Long Description"
+          rows={4}
+          maxLength={1000}
+          placeholder="Add notes, items bought, or anything worth remembering"
+          value={longDescription}
+          onChange={(e) => setLongDescription(e.target.value)}
+          className="field min-h-24 resize-y"
+        />
+      </Field>
+      {transactionType === 'expense' && (
+        <div className="space-y-1.5">
+          <span className="label">Transaction context</span>
+          <SegmentedControl
+            options={[...CONTEXTS]}
+            value={context}
+            onChange={setContext}
+            variant="neutral"
+          />
+        </div>
+      )}
       {context === 'Personal' ? (
-        <Button
-          className="h-12 w-full rounded-card"
-          disabled={!valid || !accountSelected || !selectedCategory || !!transferCategoryError}
-          onClick={savePersonal}
-        >
-          Save {TRANSACTION_TYPES.find((option) => option.toLowerCase() === transactionType)}
-        </Button>
+        <>
+          <MissingHint missing={missing} />
+          <Button
+            className="h-12 w-full rounded-card"
+            disabled={!valid || !accountSelected || !selectedCategory || !!transferCategoryError}
+            onClick={savePersonal}
+          >
+            Save {TRANSACTION_TYPES.find((option) => option.toLowerCase() === transactionType)}
+          </Button>
+        </>
       ) : (
         <GroupFields
           key={context}
@@ -457,6 +584,7 @@ export default function AddExpense() {
           accountSelected={accountSelected}
           categorySelected={!!selectedCategory}
           amount={valid ? amount : 0}
+          missing={missing}
           onSubmit={saveShared}
           busy={post.isPending}
           error={post.error?.message ?? null}
