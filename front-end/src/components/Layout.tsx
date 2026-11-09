@@ -1,7 +1,9 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
+  BookOpen,
   CalendarCheck,
+  ChartNoAxesColumnIncreasing,
   Heart,
   House,
   Plus,
@@ -19,13 +21,16 @@ import { useSync } from '@/sync/SyncProvider'
 
 const tabs = [
   { to: '/money/home', label: 'Home', Icon: House },
-  { to: '/money/transactions', label: 'Transactions', Icon: Receipt },
+  { to: '/money/transactions', label: 'Ledger', Icon: Receipt },
   { to: '/money/groups', label: 'Groups', Icon: Users },
   { to: '/money/settings', label: 'Settings', Icon: SettingsIcon },
 ]
 
 const foodTabs = [
   { to: '/food/home', label: 'Home', Icon: House },
+  { to: '/food/diary', label: 'Diary', Icon: BookOpen },
+  { to: '/food/insights', label: 'Insights', Icon: ChartNoAxesColumnIncreasing },
+  { to: '/food/profile', label: 'Profile', Icon: User },
 ]
 
 const apps = [
@@ -49,8 +54,8 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
   const selectedApp = app === 'shared' ? null : app
   const comingSoon = selectedApp === 'habit'
   const appInfo = apps.find((app) => app.id === selectedApp) ?? apps[0]
-  const navigationItems =
-    selectedApp === 'food' ? foodTabs : selectedApp === 'habit' ? habitTabs : []
+  const navigationItems = selectedApp === 'food' ? foodTabs : tabs
+  const addPath = selectedApp === 'food' ? '/food/add' : '/money/expenses/new'
   const isOffline = sync.state === 'offline' || !navigator.onLine
   const syncMessage =
     sync.state === 'syncing'
@@ -174,7 +179,7 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
           aria-label={`${appInfo.label} navigation`}
           className="bottom-nav fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
         >
-          {navigationItems.map(({ label, Icon }) => (
+          {habitTabs.map(({ label, Icon }) => (
             <button
               key={label}
               type="button"
@@ -187,66 +192,35 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
             </button>
           ))}
         </nav>
-      ) : selectedApp === 'food' ? (
+      ) : (
         <nav
           aria-label={`${appInfo.label} navigation`}
-          className="bottom-nav fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+          className="bottom-nav fixed inset-x-0 bottom-0 z-10 mx-auto grid w-full max-w-md grid-cols-5 items-center justify-items-center py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
         >
-          {foodTabs.map(({ to, label, Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex min-w-16 flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 text-[11px] font-medium text-primary transition-colors ${
-                  isActive ? 'bg-primary/20 ring-1 ring-primary/30' : ''
-                }`
-              }
-            >
-              <Icon size={21} className="text-primary" />
-              {label}
-            </NavLink>
-          ))}
-        </nav>
-      ) : (
-        <nav className="bottom-nav fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]">
-          {tabs.slice(0, 2).map(({ to, label, Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex min-w-16 flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 text-[11px] font-medium text-primary transition-colors ${
-                  isActive
-                    ? 'bg-primary/20 ring-1 ring-primary/30'
-                    : ''
-                }`
-              }
-            >
-              <Icon size={21} className="text-primary" />
-              {label}
-            </NavLink>
-          ))}
-          <Link
-            to="/money/expenses/new"
-            aria-label="Add expense"
-            className={`gloss flex size-12 shrink-0 items-center justify-center rounded-full text-primary-foreground shadow-lg transition-transform active:scale-95 ${pathname === '/money/expenses/new' ? 'ring-2 ring-white/70' : ''}`}
-          >
-            <Plus size={23} strokeWidth={2.5} />
-          </Link>
-          {tabs.slice(2).map(({ to, label, Icon }) => (
-            <NavLink
-              key={to}
-              to={to}
-              className={({ isActive }) =>
-                `flex min-w-16 flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 text-[11px] font-medium text-primary transition-colors ${
-                  isActive
-                    ? 'bg-primary/20 ring-1 ring-primary/30'
-                    : ''
-                }`
-              }
-            >
-              <Icon size={21} className="text-primary" />
-              {label}
-            </NavLink>
+          {navigationItems.map(({ to, label, Icon }, index) => (
+            <Fragment key={to}>
+              {index === 2 && (
+                <Link
+                  to={addPath}
+                  aria-label={selectedApp === 'food' ? 'Add meal' : 'Add expense'}
+                  aria-current={pathname === addPath ? 'page' : undefined}
+                  className={`gloss flex size-12 shrink-0 items-center justify-center rounded-full text-primary-foreground shadow-lg transition-transform active:scale-95 ${pathname === addPath ? 'ring-2 ring-white/70' : ''}`}
+                >
+                  <Plus size={23} strokeWidth={2.5} />
+                </Link>
+              )}
+              <NavLink
+                to={to}
+                className={({ isActive }) =>
+                  `flex w-16 max-w-full flex-col items-center gap-0.5 rounded-2xl px-1 py-1.5 text-[11px] font-medium whitespace-nowrap text-primary transition-colors ${
+                    isActive ? 'bg-primary/20 ring-1 ring-primary/30' : ''
+                  }`
+                }
+              >
+                <Icon size={21} className="text-primary" />
+                {label}
+              </NavLink>
+            </Fragment>
           ))}
         </nav>
       )}

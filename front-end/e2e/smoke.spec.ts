@@ -49,6 +49,69 @@ test('scrolling to the bottom keeps navigation clearance on the app surface', as
   }
 })
 
+test('money and food navigation share item and icon alignment', async ({ page }) => {
+  await page.route('**/auth/refresh', (route) => route.abort())
+  await page.route('**/auth/login', (route) => route.abort())
+  await fakeSignIn(page)
+
+  for (const width of [320, 390, 768]) {
+    await page.setViewportSize({ width, height: 700 })
+    await page.goto('/money/home')
+    const moneyNav = page.getByRole('navigation', { name: 'My Money navigation' })
+    await expect(moneyNav.getByRole('link')).toHaveCount(5)
+
+    const getGeometry = () =>
+      page.locator('.bottom-nav a').evaluateAll((links) =>
+        links.map((link) => {
+          const item = link.getBoundingClientRect()
+          const icon = link.querySelector('svg')!.getBoundingClientRect()
+          return {
+            item: { x: item.x, y: item.y, width: item.width, height: item.height },
+            icon: { x: icon.x, y: icon.y, width: icon.width, height: icon.height },
+          }
+        }),
+      )
+
+    const moneyGeometry = await getGeometry()
+    for (const [label, path] of [
+      ['Ledger', '/money/transactions'],
+      ['Add expense', '/money/expenses/new'],
+      ['Groups', '/money/groups'],
+      ['Settings', '/money/settings'],
+      ['Home', '/money/home'],
+    ]) {
+      const link = moneyNav.getByRole('link', { name: label, exact: true })
+      await link.click()
+      await expect(page).toHaveURL(new RegExp(`${path}$`))
+      await expect(link).toHaveAttribute('aria-current', 'page')
+      expect(await getGeometry()).toEqual(moneyGeometry)
+    }
+
+    await page.getByRole('button', { name: 'MyFood' }).click()
+    const foodNav = page.getByRole('navigation', { name: 'MyFood navigation' })
+    await expect(foodNav.getByRole('link')).toHaveCount(5)
+    expect(await getGeometry()).toEqual(moneyGeometry)
+    expect(moneyGeometry.every(({ item }) => item.x >= 0 && item.x + item.width <= width)).toBe(
+      true,
+    )
+
+    for (const [label, path, heading] of [
+      ['Diary', '/food/diary', 'Diary'],
+      ['Add meal', '/food/add', 'Add a meal'],
+      ['Insights', '/food/insights', 'Insights'],
+      ['Profile', '/food/profile', 'Profile'],
+      ['Home', '/food/home', 'MyFood'],
+    ]) {
+      const link = foodNav.getByRole('link', { name: label, exact: true })
+      await link.click()
+      await expect(page).toHaveURL(new RegExp(`${path}$`))
+      await expect(link).toHaveAttribute('aria-current', 'page')
+      await expect(page.getByRole('heading', { name: heading, exact: true })).toBeVisible()
+      expect(await getGeometry()).toEqual(moneyGeometry)
+    }
+  }
+})
+
 test('signed-in shell shows tabs and settings', async ({ page }) => {
   await page.route('**/auth/refresh', (route) => route.abort())
   await page.route('**/auth/login', (route) => route.abort())
@@ -136,12 +199,12 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
     'color',
     'rgb(75, 139, 255)',
   )
-  await page.getByRole('link', { name: 'Transactions' }).click()
-  await expect(page.getByRole('link', { name: 'Transactions' })).toHaveAttribute(
+  await page.getByRole('link', { name: 'Ledger' }).click()
+  await expect(page.getByRole('link', { name: 'Ledger' })).toHaveAttribute(
     'aria-current',
     'page',
   )
-  await expect(page.getByRole('link', { name: 'Transactions' })).toHaveCSS(
+  await expect(page.getByRole('link', { name: 'Ledger' })).toHaveCSS(
     'color',
     'rgb(75, 139, 255)',
   )
@@ -185,7 +248,7 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   ).toBeVisible()
   await expect(
     page.getByRole('navigation', { name: 'MyFood navigation' }).getByRole('link'),
-  ).toHaveCount(1)
+  ).toHaveCount(5)
   await expect(page.locator('[data-app="food"]')).toHaveCSS('--primary', '#39c98a')
   await page.reload()
   await expect(appSelector.getByRole('button', { name: 'MyFood' })).toHaveAttribute(
@@ -193,7 +256,8 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
     'true',
   )
   await page.goto('/food/diary')
-  await expect(page).toHaveURL(/\/food\/home$/)
+  await expect(page).toHaveURL(/\/food\/diary$/)
+  await expect(page.getByRole('heading', { name: 'Diary' })).toBeVisible()
   await expect(page.getByText('Coming Soon')).toBeVisible()
   await appSelector.getByRole('button', { name: 'MyHabbit' }).click()
   await expect(page).toHaveURL(/\/habits\/today$/)
@@ -238,7 +302,7 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await expect(page).toHaveURL(/\/money\/budgets/)
   await expect(page.getByRole('heading', { name: 'Budgets' })).toBeVisible()
   await page.goto('/money/home')
-  await expect(page.getByRole('link', { name: 'Transactions' })).toBeVisible()
+  await expect(page.getByRole('link', { name: 'Ledger' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Insights' })).toHaveCount(0)
   const personalTabBoundsBeforeSelection = await personalLink.evaluate((element) => {
     const { x, width } = element.getBoundingClientRect()

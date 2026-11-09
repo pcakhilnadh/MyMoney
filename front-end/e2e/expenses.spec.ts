@@ -146,7 +146,7 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await expect(page.getByText('Amazon')).toBeVisible()
   await page.getByRole('link', { name: '← Account' }).click()
 
-  await page.getByRole('link', { name: 'Transactions' }).click()
+  await page.getByRole('link', { name: 'Ledger' }).click()
   await page.getByRole('button', { name: /Expense: Lunch/ }).click()
   page.once('dialog', async (dialog) => {
     expect(dialog.type()).toBe('confirm')

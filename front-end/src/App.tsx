@@ -21,6 +21,12 @@ import Layout from './components/Layout'
 import AccountDetail from './pages/AccountDetail'
 import BudgetCategoryDetail from './pages/BudgetCategoryDetail'
 import FoodHome from './pages/FoodHome'
+import {
+  FoodAdd,
+  FoodDiary,
+  FoodInsights,
+  FoodProfile,
+} from './pages/FoodSections'
 import HabitsHome from './pages/HabitsHome'
 import { CurrencyProvider } from './money/CurrencyContext'
 import { useInstall } from './pwa/useInstall'
@@ -119,6 +125,10 @@ export default function App() {
           <Route element={<Layout app="food" />}>
             <Route path="/food" element={<Navigate to="/food/home" replace />} />
             <Route path="/food/home" element={<FoodHome />} />
+            <Route path="/food/diary" element={<FoodDiary />} />
+            <Route path="/food/add" element={<FoodAdd />} />
+            <Route path="/food/insights" element={<FoodInsights />} />
+            <Route path="/food/profile" element={<FoodProfile />} />
             <Route path="/food/*" element={<Navigate to="/food/home" replace />} />
           </Route>
           <Route element={<Layout app="habit" />}>
