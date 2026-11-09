@@ -26,7 +26,7 @@ def upgrade() -> None:
     op.execute(
         f"""
         CREATE TABLE food_catalog_master (
-            id text PRIMARY KEY,
+            id text PRIMARY KEY DEFAULT gen_random_uuid()::text,
             base_food_name text NOT NULL,
             aliases text,
             description text,
