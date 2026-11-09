@@ -1,8 +1,8 @@
-import { useRef, useState, type FormEvent } from 'react'
-import { ChevronDown, Minus, Plus, ScanLine, Search, Trash2 } from 'lucide-react'
+import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { Check, Loader2, Minus, Plus, ScanLine, Search, Trash2, Utensils, X } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { api } from '@/auth/api'
-import { Button, PageHeader } from '@/components/kit'
+import { Button, PageHeader, Select } from '@/components/kit'
 import { ImageCapture } from '@/components/kit/ImageCapture'
 
 interface Food {
@@ -15,23 +15,27 @@ interface Portion {
   food: Food
   amount: string
   unit: Unit
-  countName: string
   baseAmount: number | null
 }
 
-const units: Record<Unit, { label: string; kind: 'mass' | 'volume' | 'count'; factor: number }> = {
-  g: { label: 'g', kind: 'mass', factor: 1 },
-  kg: { label: 'kg', kind: 'mass', factor: 1000 },
-  ml: { label: 'ml', kind: 'volume', factor: 1 },
-  litre: { label: 'litre', kind: 'volume', factor: 1000 },
-  tsp: { label: 'tsp (5 ml)', kind: 'volume', factor: 5 },
-  tbsp: { label: 'tbsp (15 ml)', kind: 'volume', factor: 15 },
-  cup: { label: 'cup (250 ml)', kind: 'volume', factor: 250 },
-  count: { label: 'count', kind: 'count', factor: 1 },
+const units: Record<
+  Unit,
+  { label: string; shortLabel: string; kind: 'mass' | 'volume' | 'count'; factor: number; step: number }
+> = {
+  g: { label: 'Grams (g)', shortLabel: 'g', kind: 'mass', factor: 1, step: 50 },
+  kg: { label: 'Kilograms (kg)', shortLabel: 'kg', kind: 'mass', factor: 1000, step: 0.5 },
+  ml: { label: 'Millilitres (ml)', shortLabel: 'ml', kind: 'volume', factor: 1, step: 50 },
+  litre: { label: 'Litres (L)', shortLabel: 'L', kind: 'volume', factor: 1000, step: 0.5 },
+  tsp: { label: 'Teaspoon (5 ml)', shortLabel: 'tsp', kind: 'volume', factor: 5, step: 0.5 },
+  tbsp: { label: 'Tablespoon (15 ml)', shortLabel: 'tbsp', kind: 'volume', factor: 15, step: 0.5 },
+  cup: { label: 'Cup (250 ml)', shortLabel: 'cup', kind: 'volume', factor: 250, step: 0.5 },
+  count: { label: 'Count', shortLabel: '', kind: 'count', factor: 1, step: 0.5 },
 }
 
+const SAVE_FEEDBACK_MS = 1800
+
 function formatAmount(value: number): string {
-  return String(Number(value.toFixed(6)))
+  return String(Number(value.toFixed(2)))
 }
 
 export default function FoodLog() {
@@ -42,7 +46,11 @@ export default function FoodLog() {
   const [message, setMessage] = useState('')
   const [portions, setPortions] = useState<Portion[]>([])
   const [scannerMessage, setScannerMessage] = useState(false)
+  const [saved, setSaved] = useState(false)
   const requestId = useRef(0)
+  const saveTimeout = useRef<number | undefined>(undefined)
+
+  useEffect(() => () => window.clearTimeout(saveTimeout.current), [])
 
   async function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -75,15 +83,24 @@ export default function FoodLog() {
     )
   }
 
+  function saveMeal() {
+    window.clearTimeout(saveTimeout.current)
+    setSaved(true)
+    saveTimeout.current = window.setTimeout(() => setSaved(false), SAVE_FEEDBACK_MS)
+  }
+
+  const itemWord = portions.length === 1 ? 'item' : 'items'
+
   return (
-    <div className="space-y-5">
-      <PageHeader title="Log Meal" />
-      <form onSubmit={search} className="flex items-center gap-2">
+    <div className="food-log space-y-6">
+      <PageHeader title="Log Meal" subtitle="Search, scan, and build your meal" />
+
+      <form onSubmit={search} className="surface flex items-center gap-2 rounded-[1.75rem] p-2">
         <input
-          className="field min-w-0 flex-1"
+          className="field h-12 min-w-0 flex-1 border-0"
           type="search"
           aria-label="Search foods"
-          placeholder="Search foods"
+          placeholder="Search for a food…"
           maxLength={100}
           value={query}
           onChange={(event) => {
@@ -93,8 +110,8 @@ export default function FoodLog() {
             setResults([])
           }}
         />
-        <Button type="submit" className="size-12 px-0" aria-label="Search">
-          <Search size={20} />
+        <Button type="submit" className="size-12 shrink-0 rounded-2xl px-0" aria-label="Search">
+          <Search size={19} />
         </Button>
         <ImageCapture
           title="Scan food"
@@ -104,86 +121,187 @@ export default function FoodLog() {
             <Button
               type="button"
               variant="outline"
-              className="size-12 px-0"
+              className="size-12 shrink-0 rounded-2xl px-0"
               aria-label="Scan food"
               onClick={() => {
                 setScannerMessage(false)
                 open()
               }}
             >
-              <ScanLine size={20} />
+              <ScanLine size={19} />
             </Button>
           )}
         />
       </form>
+
       {scannerMessage && (
-        <p role="status" className="text-sm text-muted-foreground">
-          Photo captured. Food analysis is not available yet; the photo was not saved.
-        </p>
-      )}
-      <section aria-labelledby="food-results-title" className="space-y-3">
-        <h2 id="food-results-title" className="text-sm font-semibold">Search results</h2>
-        <div aria-live="polite">
-          {status === 'idle' && <p className="text-sm text-muted-foreground">Search for a food to get started.</p>}
-          {status === 'searching' && (
-            <p role="status" className="text-sm text-primary">Searching foods…</p>
-          )}
-          {status === 'error' && <p role="alert" className="text-sm text-destructive">{message}</p>}
-          {status === 'done' && results.length === 0 && (
-            <p className="text-sm text-muted-foreground">No foods found. Try another search.</p>
-          )}
-          {status === 'done' && results.length > 0 && (
-            <div className="space-y-2">
-              <div className="flex flex-wrap gap-2">
-                {results.map((food) => {
-                  const added = portions.some((portion) => portion.food.id === food.id)
-                  return (
-                    <button
-                      key={food.id}
-                      type="button"
-                      aria-pressed={added}
-                      onClick={() => {
-                        setPortions((current) => current.some((portion) => portion.food.id === food.id)
-                          ? current.filter((portion) => portion.food.id !== food.id)
-                          : [...current, { food, amount: '100', unit: 'g', countName: '', baseAmount: 100 }])
-                      }}
-                      className="rounded-full border border-primary/30 bg-primary/10 px-3 py-2 text-sm font-medium text-primary focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary aria-pressed:bg-primary/20"
-                    >
-                      {food.name}{added && <span aria-hidden="true"> ✓</span>}
-                    </button>
-                  )
-                })}
-              </div>
-              {results.length === 50 && (
-                <p className="text-xs text-muted-foreground">Showing up to 50 foods. Refine your search for more.</p>
-              )}
-            </div>
-          )}
+        <div
+          role="status"
+          className="pop-in surface flex items-center gap-2.5 rounded-2xl px-4 py-3 text-sm text-muted-foreground"
+        >
+          <ScanLine size={16} className="shrink-0 text-primary" aria-hidden="true" />
+          <span className="min-w-0 flex-1">Photo captured. Food analysis is not available yet; the photo was not saved.</span>
+          <button
+            type="button"
+            aria-label="Dismiss photo notice"
+            onClick={() => setScannerMessage(false)}
+            className="tap-scale flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-primary/10 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
+          >
+            <X size={17} aria-hidden="true" />
+          </button>
         </div>
-      </section>
+      )}
+
+      {status !== 'idle' && (
+        <section
+          aria-labelledby="food-results-title"
+          className="pop-in surface space-y-3 rounded-[1.75rem] p-4"
+        >
+          <h2 id="food-results-title" aria-live="polite" className="flex items-center gap-2 text-sm font-semibold text-foreground/90">
+            {status === 'searching' ? (
+              <>
+                <Loader2 size={16} className="animate-spin text-primary" aria-hidden="true" />
+                Searching foods…
+              </>
+            ) : status === 'done' ? 'Search results' : 'Search'}
+          </h2>
+          <div aria-live="polite">
+            {status === 'searching' && (
+              <div aria-hidden="true" className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                {Array.from({ length: 6 }).map((_, index) => (
+                  <div key={index} className="well shimmer-pulse h-11 rounded-full" />
+                ))}
+              </div>
+            )}
+            {status === 'error' && (
+              <p role="alert" className="rounded-2xl bg-destructive/10 px-4 py-3 text-sm text-destructive">
+                {message}
+              </p>
+            )}
+            {status === 'done' && results.length === 0 && (
+              <p className="rounded-2xl bg-muted/50 px-4 py-3 text-sm text-muted-foreground">
+                No foods found. Try another search.
+              </p>
+            )}
+            {status === 'done' && results.length > 0 && (
+              <div className="space-y-2">
+                <div className="grid grid-cols-2 gap-2 sm:grid-cols-3">
+                  {results.map((food) => {
+                    const added = portions.some((portion) => portion.food.id === food.id)
+                    return (
+                      <button
+                        key={food.id}
+                        type="button"
+                        aria-pressed={added}
+                        title={food.name}
+                        onClick={() => {
+                          setPortions((current) =>
+                            current.some((portion) => portion.food.id === food.id)
+                              ? current.filter((portion) => portion.food.id !== food.id)
+                              : [
+                                  ...current,
+                                  { food, amount: '100', unit: 'g', baseAmount: 100 },
+                                ],
+                          )
+                        }}
+                        className={`tap-scale flex h-11 items-center justify-center gap-1.5 rounded-full border px-3 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary ${
+                          added
+                            ? 'border-primary/60 bg-primary/15 text-primary'
+                            : 'border-border/70 bg-transparent text-foreground/85 hover:border-primary/40 hover:text-primary'
+                        }`}
+                      >
+                        <span className="truncate">{food.name}</span>
+                        {added && <Check size={14} className="shrink-0" aria-hidden="true" />}
+                      </button>
+                    )
+                  })}
+                </div>
+                {results.length === 50 && (
+                  <p className="text-xs text-muted-foreground">
+                    Showing up to 50 foods. Refine your search for more.
+                  </p>
+                )}
+              </div>
+            )}
+          </div>
+        </section>
+      )}
+
       {portions.length > 0 && (
-        <section aria-labelledby="selected-foods-title" className="space-y-3">
-          <h2 id="selected-foods-title" className="text-sm font-semibold">Selected foods</h2>
-          <p className="text-xs text-muted-foreground">
-            These portions are a draft and are not saved.
-          </p>
-          {portions.map((portion) => {
-            const info = units[portion.unit]
-            const numericAmount = Number(portion.amount)
-            const validAmount = portion.amount.trim() !== '' && Number.isFinite(numericAmount) && numericAmount > 0 && portion.baseAmount !== null
-            return (
-              <details key={portion.food.id} open className="surface rounded-2xl">
-                <summary className="flex cursor-pointer list-none items-center gap-3 px-4 py-4 font-semibold [&::-webkit-details-marker]:hidden">
-                  <span className="min-w-0 flex-1">{portion.food.name}</span>
-                  <ChevronDown size={18} aria-hidden="true" />
-                </summary>
-                <div className="space-y-4 border-t border-border px-4 py-4">
-                  <div className="grid grid-cols-2 gap-3">
-                    <label className="space-y-1.5 text-sm">
-                      <span className="label">Amount</span>
+        <section
+          aria-labelledby="meal-title"
+          className="pop-in surface space-y-4 rounded-[1.75rem] p-4"
+        >
+          <div>
+            <h2 id="meal-title" className="text-sm font-semibold text-foreground/90">
+              Your meal
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              {portions.length} {itemWord} added to this meal
+            </p>
+          </div>
+          <div className="space-y-3">
+            {portions.map((portion) => {
+              const info = units[portion.unit]
+              const numericAmount = Number(portion.amount)
+              const validAmount =
+                portion.amount.trim() !== '' &&
+                Number.isFinite(numericAmount) &&
+                numericAmount > 0 &&
+                portion.baseAmount !== null
+              const decDisabled = !validAmount || numericAmount - info.step <= 0
+              return (
+                <div key={portion.food.id} className="food-item-card pop-in surface rounded-2xl p-3.5">
+                  <div className="flex items-start gap-3">
+                    <span
+                      aria-hidden="true"
+                      className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary"
+                    >
+                      <Utensils size={19} />
+                    </span>
+                    <div className="min-w-0 flex-1">
+                      <p className="truncate font-semibold">{portion.food.name}</p>
+                      {info.kind !== 'count' &&
+                        validAmount &&
+                        portion.unit !== 'g' &&
+                        portion.unit !== 'ml' && (
+                          <p className="mt-0.5 text-xs text-muted-foreground">
+                            ≈ {formatAmount(portion.baseAmount!)} {info.kind === 'mass' ? 'g' : 'ml'} total
+                            {info.kind === 'volume' ? ' · 1 cup = 250 ml' : ''}
+                          </p>
+                        )}
+                    </div>
+                    <button
+                      type="button"
+                      aria-label={`Remove ${portion.food.name}`}
+                      onClick={() =>
+                        setPortions((current) => current.filter((item) => item.food.id !== portion.food.id))
+                      }
+                      className="tap-scale flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
+                    >
+                      <Trash2 size={17} />
+                    </button>
+                  </div>
+
+                  <div className="mt-3 flex items-center gap-2">
+                    <button
+                      type="button"
+                      aria-label={`Decrease ${portion.food.name}`}
+                      disabled={decDisabled}
+                      onClick={() =>
+                        updatePortion(portion.food.id, (current) => {
+                          const amount = Math.max(0, numericAmount - info.step)
+                          return { ...current, amount: formatAmount(amount), baseAmount: amount * info.factor }
+                        })
+                      }
+                      className="tap-scale surface flex size-10 shrink-0 items-center justify-center rounded-full text-primary disabled:pointer-events-none disabled:opacity-30"
+                    >
+                      <Minus size={16} />
+                    </button>
+                    <div className="well flex h-10 flex-1 items-center justify-center gap-1.5 rounded-2xl px-2">
                       <input
-                        className="field"
                         type="number"
+                        inputMode="decimal"
                         min="0"
                         step="any"
                         aria-label={`Amount for ${portion.food.name}`}
@@ -194,87 +312,84 @@ export default function FoodLog() {
                           updatePortion(portion.food.id, (current) => ({
                             ...current,
                             amount,
-                            baseAmount: amount.trim() && Number.isFinite(value) ? value * units[current.unit].factor : null,
+                            baseAmount:
+                              amount.trim() && Number.isFinite(value) ? value * units[current.unit].factor : null,
                           }))
                         }}
+                        className="w-full min-w-0 border-0 bg-transparent text-center text-base font-semibold tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
                       />
-                    </label>
-                    <label className="space-y-1.5 text-sm">
-                      <span className="label">Unit</span>
-                      <select
-                        className="field"
-                        aria-label={`Unit for ${portion.food.name}`}
-                        value={portion.unit}
-                        onChange={(event) => {
-                          const nextUnit = event.target.value as Unit
-                          updatePortion(portion.food.id, (current) => {
-                            const previous = units[current.unit]
-                            const next = units[nextUnit]
-                            const baseAmount = previous.kind === next.kind
-                              ? current.baseAmount
-                              : next.kind === 'mass' ? 100 : next.kind === 'volume' ? 250 : 1
-                            const amount = baseAmount === null ? '' : formatAmount(baseAmount / next.factor)
-                            return { ...current, unit: nextUnit, amount, baseAmount }
-                          })
-                        }}
-                      >
-                        {Object.entries(units).map(([value, unit]) => (
-                          <option key={value} value={value}>{unit.label}</option>
-                        ))}
-                      </select>
-                    </label>
-                  </div>
-                  {!validAmount && <p className="text-sm text-destructive">Enter an amount greater than zero.</p>}
-                  {info.kind === 'count' && (
-                    <label className="block space-y-1.5 text-sm">
-                      <span className="label">What are you counting?</span>
-                      <input
-                        className="field"
-                        aria-label={`Count description for ${portion.food.name}`}
-                        placeholder="e.g. eggs or glasses"
-                        value={portion.countName}
-                        onChange={(event) => updatePortion(portion.food.id, (current) => ({
-                          ...current, countName: event.target.value,
-                        }))}
-                      />
-                    </label>
-                  )}
-                  {validAmount && info.kind !== 'count' && (
-                    <p className="text-xs text-muted-foreground">
-                      {formatAmount(portion.baseAmount!)} {info.kind === 'mass' ? 'g' : 'ml'}
-                      {info.kind === 'volume' ? ' (1 cup = 250 ml)' : ''}
-                    </p>
-                  )}
-                  <div className="flex items-center gap-2">
-                    <Button
-                      type="button" variant="outline" size="sm"
-                      aria-label={`Decrease ${portion.food.name}`}
-                      disabled={!validAmount || portion.baseAmount! <= (info.kind === 'count' ? 1 : 50)}
-                      onClick={() => updatePortion(portion.food.id, (current) => {
-                        const baseAmount = current.baseAmount! - (info.kind === 'count' ? 1 : 50)
-                        return { ...current, baseAmount, amount: formatAmount(baseAmount / info.factor) }
-                      })}
-                    ><Minus /> {info.kind === 'count' ? '1' : info.kind === 'mass' ? '50 g' : '50 ml'}</Button>
-                    <Button
-                      type="button" variant="outline" size="sm"
+                      {info.kind !== 'count' && (
+                        <span aria-hidden="true" className="shrink-0 text-sm font-medium text-muted-foreground">
+                          {info.shortLabel}
+                        </span>
+                      )}
+                    </div>
+                    <button
+                      type="button"
                       aria-label={`Increase ${portion.food.name}`}
-                      disabled={!validAmount}
-                      onClick={() => updatePortion(portion.food.id, (current) => {
-                        const baseAmount = current.baseAmount! + (info.kind === 'count' ? 1 : 50)
-                        return { ...current, baseAmount, amount: formatAmount(baseAmount / info.factor) }
-                      })}
-                    ><Plus /> {info.kind === 'count' ? '1' : info.kind === 'mass' ? '50 g' : '50 ml'}</Button>
-                    <Button
-                      type="button" variant="ghost" size="icon-lg"
-                      aria-label={`Remove ${portion.food.name}`}
-                      className="ml-auto"
-                      onClick={() => setPortions((current) => current.filter((item) => item.food.id !== portion.food.id))}
-                    ><Trash2 /></Button>
+                      onClick={() =>
+                        updatePortion(portion.food.id, (current) => {
+                          const base = validAmount ? numericAmount : 0
+                          const amount = base + info.step
+                          return { ...current, amount: formatAmount(amount), baseAmount: amount * info.factor }
+                        })
+                      }
+                      className="tap-scale surface flex size-10 shrink-0 items-center justify-center rounded-full text-primary"
+                    >
+                      <Plus size={16} />
+                    </button>
                   </div>
+                  <Select
+                    aria-label={`Unit for ${portion.food.name}`}
+                    alignItemWithTrigger={false}
+                    value={portion.unit}
+                    className="mt-2 min-h-11 py-0 font-medium normal-case"
+                    options={Object.entries(units).map(([value, unit]) => ({ value, label: unit.label }))}
+                    onValueChange={(value) => {
+                      const nextUnit = value as Unit
+                      updatePortion(portion.food.id, (current) => {
+                        const previous = units[current.unit]
+                        const next = units[nextUnit]
+                        const baseAmount =
+                          previous.kind === next.kind
+                            ? current.baseAmount
+                            : next.kind === 'mass'
+                              ? 100
+                              : next.kind === 'volume'
+                                ? 250
+                                : 1
+                        const amount = baseAmount === null ? '' : formatAmount(baseAmount / next.factor)
+                        return { ...current, unit: nextUnit, amount, baseAmount }
+                      })
+                    }}
+                  />
+                  {!validAmount && (
+                    <p className="mt-2 text-xs text-destructive">Enter an amount greater than zero.</p>
+                  )}
                 </div>
-              </details>
-            )
-          })}
+              )
+            })}
+          </div>
+
+          <div>
+            <Button
+              type="button"
+              className="w-full justify-center rounded-2xl"
+              onClick={saveMeal}
+              disabled={saved}
+            >
+              {saved ? (
+                <span className="check-pop flex items-center gap-2">
+                  <Check size={18} aria-hidden="true" /> Meal saved
+                </span>
+              ) : (
+                `Save meal · ${portions.length} ${itemWord}`
+              )}
+            </Button>
+            <p className="mt-2 text-center text-xs text-muted-foreground">
+              Saving will sync with your diary soon — for now this is just a preview.
+            </p>
+          </div>
         </section>
       )}
     </div>
