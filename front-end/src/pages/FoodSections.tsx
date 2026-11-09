@@ -1,7 +1,6 @@
 import {
   BookOpen,
   ChartNoAxesColumnIncreasing,
-  Plus,
   User,
   type LucideIcon,
 } from 'lucide-react'
@@ -38,16 +37,6 @@ export function FoodDiary() {
       title="Diary"
       description="Your meals and daily food log will live here."
       Icon={BookOpen}
-    />
-  )
-}
-
-export function FoodAdd() {
-  return (
-    <FoodPlaceholder
-      title="Add a meal"
-      description="Meal logging is on the way."
-      Icon={Plus}
     />
   )
 }

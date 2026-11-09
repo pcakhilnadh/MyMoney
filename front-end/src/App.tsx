@@ -21,8 +21,8 @@ import Layout from './components/Layout'
 import AccountDetail from './pages/AccountDetail'
 import BudgetCategoryDetail from './pages/BudgetCategoryDetail'
 import FoodHome from './pages/FoodHome'
+import FoodLog from './pages/FoodLog'
 import {
-  FoodAdd,
   FoodDiary,
   FoodInsights,
   FoodProfile,
@@ -126,7 +126,7 @@ export default function App() {
             <Route path="/food" element={<Navigate to="/food/home" replace />} />
             <Route path="/food/home" element={<FoodHome />} />
             <Route path="/food/diary" element={<FoodDiary />} />
-            <Route path="/food/add" element={<FoodAdd />} />
+            <Route path="/food/add" element={<FoodLog />} />
             <Route path="/food/insights" element={<FoodInsights />} />
             <Route path="/food/profile" element={<FoodProfile />} />
             <Route path="/food/*" element={<Navigate to="/food/home" replace />} />

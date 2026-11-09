@@ -97,7 +97,7 @@ test('money and food navigation share item and icon alignment', async ({ page })
 
     for (const [label, path, heading] of [
       ['Diary', '/food/diary', 'Diary'],
-      ['Add meal', '/food/add', 'Add a meal'],
+      ['Add meal', '/food/add', 'Log Meal'],
       ['Insights', '/food/insights', 'Insights'],
       ['Profile', '/food/profile', 'Profile'],
       ['Home', '/food/home', 'MyFood'],

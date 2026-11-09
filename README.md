@@ -38,6 +38,21 @@ Key ideas
   to renew sign-in. A member's Google name is saved on `group_members.display_name` only when they join a group.
 - Money is stored as integer **minor units** (paise) everywhere.
 
+## MyFood log
+
+The Food + button opens a food search against the shared `food_catalog_master`, matching names and
+aliases regardless of the catalogue row's `user_id`. Case-insensitive substring matches come first,
+followed by spelling-similar name and alias matches with a minimum score of 0.9; fuzzy matching
+starts at four letters or digits.
+The response contains at most 50 results. Fuzzy matching currently scans the catalogue in the API
+and does not use vector embeddings.
+The catalogue table must be populated separately; the migration creates it empty. Search requires
+an authenticated online session. Select search results to prepare portions in expandable cards.
+These portions are a temporary draft and are not saved to the diary. Food scanning is not yet available.
+Mass units are g and kg; volume units are ml, litre, tsp (5 ml), tbsp (15 ml), and cup
+(250 ml). Count is separate for items such as eggs or glasses; no mass or volume conversion is
+assumed for a count, and mass is not converted to volume.
+
 ## Adding a transaction
 
 Choose a transaction type, then enter its required details. Categories can be searched or created
