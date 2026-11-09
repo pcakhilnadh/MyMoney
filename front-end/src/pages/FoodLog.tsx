@@ -3,6 +3,7 @@ import { ChevronDown, Minus, Plus, ScanLine, Search, Trash2 } from 'lucide-react
 import { useAuth } from '@/auth/AuthContext'
 import { api } from '@/auth/api'
 import { Button, PageHeader } from '@/components/kit'
+import { ImageCapture } from '@/components/kit/ImageCapture'
 
 interface Food {
   id: string
@@ -95,19 +96,29 @@ export default function FoodLog() {
         <Button type="submit" className="size-12 px-0" aria-label="Search">
           <Search size={20} />
         </Button>
-        <Button
-          type="button"
-          variant="outline"
-          className="size-12 px-0"
-          aria-label="Scan food"
-          onClick={() => setScannerMessage(true)}
-        >
-          <ScanLine size={20} />
-        </Button>
+        <ImageCapture
+          title="Scan food"
+          photoDescription="a food photo"
+          onCapture={() => setScannerMessage(true)}
+          trigger={(open) => (
+            <Button
+              type="button"
+              variant="outline"
+              className="size-12 px-0"
+              aria-label="Scan food"
+              onClick={() => {
+                setScannerMessage(false)
+                open()
+              }}
+            >
+              <ScanLine size={20} />
+            </Button>
+          )}
+        />
       </form>
       {scannerMessage && (
         <p role="status" className="text-sm text-muted-foreground">
-          Food scanning is not available yet.
+          Photo captured. Food analysis is not available yet; the photo was not saved.
         </p>
       )}
       <section aria-labelledby="food-results-title" className="space-y-3">

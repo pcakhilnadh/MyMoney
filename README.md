@@ -48,7 +48,9 @@ The response contains at most 50 results. Fuzzy matching currently scans the cat
 and does not use vector embeddings.
 The catalogue table must be populated separately; the migration creates it empty. Search requires
 an authenticated online session. Select search results to prepare portions in expandable cards.
-These portions are a temporary draft and are not saved to the diary. Food scanning is not yet available.
+These portions are a temporary draft and are not saved to the diary. The food scanner can capture
+or upload one image using the same JPEG compression as bill capture, but it does not yet analyse
+or save the image.
 Mass units are g and kg; volume units are ml, litre, tsp (5 ml), tbsp (15 ml), and cup
 (250 ml). Count is separate for items such as eggs or glasses; no mass or volume conversion is
 assumed for a count, and mass is not converted to volume.
@@ -66,7 +68,7 @@ Captured photos match the camera's mirror-preview setting and are sent in the sa
 Review the suggestions and select an account before saving; analysis does not save a transaction.
 An internet connection is required. The provider has a three-minute read timeout, configured in
 `back-end/app/ai/provider.py`. The browser has a separate three-minute limit, configured in
-`front-end/src/components/kit/BillCapture.tsx`; its countdown is not AI completion progress. Since
+`front-end/src/components/kit/ImageCapture.tsx`; its countdown is not AI completion progress. Since
 the browser's limit includes upload and server processing, it can expire before the backend's read
 timeout. The server or provider may still finish processing, so wait before retrying. The server stores full AI requests (including receipt images)
 and responses in `ai_call_logs` for auditing, including failures and token usage when provided.
