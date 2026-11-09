@@ -1,5 +1,6 @@
 import base64
 import binascii
+import io
 import json
 import re
 from datetime import date, datetime, timezone
@@ -8,6 +9,7 @@ from typing import Literal
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException
+from PIL import Image as PILImage, ImageOps, UnidentifiedImageError
 from pydantic import BaseModel, Field, StrictBool, ValidationError, field_validator
 from sqlalchemy.orm import Session
 
@@ -19,7 +21,10 @@ from app.db import get_db
 from app.models import AICallLog, Profile
 
 router = APIRouter(prefix="/money/ai", tags=["money AI"])
-MAX_TOTAL_BYTES = 3 * 1024 * 1024
+MAX_TOTAL_BYTES = settings.max_image_upload_mb * 1024 * 1024
+MAX_COMPRESSED_TOTAL_BYTES = 3 * 1024 * 1024
+MAX_IMAGE_DIMENSION = 2000
+MAX_IMAGE_PIXELS = 40_000_000
 
 
 class Image(BaseModel):
@@ -67,11 +72,33 @@ class ExpenseResult(BaseModel):
     items: list[BillItem] = Field(default_factory=list)
 
 
-def _validate_images(images: list[Image]) -> None:
+def _compress_image(image: PILImage.Image, target_bytes: int) -> bytes:
+    image.thumbnail((MAX_IMAGE_DIMENSION, MAX_IMAGE_DIMENSION), PILImage.Resampling.LANCZOS)
+    for _ in range(12):
+        for quality in (85, 70, 55, 40):
+            output = io.BytesIO()
+            image.save(output, format="JPEG", quality=quality, optimize=True)
+            compressed = output.getvalue()
+            if len(compressed) <= target_bytes:
+                return compressed
+        width, height = image.size
+        if width == 1 and height == 1:
+            break
+        image = image.resize(
+            (max(1, int(width * 0.8)), max(1, int(height * 0.8))),
+            PILImage.Resampling.LANCZOS,
+        )
+    raise HTTPException(422, "Unable to compress image")
+
+
+def _validate_images(images: list[Image]) -> list[tuple[str, str]]:
     total = 0
+    decoded_images: list[tuple[Image, bytes]] = []
     for image in images:
         data = base64.b64decode(image.data)
         total += len(data)
+        if total > MAX_TOTAL_BYTES:
+            raise HTTPException(413, f"Images must total at most {settings.max_image_upload_mb} MB")
         valid = (
             (image.mime_type == "image/jpeg" and data.startswith(b"\xff\xd8\xff"))
             or (image.mime_type == "image/png" and data.startswith(b"\x89PNG\r\n\x1a\n"))
@@ -79,8 +106,34 @@ def _validate_images(images: list[Image]) -> None:
         )
         if not valid:
             raise HTTPException(422, "Unsupported or invalid image")
-    if total > MAX_TOTAL_BYTES:
-        raise HTTPException(413, "Images must total at most 3 MB")
+        decoded_images.append((image, data))
+
+    compressed_images = []
+    target_bytes = MAX_COMPRESSED_TOTAL_BYTES // len(decoded_images)
+    for image, data in decoded_images:
+        try:
+            with PILImage.open(io.BytesIO(data)) as source:
+                expected_format = {
+                    "image/jpeg": "JPEG",
+                    "image/png": "PNG",
+                    "image/webp": "WEBP",
+                }[image.mime_type]
+                if source.format != expected_format or source.width * source.height > MAX_IMAGE_PIXELS:
+                    raise HTTPException(422, "Unsupported or invalid image")
+                source.load()
+                converted = ImageOps.exif_transpose(source)
+                if converted.mode in ("RGBA", "LA") or "transparency" in converted.info:
+                    rgba = converted.convert("RGBA")
+                    background = PILImage.new("RGB", rgba.size, "white")
+                    background.paste(rgba, mask=rgba.getchannel("A"))
+                    converted = background
+                else:
+                    converted = converted.convert("RGB")
+                compressed = _compress_image(converted, target_bytes)
+        except (OSError, UnidentifiedImageError, PILImage.DecompressionBombError) as exc:
+            raise HTTPException(422, "Unsupported or invalid image") from exc
+        compressed_images.append(("image/jpeg", base64.b64encode(compressed).decode("ascii")))
+    return compressed_images
 
 
 def _redact_secret(value, secret: str):
@@ -102,13 +155,13 @@ def analyse_expense(
     user: Profile = Depends(get_current_user),
     db: Session = Depends(get_db),
 ) -> ExpenseResult:
-    _validate_images(body.images)
+    compressed_images = _validate_images(body.images)
     if settings.expense_ai_provider != "nvidia" or not settings.nvidia_api_key:
         raise HTTPException(503, "Expense AI is not configured")
     provider: Provider = NvidiaProvider(settings.nvidia_base_url, settings.nvidia_api_key)
     payload = provider.expense_request(
         settings.expense_ai_model,
-        [(image.mime_type, image.data) for image in body.images],
+        compressed_images,
         body.categories,
     )
     started_at = datetime.now(timezone.utc)

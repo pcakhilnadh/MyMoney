@@ -120,6 +120,8 @@ Open http://localhost:5173 and sign in with Google.
 | `back-end/.env` | `NVIDIA_API_KEY` | **Yes** | Required for bill analysis; never place it in the frontend or commit it |
 | `back-end/.env` | `EXPENSE_AI_PROVIDER` | No | Defaults to `nvidia` |
 | `back-end/.env` | `EXPENSE_AI_MODEL` | No | Defaults to `mistralai/mistral-large-4-1t-a52b`; must support image input |
+| `back-end/.env` | `MAX_IMAGE_UPLOAD_MB` | No | Max total bill image size accepted (before compression); defaults to `5` |
+| `front-end/.env` | `VITE_MAX_IMAGE_UPLOAD_MB` | No (public) | Frontend limit for bill images; defaults to `5`; keep in sync with the back-end value |
 | `back-end/.env` | `NVIDIA_BASE_URL` | No | Defaults to NVIDIA's chat completions endpoint |
 | `front-end/.env` | `VITE_GOOGLE_CLIENT_ID` | No (public) | Same client ID |
 | `front-end/.env` | `VITE_API_URL` | No | Defaults to `http://localhost:8000` |

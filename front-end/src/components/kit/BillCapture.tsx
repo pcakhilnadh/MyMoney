@@ -6,7 +6,48 @@ type Stage = 'closed' | 'camera' | 'preview'
 type Captured = { blob: Blob; url: string }
 
 const ANALYSIS_TIMEOUT_MS = 3 * 60 * 1000
+const MAX_SOURCE_MB = Number(import.meta.env.VITE_MAX_IMAGE_UPLOAD_MB) || 5
+const MAX_SOURCE_BYTES = MAX_SOURCE_MB * 1024 * 1024
+const MAX_COMPRESSED_BYTES = 3 * 1024 * 1024
+const MAX_IMAGE_DIMENSION = 2000
 const cameraSupported = () => typeof navigator.mediaDevices?.getUserMedia === 'function'
+
+async function compressImage(blob: Blob, targetBytes: number): Promise<Blob> {
+  const bitmap = await createImageBitmap(blob)
+  try {
+    const canvas = document.createElement('canvas')
+    const context = canvas.getContext('2d')
+    if (!context) throw new Error('Unable to prepare the photo for upload.')
+
+    let scale = Math.min(1, MAX_IMAGE_DIMENSION / Math.max(bitmap.width, bitmap.height))
+    while (true) {
+      canvas.width = Math.max(1, Math.round(bitmap.width * scale))
+      canvas.height = Math.max(1, Math.round(bitmap.height * scale))
+      context.fillStyle = '#fff'
+      context.fillRect(0, 0, canvas.width, canvas.height)
+      context.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+      for (const quality of [0.85, 0.7, 0.55, 0.4]) {
+        const compressed = await new Promise<Blob>((resolve, reject) => {
+          canvas.toBlob(
+            (result) => {
+              if (result) resolve(result)
+              else reject(new Error('Unable to compress the photo.'))
+            },
+            'image/jpeg',
+            quality,
+          )
+        })
+        if (compressed.size <= targetBytes) return compressed
+      }
+      if (canvas.width === 1 && canvas.height === 1) {
+        throw new Error('Unable to compress the photo enough to upload.')
+      }
+      scale *= 0.8
+    }
+  } finally {
+    bitmap.close()
+  }
+}
 
 function Modal({
   open,
@@ -311,18 +352,28 @@ export function BillCapture({ onAnalyse }: { onAnalyse: (images: Blob[], signal:
     setError(null)
   }
 
-  function selectImages(blobs: Blob[]) {
+  async function selectImages(blobs: Blob[]) {
     if (blobs.length > 3 || blobs.some((blob) => !['image/jpeg', 'image/png', 'image/webp'].includes(blob.type))) {
       setError('Choose up to 3 JPEG, PNG or WebP images.')
       return
     }
-    if (blobs.reduce((sum, blob) => sum + blob.size, 0) > 3 * 1024 * 1024) {
-      setError('Images must total at most 3 MB.')
+    if (blobs.reduce((sum, blob) => sum + blob.size, 0) > MAX_SOURCE_BYTES) {
+      setError(`Images must total at most ${MAX_SOURCE_MB} MB.`)
       return
     }
-    setError(null)
-    setImages(blobs.map((blob) => ({ blob, url: URL.createObjectURL(blob) })))
-    setStage('preview')
+    try {
+      const targetBytes = Math.floor(MAX_COMPRESSED_BYTES / blobs.length)
+      const compressed = await Promise.all(blobs.map((blob) => compressImage(blob, targetBytes)))
+      if (compressed.reduce((sum, blob) => sum + blob.size, 0) > MAX_COMPRESSED_BYTES) {
+        setError('Unable to reduce these images enough. Try choosing smaller photos.')
+        return
+      }
+      setError(null)
+      setImages(compressed.map((blob) => ({ blob, url: URL.createObjectURL(blob) })))
+      setStage('preview')
+    } catch (reason) {
+      setError(reason instanceof Error ? reason.message : 'Unable to prepare the photos for upload.')
+    }
   }
 
   return (

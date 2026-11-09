@@ -19,6 +19,7 @@ class Settings(BaseSettings):
     nvidia_base_url: str = "https://integrate.api.nvidia.com/v1/chat/completions"
     expense_ai_provider: str = "nvidia"
     expense_ai_model: str = "mistralai/mistral-large-4-1t-a52b"
+    max_image_upload_mb: int = 5
 
     model_config = {"env_file": ".env"}
 

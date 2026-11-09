@@ -1,19 +1,26 @@
 import base64
+import io
 import json
+import random
 import socket
 from datetime import datetime, timedelta, timezone
 
 import requests
+from PIL import Image as PILImage
 from sqlalchemy import select
 
 from app.ai import expense
+from app.ai.expense import Image as ExpenseImage
 from app.ai.provider import NvidiaProvider
 from app.config import settings
 from app.models import AICallLog
 from tests.conftest import H
+from fastapi import HTTPException
 
 
-IMAGE = base64.b64encode(b"\x89PNG\r\n\x1a\nexample").decode()
+image_buffer = io.BytesIO()
+PILImage.new("RGB", (16, 16), "white").save(image_buffer, format="PNG")
+IMAGE = base64.b64encode(image_buffer.getvalue()).decode()
 BODY = {"images": [{"mime_type": "image/png", "data": IMAGE}], "categories": ["Food", "Travel"]}
 
 
@@ -64,13 +71,52 @@ def test_expense_analysis_logs_full_request_response_and_usage(client, monkeypat
         log = db.scalar(select(AICallLog))
         assert log.status == "success"
         assert log.request_payload == seen[0]
-        assert IMAGE in json.dumps(log.request_payload)
+        image_data = seen[0]["messages"][0]["content"][1]["image_url"]["url"]
+        assert image_data.startswith("data:image/jpeg;base64,")
+        assert base64.b64decode(image_data.split(",", 1)[1]).startswith(b"\xff\xd8\xff")
         assert "test-key" not in json.dumps(log.request_payload)
         assert log.response_payload["usage"]["total_tokens"] == 35
         assert (log.input_tokens, log.output_tokens, log.total_tokens) == (23, 12, 35)
         assert log.completed_at is not None
         assert log.elapsed_ms is not None
         assert log.elapsed_ms >= 0
+
+
+def test_large_image_is_compressed_before_calling_provider(client, monkeypatch):
+    monkeypatch.setattr(settings, "nvidia_api_key", "test-key")
+    source = PILImage.frombytes("RGB", (1200, 1200), random.Random(1).randbytes(1200 * 1200 * 3))
+    image_buffer = io.BytesIO()
+    source.save(image_buffer, format="PNG")
+    original = image_buffer.getvalue()
+    assert 3 * 1024 * 1024 < len(original) < settings.max_image_upload_mb * 1024 * 1024
+    seen = []
+    monkeypatch.setattr(NvidiaProvider, "send", lambda self, payload: seen.append(payload) or provider_response({"is_bill": False}))
+    body = {
+        **BODY,
+        "images": [{"mime_type": "image/png", "data": base64.b64encode(original).decode()}],
+    }
+
+    result = client.post("/money/ai/expense", json=body, headers=H("alice"))
+
+    assert result.status_code == 200
+    compressed = seen[0]["messages"][0]["content"][1]["image_url"]["url"]
+    assert compressed.startswith("data:image/jpeg;base64,")
+    assert len(base64.b64decode(compressed.split(",", 1)[1])) < len(original)
+
+
+def test_images_over_configured_limit_are_rejected():
+    padded_image = base64.b64encode(image_buffer.getvalue() + b"\x00" * (3 * 1024 * 1024)).decode()
+    images = [
+        ExpenseImage(mime_type="image/png", data=padded_image),
+        ExpenseImage(mime_type="image/png", data=padded_image),
+    ]
+
+    try:
+        expense._validate_images(images)
+    except HTTPException as error:
+        assert error.status_code == 413
+    else:
+        raise AssertionError("Images over the configured limit should be rejected")
 
 
 def test_elapsed_time_is_null_while_pending_and_recorded_on_completion(client, monkeypatch):
