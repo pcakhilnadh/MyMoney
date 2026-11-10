@@ -14,7 +14,7 @@ from pydantic import BaseModel, Field, StrictBool, ValidationError, field_valida
 from sqlalchemy.orm import Session
 
 from app.ai.diagnostics import request_error_details, response_error_details
-from app.ai.provider import NvidiaProvider, Provider
+from app.ai.provider import DeepseekProvider, NvidiaProvider, Provider
 from app.auth import get_current_user
 from app.config import settings
 from app.db import get_db
@@ -156,9 +156,14 @@ def analyse_expense(
     db: Session = Depends(get_db),
 ) -> ExpenseResult:
     compressed_images = _validate_images(body.images)
-    if settings.expense_ai_provider != "nvidia" or not settings.nvidia_api_key:
+    if settings.expense_ai_provider == "deepseek" and settings.deepseek_api_key:
+        provider: Provider = DeepseekProvider(settings.deepseek_base_url, settings.deepseek_api_key)
+        api_key, base_url = settings.deepseek_api_key, settings.deepseek_base_url
+    elif settings.expense_ai_provider == "nvidia" and settings.nvidia_api_key:
+        provider = NvidiaProvider(settings.nvidia_base_url, settings.nvidia_api_key)
+        api_key, base_url = settings.nvidia_api_key, settings.nvidia_base_url
+    else:
         raise HTTPException(503, "Expense AI is not configured")
-    provider: Provider = NvidiaProvider(settings.nvidia_base_url, settings.nvidia_api_key)
     payload = provider.expense_request(
         settings.expense_ai_model,
         compressed_images,
@@ -166,9 +171,9 @@ def analyse_expense(
     )
     started_at = datetime.now(timezone.utc)
     log = AICallLog(
-        user_id=user.id, task="expense_analysis", provider="nvidia",
+        user_id=user.id, task="expense_analysis", provider=provider.name,
         model=settings.expense_ai_model, status="pending",
-        request_payload=_redact_secret(payload, settings.nvidia_api_key),
+        request_payload=_redact_secret(payload, api_key),
         created_at=started_at,
     )
     db.add(log)
@@ -181,7 +186,7 @@ def analyse_expense(
         except requests.exceptions.JSONDecodeError:
             raw = {"unparsed_body": response.text}
         log.response_payload = _redact_secret(
-            raw if isinstance(raw, dict) else {"body": raw}, settings.nvidia_api_key
+            raw if isinstance(raw, dict) else {"body": raw}, api_key
         )
         usage = provider.usage(raw) if isinstance(raw, dict) else {}
         if isinstance(usage, dict):
@@ -206,13 +211,13 @@ def analyse_expense(
         log.status = "success"
         return result
     except requests.Timeout as exc:
-        log.error = request_error_details(exc, settings.nvidia_base_url)
+        log.error = request_error_details(exc, base_url)
         raise HTTPException(504, "AI provider timed out. Please try again later.") from exc
     except requests.ConnectionError as exc:
-        log.error = request_error_details(exc, settings.nvidia_base_url)
+        log.error = request_error_details(exc, base_url)
         raise HTTPException(502, "Could not connect to the AI provider. Please try again later.") from exc
     except requests.RequestException as exc:
-        log.error = request_error_details(exc, settings.nvidia_base_url)
+        log.error = request_error_details(exc, base_url)
         raise HTTPException(502, "AI provider request failed. Please try again later.") from exc
     except (ValueError, KeyError, IndexError, TypeError, ValidationError) as exc:
         log.error = response_error_details(exc)

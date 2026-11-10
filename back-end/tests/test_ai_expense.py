@@ -47,7 +47,7 @@ def provider_response(content, status=200):
 
 
 def test_expense_analysis_logs_full_request_response_and_usage(client, monkeypatch):
-    monkeypatch.setattr(settings, "nvidia_api_key", "test-key")
+    monkeypatch.setattr(settings, "deepseek_api_key", "test-key")
     seen = []
 
     def send(self, payload):
@@ -83,7 +83,7 @@ def test_expense_analysis_logs_full_request_response_and_usage(client, monkeypat
 
 
 def test_large_image_is_compressed_before_calling_provider(client, monkeypatch):
-    monkeypatch.setattr(settings, "nvidia_api_key", "test-key")
+    monkeypatch.setattr(settings, "deepseek_api_key", "test-key")
     source = PILImage.frombytes("RGB", (1200, 1200), random.Random(1).randbytes(1200 * 1200 * 3))
     image_buffer = io.BytesIO()
     source.save(image_buffer, format="PNG")
@@ -120,7 +120,7 @@ def test_images_over_configured_limit_are_rejected():
 
 
 def test_elapsed_time_is_null_while_pending_and_recorded_on_completion(client, monkeypatch):
-    monkeypatch.setattr(settings, "nvidia_api_key", "test-key")
+    monkeypatch.setattr(settings, "deepseek_api_key", "test-key")
     started = datetime(2026, 11, 8, 10, 6, 29, 317830, tzinfo=timezone.utc)
     finished = started + timedelta(seconds=175, microseconds=62515)
 
@@ -150,7 +150,7 @@ def test_elapsed_time_is_null_while_pending_and_recorded_on_completion(client, m
 
 
 def test_non_bill_and_unknown_category(client, monkeypatch):
-    monkeypatch.setattr(settings, "nvidia_api_key", "test-key")
+    monkeypatch.setattr(settings, "deepseek_api_key", "test-key")
     monkeypatch.setattr(NvidiaProvider, "send", lambda self, payload: provider_response(
         {"is_bill": False, "total_amount": "not a number"}
     ))
@@ -165,7 +165,7 @@ def test_non_bill_and_unknown_category(client, monkeypatch):
 
 
 def test_failure_is_audited_and_invalid_input_does_not_call_provider(client, monkeypatch):
-    monkeypatch.setattr(settings, "nvidia_api_key", "test-key")
+    monkeypatch.setattr(settings, "deepseek_api_key", "test-key")
 
     def fail(self, payload):
         raise requests.Timeout("private connection details")
@@ -183,7 +183,7 @@ def test_failure_is_audited_and_invalid_input_does_not_call_provider(client, mon
         assert logs[0].status == "failed"
         details = json.loads(logs[0].error)
         assert details["exception"] == "Timeout"
-        assert details["endpoint_host"] == "integrate.api.nvidia.com"
+        assert details["endpoint_host"] == "api.deepseek.com"
         assert details["connect_timeout_seconds"] == 10
         assert details["read_timeout_seconds"] == 180
         assert "private connection details" not in logs[0].error
@@ -193,7 +193,7 @@ def test_failure_is_audited_and_invalid_input_does_not_call_provider(client, mon
 
 
 def test_connection_error_is_distinct_from_non_bill(client, monkeypatch):
-    monkeypatch.setattr(settings, "nvidia_api_key", "test-key")
+    monkeypatch.setattr(settings, "deepseek_api_key", "test-key")
 
     def fail(self, payload):
         raise requests.ConnectionError(socket.gaierror(-2, "private connection details"))
@@ -212,7 +212,7 @@ def test_connection_error_is_distinct_from_non_bill(client, monkeypatch):
 
 
 def test_provider_error_and_bad_json_are_logged(client, monkeypatch):
-    monkeypatch.setattr(settings, "nvidia_api_key", "test-key")
+    monkeypatch.setattr(settings, "deepseek_api_key", "test-key")
     monkeypatch.setattr(NvidiaProvider, "send", lambda self, payload: provider_response(
         {"error": "test-key"}, 429
     ))
@@ -231,7 +231,7 @@ def test_provider_error_and_bad_json_are_logged(client, monkeypatch):
 
 
 def test_invalid_response_diagnostics_exclude_sensitive_input(client, monkeypatch):
-    monkeypatch.setattr(settings, "nvidia_api_key", "test-key")
+    monkeypatch.setattr(settings, "deepseek_api_key", "test-key")
     monkeypatch.setattr(NvidiaProvider, "send", lambda self, payload: provider_response({
         "is_bill": True, "total_amount": "private receipt data",
     }))

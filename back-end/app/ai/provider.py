@@ -9,6 +9,8 @@ READ_TIMEOUT_SECONDS = 3 * 60
 
 
 class Provider(Protocol):
+    name: str
+
     def expense_request(self, model: str, images: list[tuple[str, str]], categories: list[str]) -> dict: ...
     def send(self, payload: dict) -> requests.Response: ...
     def content(self, response: dict) -> str: ...
@@ -16,6 +18,8 @@ class Provider(Protocol):
 
 
 class NvidiaProvider:
+    name = "nvidia"
+
     def __init__(self, url: str, api_key: str):
         self.url = url
         self.api_key = api_key
@@ -55,3 +59,17 @@ class NvidiaProvider:
     def usage(self, response: dict) -> dict:
         usage = response.get("usage", {})
         return usage if isinstance(usage, dict) else {}
+
+
+class DeepseekProvider(NvidiaProvider):
+    """DeepSeek's chat API is OpenAI-compatible: POST {base_url}/chat/completions."""
+
+    name = "deepseek"
+
+    def __init__(self, base_url: str, api_key: str):
+        super().__init__(f"{base_url.rstrip('/')}/chat/completions", api_key)
+
+    def expense_request(self, model: str, images: list[tuple[str, str]], categories: list[str]) -> dict:
+        payload = super().expense_request(model, images, categories)
+        payload["thinking"] = {"type": "disabled"}
+        return payload
