@@ -67,10 +67,8 @@ def test_hybrid_search_on_catalogue_spellings_and_ranking(client):
     assert response.status_code == 200
     results = response.json()
     assert results[0] == {"id": "test-exact", "name": "Chapathi test"}
-    assert {"id": "indb-ASC096", "name": "Chapati/Roti"} in results
-    assert not any(result["name"] == "Spicy corn chaat" for result in results)
-    assert not any(result["name"] == "Turkey breast with skin" for result in results)
-    assert len(results) <= 50
+    assert results == [{"id": "test-exact", "name": "Chapathi test"}]
+    assert len(results) <= 10
     assert len({result["id"] for result in results}) == len(results)
     assert client.get("/food/catalog", params={"q": "chapati"}, headers=H("bob")).json()[0] == {
         "id": "indb-ASC096", "name": "Chapati/Roti"
@@ -92,11 +90,11 @@ def test_fuzzy_search_matches_aliases_and_is_bounded(client):
         db.execute(insert(catalog), rows)
         db.commit()
     fuzzy = client.get("/food/catalog", params={"q": "chapathi"}, headers=H("alice")).json()
-    assert len(fuzzy) == 50
+    assert len(fuzzy) == 10
     alias = client.get("/food/catalog", params={"q": "beatan rice"}, headers=H("alice")).json()
     assert {"id": "alias", "name": "Rice flakes"} in alias
     exact = client.get("/food/catalog", params={"q": "chapati"}, headers=H("alice")).json()
-    assert len(exact) == 50
+    assert len(exact) == 10
     assert all("chapati" in item["name"].lower() for item in exact)
 
 

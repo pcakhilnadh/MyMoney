@@ -14,7 +14,7 @@ catalog = table(
     column("user_id", Uuid),
 )
 
-RESULT_LIMIT = 50
+RESULT_LIMIT = 10
 FUZZY_THRESHOLD = 0.9
 MIN_FUZZY_LENGTH = 4
 
@@ -54,11 +54,12 @@ def hybrid_food_search(db: Session, query: str) -> list[tuple[str, str]]:
         .limit(RESULT_LIMIT)
     ).all()
     results = [(row.id, row.base_food_name) for row in exact]
-    query_length = sum(len(word) for word in re.findall(r"\w+", query))
-    if len(results) == RESULT_LIMIT or query_length < MIN_FUZZY_LENGTH:
+    if results:
         return results
 
-    exact_ids = {row.id for row in exact}
+    query_length = sum(len(word) for word in re.findall(r"\w+", query))
+    if query_length < MIN_FUZZY_LENGTH:
+        return []
 
     def fuzzy_matches() -> Iterator[tuple[float, str, str]]:
         rows = db.execute(
@@ -66,12 +67,10 @@ def hybrid_food_search(db: Session, query: str) -> list[tuple[str, str]]:
             .execution_options(yield_per=500)
         )
         for row in rows:
-            if row.id in exact_ids:
-                continue
             score = fuzzy_score(query, row.base_food_name, row.aliases)
             if score >= FUZZY_THRESHOLD:
                 yield (-score, row.base_food_name, row.id)
 
-    # TODO: Combine vector similarity with these lexical results when embeddings are available.
-    fuzzy = nsmallest(RESULT_LIMIT - len(results), fuzzy_matches())
-    return results + [(food_id, name) for _, name, food_id in fuzzy]
+    # TODO: Put vector matches ahead of exact and fuzzy matches when embeddings are available.
+    fuzzy = nsmallest(RESULT_LIMIT, fuzzy_matches())
+    return [(food_id, name) for _, name, food_id in fuzzy]
