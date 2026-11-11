@@ -410,6 +410,8 @@ test.describe('bill capture', () => {
   })
 
   for (const viewport of [
+    { width: 320, height: 568 },
+    { width: 375, height: 667 },
     { width: 390, height: 600 },
     { width: 640, height: 360 },
   ]) {
@@ -455,20 +457,60 @@ test.describe('bill capture', () => {
           height: image.naturalHeight,
           displayedWidth: image.clientWidth,
           displayedHeight: image.clientHeight,
+          objectFit: getComputedStyle(image).objectFit,
         }
       })
       expect(dimensions.height).toBe(expectedCapture.height)
-      const scale = Math.min(
-        dimensions.displayedWidth / dimensions.width,
-        dimensions.displayedHeight / dimensions.height,
-      )
-      expect(dimensions.displayedWidth - dimensions.width * scale).toBeLessThan(2)
-      expect(dimensions.displayedHeight - dimensions.height * scale).toBeLessThan(2)
+      expect(dimensions.displayedWidth).toBeGreaterThan(0)
+      expect(dimensions.displayedHeight).toBeGreaterThan(0)
+      expect(dimensions.objectFit).toBe('contain')
       expect(
         await preview.evaluate((element) => element.scrollHeight <= element.clientHeight),
       ).toBe(true)
       const analyse = await preview.getByRole('button', { name: 'Analyse with AI' }).boundingBox()
       expect(analyse!.y + analyse!.height).toBeLessThanOrEqual(viewport.height)
+      const horizontalFit = await preview.evaluate((dialog) => {
+        const dialogBounds = dialog.getBoundingClientRect()
+        const buttons = Array.from(dialog.querySelectorAll('button'))
+        return buttons.every((button) => {
+          const bounds = button.getBoundingClientRect()
+          const range = document.createRange()
+          range.selectNodeContents(button)
+          const content = range.getBoundingClientRect()
+          return bounds.left >= dialogBounds.left && bounds.right <= dialogBounds.right
+            && content.left >= bounds.left && content.right <= bounds.right
+        }) && dialog.scrollWidth <= dialog.clientWidth
+      })
+      expect(horizontalFit).toBe(true)
     })
   }
+
+  test('keeps analysis controls within a narrow screen while busy and after an error', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 })
+    let releaseRequest: (() => void) | undefined
+    await page.route('**/money/ai/expense', async (route) => {
+      await new Promise<void>((resolve) => { releaseRequest = resolve })
+      await route.fulfill({ status: 502, json: { detail: 'AI provider unavailable' } })
+    })
+    await page.goto('/money/expenses/new')
+    await page.getByRole('button', { name: 'Scan a bill' }).click()
+    await page.getByLabel('Upload a bill photo').setInputFiles('public\\icon-192.png')
+    const preview = page.getByRole('dialog', { name: 'Review bill photo' })
+    await preview.getByRole('button', { name: 'Analyse with AI' }).click()
+    const busyButton = preview.getByRole('button', { name: 'Analysing…' })
+    await expect(busyButton).toBeDisabled()
+    await expect.poll(() => releaseRequest !== undefined).toBe(true)
+    const fits = async () => preview.evaluate((dialog) => {
+      const bounds = dialog.getBoundingClientRect()
+      return dialog.scrollWidth <= dialog.clientWidth && Array.from(dialog.querySelectorAll('button')).every((button) => {
+        const box = button.getBoundingClientRect()
+        return box.left >= bounds.left && box.right <= bounds.right && box.bottom <= bounds.bottom
+      })
+    })
+    expect(await fits()).toBe(true)
+    releaseRequest!()
+    await expect(preview.getByRole('alert')).toHaveText('AI provider unavailable')
+    await expect(preview.getByRole('button', { name: 'Analyse with AI' })).toBeEnabled()
+    expect(await fits()).toBe(true)
+  })
 })

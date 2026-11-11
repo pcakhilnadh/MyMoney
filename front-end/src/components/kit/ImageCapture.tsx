@@ -82,9 +82,9 @@ function Modal({
       onClick={(event) => {
         if (event.target === event.currentTarget) onClose()
       }}
-      className="m-auto max-h-[calc(100dvh-1rem)] w-[min(92vw,26rem)] overflow-hidden bg-transparent p-0 text-foreground backdrop:bg-black/75 backdrop:backdrop-blur-sm"
+      className="m-auto max-h-[calc(100dvh-1rem)] w-[min(calc(100vw-1rem),26rem)] overflow-y-auto bg-transparent p-0 text-foreground backdrop:bg-black/75 backdrop:backdrop-blur-sm"
     >
-      {open && <div className="surface rounded-card p-3 shadow-2xl">{children}</div>}
+      {open && <div className="surface rounded-card p-3 shadow-2xl sm:p-4">{children}</div>}
     </dialog>
   )
 }
@@ -95,12 +95,14 @@ function CameraView({
   title,
   photoDescription,
   multiple,
+  selectionError,
 }: {
   onCapture: (blobs: Blob[]) => void
   onCancel: () => void
   title: string
   photoDescription: string
   multiple: boolean
+  selectionError: string | null
 }) {
   const videoRef = useRef<HTMLVideoElement>(null)
   const galleryRef = useRef<HTMLInputElement>(null)
@@ -198,27 +200,33 @@ function CameraView({
   )
 
   return (
-    <div className="flex h-[min(40rem,calc(100dvh-3rem))] flex-col gap-2">
-      <div className="flex items-center justify-between">
-        <h2 className="text-lg font-semibold">{title}</h2>
+    <div className="flex h-[min(40rem,calc(100dvh-3.5rem))] min-h-0 flex-col gap-2">
+      <div className="flex shrink-0 items-center gap-3">
+        <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+          <Camera aria-hidden="true" size={19} />
+        </span>
+        <div className="min-w-0 flex-1">
+          <h2 className="text-base font-semibold">{title}</h2>
+          <p className="text-xs text-muted-foreground">Take a photo or choose from your gallery</p>
+        </div>
         <button
           type="button"
           aria-label="Close camera"
           onClick={onCancel}
-          className="flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-primary/10 hover:text-foreground"
+          className="flex size-10 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-primary/10 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
         >
           <X aria-hidden="true" size={18} />
         </button>
       </div>
       {error ? (
-        <div className="space-y-3 rounded-2xl bg-secondary/60 p-4 text-sm">
-          <p className="text-muted-foreground">{error}</p>
+        <div className="min-h-0 flex-1 overflow-y-auto rounded-2xl border border-primary/15 bg-secondary/60 p-4 text-sm">
+          <p className="mb-3 text-muted-foreground">{error}</p>
           <Button className="w-full" onClick={() => cameraAppRef.current?.click()}>
             <Camera aria-hidden="true" /> Take a photo
           </Button>
         </div>
       ) : (
-        <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-black">
+        <div className="relative min-h-12 flex-1 overflow-hidden rounded-2xl border border-primary/25 bg-black">
           <video
             ref={videoRef}
             playsInline
@@ -235,24 +243,30 @@ function CameraView({
           )}
           <div
             aria-hidden="true"
-            className="pointer-events-none absolute inset-6 rounded-xl border-2 border-dashed border-white/40"
+            className="pointer-events-none absolute inset-4 rounded-xl border border-dashed border-primary/70"
           />
+          {ready && (
+            <p className="pointer-events-none absolute inset-x-4 bottom-5 rounded-xl bg-black/65 px-3 py-2 text-center text-xs text-white/90">
+              Keep your subject within the frame
+            </p>
+          )}
         </div>
       )}
       {!error && (
-        <div className="flex h-10 shrink-0 items-center justify-end text-xs">
+        <div className="flex shrink-0 items-center justify-center text-xs">
           <button
             type="button"
             aria-pressed={mirrored}
             onClick={() => setMirrored((current) => !current)}
-            className="shrink-0 rounded-lg px-2 py-1 text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+            className="shrink-0 rounded-lg px-3 py-2 text-primary hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
           >
             Mirror preview {mirrored ? 'on' : 'off'}
           </button>
         </div>
       )}
-      <div className="flex items-center justify-between gap-3">
-        <Button variant="outline" size="sm" onClick={() => galleryRef.current?.click()}>
+      {selectionError && <p role="alert" className="shrink-0 text-sm text-destructive">{selectionError}</p>}
+      <div className="flex shrink-0 items-center justify-between gap-2">
+        <Button variant="outline" size="sm" className="h-10 px-3" onClick={() => galleryRef.current?.click()}>
           <ImagePlus aria-hidden="true" /> Upload
         </Button>
         {!error && (
@@ -261,12 +275,12 @@ function CameraView({
             aria-label="Capture photo"
             disabled={!ready}
             onClick={snap}
-            className="gloss flex size-16 items-center justify-center rounded-full ring-4 ring-primary/30 transition active:scale-95 disabled:opacity-40"
+            className="gloss flex size-14 shrink-0 items-center justify-center rounded-full ring-4 ring-primary/30 transition active:scale-95 disabled:opacity-40"
           >
-            <span className="size-12 rounded-full border-2 border-white/80" />
+            <span className="size-10 rounded-full border-2 border-white/80" />
           </button>
         )}
-        <Button variant="ghost" size="sm" onClick={onCancel}>
+        <Button variant="ghost" size="sm" className="h-10 px-3" onClick={onCancel}>
           Cancel
         </Button>
       </div>
@@ -433,24 +447,27 @@ export function ImageCapture({
             title={title}
             photoDescription={photoDescription}
             multiple={Boolean(review)}
+            selectionError={error}
           />
         )}
-        {stage === 'camera' && error && <p role="alert" className="text-sm text-destructive">{error}</p>}
         {stage === 'preview' && review && images.length > 0 && (
-          <div className="flex h-[min(40rem,calc(100dvh-3rem))] flex-col gap-2">
-            <div className="flex items-center justify-between">
-              <h2 className="text-lg font-semibold">{review.title}</h2>
+          <div className="flex h-[min(40rem,calc(100dvh-3.5rem))] min-h-0 flex-col gap-2">
+            <div className="flex shrink-0 items-center gap-3">
+              <span className="flex size-10 shrink-0 items-center justify-center rounded-2xl bg-primary/15 text-primary">
+                <ImagePlus aria-hidden="true" size={19} />
+              </span>
+              <h2 className="min-w-0 flex-1 text-base font-semibold">{review.title}</h2>
               <button
                 type="button"
                 aria-label="Close preview"
                 onClick={close}
                 disabled={busy}
-                className="flex size-9 items-center justify-center rounded-full text-muted-foreground hover:bg-primary/10 hover:text-foreground"
+                className="flex size-10 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-primary/10 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
               >
                 <X aria-hidden="true" size={18} />
               </button>
             </div>
-            <div className="relative min-h-0 flex-1 overflow-hidden rounded-2xl bg-black">
+            <div className="relative min-h-12 flex-1 overflow-hidden rounded-2xl border border-primary/25 bg-black">
               <div className="flex size-full gap-1 overflow-auto">
                 {images.map((image, index) => (
                   <img
@@ -463,19 +480,19 @@ export function ImageCapture({
               </div>
               {busy && <div aria-hidden="true" className="bill-scan-overlay" />}
             </div>
-            <p className="flex h-10 shrink-0 items-center justify-center text-center text-xs text-muted-foreground">
+            <p className="shrink-0 px-1 text-center text-xs leading-4 text-muted-foreground">
               {busy
                 ? `${review.progressLabel} · ${Math.ceil(remainingMs / 1000)}s`
                 : review.notice}
             </p>
             {busy && <span role="status" className="sr-only">AI analysis in progress. The timer shows the time limit, not analysis progress.</span>}
-            {error && <p role="alert" className="text-sm text-destructive">{error}</p>}
-            <div className="flex min-h-16 items-center gap-3">
-              <Button variant="outline" className="flex-1" disabled={busy} onClick={() => setStage('camera')}>
+            {error && <p role="alert" className="shrink-0 text-sm text-destructive">{error}</p>}
+            <div className="grid shrink-0 grid-cols-1 gap-2 min-[380px]:grid-cols-[minmax(0,1fr)_minmax(0,1.5fr)]">
+              <Button variant="outline" className="min-w-0 px-2" disabled={busy} onClick={() => setStage('camera')}>
                 <RefreshCw aria-hidden="true" /> Retake
               </Button>
               <div ref={analysisButtonRef} className="relative min-w-0 flex-1">
-                <Button className="w-full" disabled={busy} onClick={() => void analyse()}>
+                <Button className="w-full min-w-0 px-2" disabled={busy} onClick={() => void analyse()}>
                   <Sparkles aria-hidden="true" /> {busy ? 'Analysing…' : review.actionLabel}
                 </Button>
                 {busy && outline.width > 0 && (

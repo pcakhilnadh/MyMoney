@@ -252,6 +252,7 @@ test.describe('food scanner', () => {
   })
 
   test('captures and compresses a photo without uploading it', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 })
     const uploads: string[] = []
     page.on('request', (request) => {
       if (request.method() === 'POST' && !request.url().includes('/auth/')) uploads.push(request.url())
@@ -266,6 +267,16 @@ test.describe('food scanner', () => {
     await expect(dialog.getByRole('button', { name: 'Mirror preview off' })).toBeVisible()
     const capture = dialog.getByRole('button', { name: 'Capture photo' })
     await expect(capture).toBeEnabled()
+    expect(await dialog.evaluate((element) => {
+      const bounds = element.getBoundingClientRect()
+      return element.scrollWidth <= element.clientWidth
+        && element.scrollHeight <= element.clientHeight
+        && Array.from(element.querySelectorAll('button')).every((button) => {
+          const box = button.getBoundingClientRect()
+          return box.left >= bounds.left && box.right <= bounds.right
+            && box.top >= bounds.top && box.bottom <= bounds.bottom
+        })
+    })).toBe(true)
     const video = dialog.getByLabel('Camera preview')
     await video.evaluate((element) => {
       const stream = (element as HTMLVideoElement).srcObject as MediaStream
