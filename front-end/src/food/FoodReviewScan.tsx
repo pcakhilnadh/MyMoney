@@ -13,7 +13,7 @@ export interface ScanItem {
   canonical_name: string
   qty: number
   unit: 'g' | 'kg' | 'ml' | 'L' | 'Nos'
-  kcal: number
+  cal: number
   food_type: FoodType
   food_category: Category
 }
@@ -203,7 +203,7 @@ export default function FoodReviewScan({
               <MealPortionCard
                 key={item.key}
                 portion={item.portion}
-                estimatedCalories={item.scan.kcal}
+                estimatedCalories={item.scan.cal}
                 removeLabel={`Remove ${item.scan.name}`}
                 onRemove={() => remove(item.key)}
                 onChange={(update) =>
@@ -249,7 +249,7 @@ export default function FoodReviewScan({
                   <span aria-hidden="true" className="mx-1">
                     ·
                   </span>
-                  <span className="font-medium">{item.scan.kcal} kcal</span>
+                  <span className="font-medium">{item.scan.cal} cal</span>
                 </p>
                 <button
                   type="button"

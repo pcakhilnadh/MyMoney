@@ -19,7 +19,7 @@ buffer = io.BytesIO()
 PILImage.new("RGB", (16, 16), "white").save(buffer, format="PNG")
 image = {"mime_type": "image/png", "data": base64.b64encode(buffer.getvalue()).decode()}
 table = (
-    "items[2]{name,canonical_name,qty,unit,kcal,food_type,food_category}:\n"
+    "items[2]{name,canonical_name,qty,unit,cal,food_type,food_category}:\n"
     "  Rice puttu,rice puttu,100,g,130,processed,grain\n"
     "  Sambar,sambar,150,ml,90,processed,legume"
 )
@@ -45,7 +45,7 @@ def test_food_analysis_uses_configured_provider_and_audits(client, monkeypatch):
     assert result.status_code == 200
     assert result.json()["items"][0] == {
         "name": "Rice puttu", "canonical_name": "rice puttu", "qty": 100,
-        "unit": "g", "kcal": 130, "food_type": "processed", "food_category": "grain",
+        "unit": "g", "cal": 130, "food_type": "processed", "food_category": "grain",
     }
     assert seen[0]["model"] == settings.expense_ai_model
     assert seen[0]["thinking"] == {"type": "disabled"}
@@ -60,9 +60,9 @@ def test_food_analysis_uses_configured_provider_and_audits(client, monkeypatch):
 
 @pytest.mark.parametrize("content", [
     "items[1]:\n  Egg,egg,1,Nos,70,raw,egg",
-    "items[2]{name,canonical_name,qty,unit,kcal,food_type,food_category}:\n  Egg,egg,1,Nos,70,raw,egg",
-    "items[1]{name,canonical_name,qty,unit,kcal,food_type,food_category}:\n  Egg,egg,1,cup,70,raw,egg",
-    "items[1]{name,canonical_name,qty,unit,kcal,food_type,food_category}:\n  Egg,egg,NaN,Nos,70,raw,egg",
+    "items[2]{name,canonical_name,qty,unit,cal,food_type,food_category}:\n  Egg,egg,1,Nos,70,raw,egg",
+    "items[1]{name,canonical_name,qty,unit,cal,food_type,food_category}:\n  Egg,egg,1,cup,70,raw,egg",
+    "items[1]{name,canonical_name,qty,unit,cal,food_type,food_category}:\n  Egg,egg,NaN,Nos,70,raw,egg",
     "```items[0]:```",
 ])
 def test_invalid_food_response_is_rejected_and_logged(client, monkeypatch, content):

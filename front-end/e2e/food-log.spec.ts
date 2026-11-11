@@ -345,9 +345,9 @@ test.describe('food scanner', () => {
     await page.route('**/food/ai/food-analyse', async (route) => {
       analysisBody = route.request().postDataJSON()
       await route.fulfill({ json: { items: [
-        { name: 'Rice puttu', canonical_name: 'rice puttu', qty: 100, unit: 'g', kcal: 130, food_type: 'processed', food_category: 'grain' },
-        { name: 'Sambar', canonical_name: 'sambar', qty: 150, unit: 'ml', kcal: 90, food_type: 'processed', food_category: 'legume' },
-        { name: 'Curry', canonical_name: 'curry', qty: 100, unit: 'g', kcal: 100, food_type: 'processed', food_category: 'legume' },
+        { name: 'Rice puttu', canonical_name: 'rice puttu', qty: 100, unit: 'g', cal: 130, food_type: 'processed', food_category: 'grain' },
+        { name: 'Sambar', canonical_name: 'sambar', qty: 150, unit: 'ml', cal: 90, food_type: 'processed', food_category: 'legume' },
+        { name: 'Curry', canonical_name: 'curry', qty: 100, unit: 'g', cal: 100, food_type: 'processed', food_category: 'legume' },
       ] } })
     })
     await page.route('**/food/catalog/search-batch', async (route) => {
@@ -400,8 +400,8 @@ test.describe('food scanner', () => {
     const gate = new Promise<void>((resolve) => { releaseSearch = resolve })
     let searchCount = 0
     await page.route('**/food/ai/food-analyse', (route) => route.fulfill({ json: { items: [
-      { name: 'Rice', canonical_name: 'rice', qty: 1.5, unit: 'kg', kcal: 400, food_type: 'processed', food_category: 'grain' },
-      { name: 'Egg', canonical_name: 'egg', qty: 2, unit: 'Nos', kcal: 140, food_type: 'processed', food_category: 'egg' },
+      { name: 'Rice', canonical_name: 'rice', qty: 1.5, unit: 'kg', cal: 400, food_type: 'processed', food_category: 'grain' },
+      { name: 'Egg', canonical_name: 'egg', qty: 2, unit: 'Nos', cal: 140, food_type: 'processed', food_category: 'egg' },
     ] } }))
     await page.route('**/food/catalog/search-batch', async (route) => {
       searchCount += 1
@@ -456,7 +456,7 @@ test.describe('food scanner', () => {
   test('handles empty analysis and failed batch searches without losing scan items', async ({ page }) => {
     let analysisCount = 0
     let batches = 0
-    const scan = { name: 'Egg', canonical_name: 'egg', qty: 1, unit: 'Nos', kcal: 70, food_type: 'processed', food_category: 'egg' }
+    const scan = { name: 'Egg', canonical_name: 'egg', qty: 1, unit: 'Nos', cal: 70, food_type: 'processed', food_category: 'egg' }
     await page.route('**/food/ai/food-analyse', (route) => {
       analysisCount += 1
       return route.fulfill({ json: { items: analysisCount === 1 ? [] : Array.from({ length: 11 }, () => scan) } })

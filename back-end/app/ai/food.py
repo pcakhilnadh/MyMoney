@@ -25,7 +25,7 @@ class FoodAnalysisItem(BaseModel):
     canonical_name: str = Field(min_length=1, max_length=100)
     qty: float = Field(gt=0, allow_inf_nan=False)
     unit: Literal["g", "kg", "ml", "L", "Nos"]
-    kcal: int = Field(ge=0)
+    cal: int = Field(ge=0)
     food_type: FoodType
     food_category: FoodCategory
 
@@ -46,14 +46,14 @@ def parse_food_table(content: str) -> FoodAnalysisResult:
     lines = content.strip().splitlines()
     if not lines:
         raise ValueError("Empty food analysis")
-    header = re.fullmatch(r"items\[(\d+)\](?:\{name,canonical_name,qty,unit,kcal,food_type,food_category\})?:", lines[0])
+    header = re.fullmatch(r"items\[(\d+)\](?:\{name,canonical_name,qty,unit,cal,food_type,food_category\})?:", lines[0])
     if not header:
         raise ValueError("Invalid food analysis header")
     count = int(header.group(1))
     if count > 100 or count != len(lines) - 1:
         raise ValueError("Invalid food analysis row count")
     expected_header = "items[0]:" if count == 0 else (
-        f"items[{count}]{{name,canonical_name,qty,unit,kcal,food_type,food_category}}:"
+        f"items[{count}]{{name,canonical_name,qty,unit,cal,food_type,food_category}}:"
     )
     if lines[0] != expected_header:
         raise ValueError("Invalid food analysis header")
@@ -65,7 +65,7 @@ def parse_food_table(content: str) -> FoodAnalysisResult:
         if len(values) != 7:
             raise ValueError("Invalid food analysis columns")
         items.append(FoodAnalysisItem.model_validate(dict(zip(
-            ("name", "canonical_name", "qty", "unit", "kcal", "food_type", "food_category"), values
+            ("name", "canonical_name", "qty", "unit", "cal", "food_type", "food_category"), values
         ))))
     return FoodAnalysisResult(items=items)
 

@@ -41,7 +41,7 @@ export function MealPortionCard({
           <p className="truncate font-semibold">{portion.food.name}</p>
           {estimatedCalories !== undefined && (
             <p className="mt-0.5 text-xs text-muted-foreground">
-              AI estimate: {estimatedCalories} kcal for the scanned portion
+              AI estimate: {estimatedCalories} cal for the scanned portion
             </p>
           )}
           {info.kind !== 'count' &&
