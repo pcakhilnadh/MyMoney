@@ -1,12 +1,48 @@
 import errno
 import json
+import os
 import socket
 import ssl
+import traceback
 from urllib.parse import urlsplit
 
 from pydantic import ValidationError
 
 from app.ai.provider import CONNECT_TIMEOUT_SECONDS, READ_TIMEOUT_SECONDS
+
+TRACEBACK_MAX_CHARS = 2048
+TRACEBACK_MAX_FRAMES = 20
+
+
+class FoodFormatError(ValueError):
+    MESSAGES = {
+        "empty_food_analysis": "Empty food analysis",
+        "invalid_food_header": "Invalid food analysis header",
+        "invalid_food_row_count": "Invalid food analysis row count",
+        "invalid_food_row": "Invalid food analysis row indentation",
+        "invalid_food_columns": "Invalid food analysis columns",
+    }
+
+    def __init__(self, reason: str, row: int | None = None):
+        self.reason = reason
+        self.row = row
+        super().__init__(self.MESSAGES[reason])
+
+
+def traceback_text(exc: Exception) -> str:
+    frames = traceback.extract_tb(exc.__traceback__, limit=-TRACEBACK_MAX_FRAMES)
+    lines = [
+        f'  File "{os.path.basename(frame.filename)}", line {frame.lineno}, in {frame.name}'
+        for frame in frames
+    ]
+    message = FoodFormatError.MESSAGES[exc.reason] if isinstance(exc, FoodFormatError) else None
+    suffix = type(exc).__name__ + (f": {message}" if message else "")
+    header = "Traceback (most recent call last):\n"
+    text = header + "\n".join([*lines, suffix])
+    if len(text) > TRACEBACK_MAX_CHARS:
+        marker = "[earlier traceback text truncated]\n"
+        text = header + marker + text[-(TRACEBACK_MAX_CHARS - len(header) - len(marker)):]
+    return text
 
 
 def request_error_details(exc: Exception, endpoint: str) -> str:
@@ -21,6 +57,7 @@ def request_error_details(exc: Exception, endpoint: str) -> str:
         "endpoint_host": host,
         "connect_timeout_seconds": CONNECT_TIMEOUT_SECONDS,
         "read_timeout_seconds": READ_TIMEOUT_SECONDS,
+        "traceback_text": traceback_text(exc),
     }
     chain = []
     seen: set[int] = set()
@@ -52,7 +89,16 @@ def request_error_details(exc: Exception, endpoint: str) -> str:
 
 def response_error_details(exc: Exception) -> str:
     details: dict = {"kind": "invalid_provider_response", "exception": type(exc).__name__}
-    if isinstance(exc, json.JSONDecodeError):
+    details["traceback_text"] = traceback_text(exc)
+    details["traceback"] = [
+        {"file": os.path.basename(frame.filename), "line": frame.lineno, "function": frame.name}
+        for frame in traceback.extract_tb(exc.__traceback__, limit=-TRACEBACK_MAX_FRAMES)
+    ]
+    if isinstance(exc, FoodFormatError):
+        details.update(reason=exc.reason, message=FoodFormatError.MESSAGES[exc.reason])
+        if exc.row is not None:
+            details["row"] = exc.row
+    elif isinstance(exc, json.JSONDecodeError):
         details.update(reason="invalid_json", line=exc.lineno, column=exc.colno)
     elif isinstance(exc, ValidationError):
         details["reason"] = "schema_validation"

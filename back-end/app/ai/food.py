@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
+from app.ai.diagnostics import FoodFormatError
 from app.ai.expense import Image, _validate_images, run_analysis
 from app.ai.prompts import food_prompt
 from app.auth import get_current_user
@@ -45,25 +46,25 @@ class FoodAnalysisResult(BaseModel):
 def parse_food_table(content: str) -> FoodAnalysisResult:
     lines = content.strip().splitlines()
     if not lines:
-        raise ValueError("Empty food analysis")
+        raise FoodFormatError("empty_food_analysis")
     header = re.fullmatch(r"items\[(\d+)\](?:\{name,canonical_name,qty,unit,cal,food_type,food_category\})?:", lines[0])
     if not header:
-        raise ValueError("Invalid food analysis header")
+        raise FoodFormatError("invalid_food_header")
     count = int(header.group(1))
     if count > 100 or count != len(lines) - 1:
-        raise ValueError("Invalid food analysis row count")
+        raise FoodFormatError("invalid_food_row_count")
     expected_header = "items[0]:" if count == 0 else (
         f"items[{count}]{{name,canonical_name,qty,unit,cal,food_type,food_category}}:"
     )
     if lines[0] != expected_header:
-        raise ValueError("Invalid food analysis header")
+        raise FoodFormatError("invalid_food_header")
     items = []
-    for line in lines[1:]:
+    for row, line in enumerate(lines[1:], start=1):
         if not line.startswith("  "):
-            raise ValueError("Invalid food analysis row")
+            raise FoodFormatError("invalid_food_row", row)
         values = [value.strip() for value in line.strip().split(",")]
         if len(values) != 7:
-            raise ValueError("Invalid food analysis columns")
+            raise FoodFormatError("invalid_food_columns", row)
         items.append(FoodAnalysisItem.model_validate(dict(zip(
             ("name", "canonical_name", "qty", "unit", "cal", "food_type", "food_category"), values
         ))))

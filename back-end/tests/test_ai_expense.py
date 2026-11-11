@@ -186,6 +186,8 @@ def test_failure_is_audited_and_invalid_input_does_not_call_provider(client, mon
         assert details["endpoint_host"] == "api.deepseek.com"
         assert details["connect_timeout_seconds"] == 10
         assert details["read_timeout_seconds"] == 180
+        assert 'in fail' in details["traceback_text"]
+        assert details["traceback_text"].endswith("Timeout")
         assert "private connection details" not in logs[0].error
         assert logs[0].completed_at is not None
         assert logs[0].elapsed_ms is not None
@@ -242,4 +244,53 @@ def test_invalid_response_diagnostics_exclude_sensitive_input(client, monkeypatc
         details = json.loads(log.error)
         assert details["validation_errors"][0]["field"] == "total_amount"
         assert details["validation_errors"][0]["type"] == "decimal_parsing"
+        assert any(frame["function"] == "parse" for frame in details["traceback"])
         assert "private receipt data" not in log.error
+
+
+def test_unexpected_response_error_does_not_log_exception_message(client, monkeypatch):
+    monkeypatch.setattr(settings, "deepseek_api_key", "test-key")
+
+    def fail_content(self, raw):
+        raise ValueError("private receipt data and test-key")
+
+    monkeypatch.setattr(NvidiaProvider, "send", lambda self, payload: provider_response({}))
+    monkeypatch.setattr(NvidiaProvider, "content", fail_content)
+    result = client.post("/api/money/ai/expense", json=BODY, headers=H("alice"))
+    assert result.status_code == 502
+    with client.session_factory() as db:
+        log = db.scalar(select(AICallLog))
+        details = json.loads(log.error)
+        assert details["reason"] == "unexpected_response_structure"
+        assert any(frame["function"] == "fail_content" for frame in details["traceback"])
+        assert 'in fail_content' in details["traceback_text"]
+        assert details["traceback_text"].endswith("ValueError")
+        assert "private receipt data" not in log.error
+        assert "test-key" not in log.error
+
+
+def test_traceback_text_is_bounded_and_preserves_exception(monkeypatch):
+    import traceback
+
+    from app.ai.diagnostics import TRACEBACK_MAX_CHARS, traceback_text
+
+    def recurse(depth):
+        if depth:
+            return recurse(depth - 1)
+        raise ValueError("private receipt data")
+
+    try:
+        recurse(100)
+    except ValueError as exc:
+        text = traceback_text(exc)
+    assert len(text) <= TRACEBACK_MAX_CHARS
+    assert text.startswith("Traceback (most recent call last):")
+    assert text.endswith("ValueError")
+    assert "private receipt data" not in text
+    monkeypatch.setattr(traceback, "extract_tb", lambda *args, **kwargs: [
+        traceback.FrameSummary("example.py", 1, "long_function_" * 300),
+    ])
+    text = traceback_text(ValueError("private receipt data"))
+    assert len(text) == TRACEBACK_MAX_CHARS
+    assert "[earlier traceback text truncated]" in text
+    assert text.endswith("ValueError")

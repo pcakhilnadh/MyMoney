@@ -111,6 +111,10 @@ without a calculated duration have a null value.
 For transport and response-format failures, the `error` column contains JSON diagnostics such as
 exception-chain types, network error codes, timeout settings, and validation error types. Raw
 exception messages are excluded to avoid logging credentials or receipt data in that column.
+Response-format errors include traceback locations (without source or input data); food table
+format errors also include a specific reason, a fixed diagnostic message, and the row number
+where applicable. Transport and response-format errors include `traceback_text`, a readable
+traceback limited to 20 frames and 2,048 characters. Arbitrary exception messages are omitted.
 These logs contain sensitive financial information: restrict database access, secure backups, and
 establish a retention/deletion policy before deploying.
 

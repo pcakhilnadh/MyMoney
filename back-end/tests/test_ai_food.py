@@ -58,21 +58,36 @@ def test_food_analysis_uses_configured_provider_and_audits(client, monkeypatch):
         assert log.total_tokens == 25
 
 
-@pytest.mark.parametrize("content", [
-    "items[1]:\n  Egg,egg,1,Nos,70,raw,egg",
-    "items[2]{name,canonical_name,qty,unit,cal,food_type,food_category}:\n  Egg,egg,1,Nos,70,raw,egg",
-    "items[1]{name,canonical_name,qty,unit,cal,food_type,food_category}:\n  Egg,egg,1,cup,70,raw,egg",
-    "items[1]{name,canonical_name,qty,unit,cal,food_type,food_category}:\n  Egg,egg,NaN,Nos,70,raw,egg",
-    "```items[0]:```",
+@pytest.mark.parametrize(("content", "reason"), [
+    ("", "empty_food_analysis"),
+    ("items[1]:\n  Egg,egg,1,Nos,70,raw,egg", "invalid_food_header"),
+    ("items[2]{name,canonical_name,qty,unit,cal,food_type,food_category}:\n  Egg,egg,1,Nos,70,raw,egg", "invalid_food_row_count"),
+    ("items[1]{name,canonical_name,qty,unit,cal,food_type,food_category}:\nEgg,egg,1,Nos,70,raw,egg", "invalid_food_row"),
+    ("items[1]{name,canonical_name,qty,unit,cal,food_type,food_category}:\n  private food data", "invalid_food_columns"),
+    ("items[1]{name,canonical_name,qty,unit,cal,food_type,food_category}:\n  Egg,egg,1,cup,70,raw,egg", "schema_validation"),
+    ("items[1]{name,canonical_name,qty,unit,cal,food_type,food_category}:\n  Egg,egg,NaN,Nos,70,raw,egg", "schema_validation"),
+    ("```items[0]:```", "invalid_food_header"),
 ])
-def test_invalid_food_response_is_rejected_and_logged(client, monkeypatch, content):
+def test_invalid_food_response_is_rejected_and_logged(client, monkeypatch, content, reason):
     monkeypatch.setattr(settings, "deepseek_api_key", "test-key")
     monkeypatch.setattr(settings, "expense_ai_provider", "deepseek")
     monkeypatch.setattr(NvidiaProvider, "send", lambda self, payload: response(content))
     result = client.post("/api/food/ai/food-analyse", json={"images": [image]}, headers=H("alice"))
     assert result.status_code == 502
     with client.session_factory() as db:
-        assert db.scalar(select(AICallLog)).status == "failed"
+        log = db.scalar(select(AICallLog))
+        assert log.status == "failed"
+        details = json.loads(log.error)
+        assert details["reason"] == reason
+        assert any(frame["function"] == "parse_food_table" for frame in details["traceback"])
+        assert "in parse_food_table" in details["traceback_text"]
+        assert len(details["traceback_text"]) <= 2048
+        if reason.startswith(("empty_food_", "invalid_food_")):
+            assert details["message"]
+            assert details["message"] in details["traceback_text"]
+        if reason in ("invalid_food_row", "invalid_food_columns"):
+            assert details["row"] == 1
+        assert "private food data" not in log.error
 
 
 def test_empty_food_table_and_invalid_image(client, monkeypatch):
