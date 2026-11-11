@@ -287,6 +287,7 @@ test.describe('bill capture', () => {
     await page.getByRole('button', { name: 'Capture photo' }).click()
 
     const preview = page.getByRole('dialog', { name: 'Review bill photo' })
+    await expect(preview.getByRole('heading', { name: 'Preview the Photo' })).toBeVisible()
     await expect(preview.getByRole('img', { name: 'Captured bill' })).toBeVisible()
     await expect(preview.getByRole('button', { name: 'Add', exact: true })).toHaveCount(0)
     await expect(preview.getByRole('img', { name: 'Captured bill' })).toHaveCSS(

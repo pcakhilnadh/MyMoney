@@ -1,8 +1,8 @@
 import { useState } from 'react'
+import { Camera } from 'lucide-react'
 import { Link, useNavigate, useSearchParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
-  BillCapture,
   Button,
   AutocompleteInput,
   CategoryCombobox,
@@ -16,6 +16,7 @@ import {
   Select,
 } from '@/components/kit'
 import { TransactionDatePicker } from '@/components/kit/TransactionDatePicker'
+import { ImageCapture } from '@/components/kit/ImageCapture'
 import { db } from '@/db/db'
 import { categoriesRepo, merchantsRepo, transactionsRepo } from '@/db/repos'
 import type { TransactionType } from '@/db/types'
@@ -442,7 +443,34 @@ export default function AddExpense() {
     <div className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <PageHeader title="Add Transaction" />
-        {transactionType === 'expense' && <BillCapture onAnalyse={analyseBill} />}
+        {transactionType === 'expense' && (
+          <ImageCapture
+            title="Scan a bill"
+            photoDescription="a bill photo"
+            review={{
+              dialogLabel: 'Review bill photo',
+              title: 'Preview the Photo',
+              firstImageLabel: 'Captured bill',
+              imageLabel: (index) => `Bill photo ${index}`,
+              notice: 'Images are about to sent to our AI for the Magic 🪄',
+              progressLabel: 'Analysing your bill',
+              errorMessage: 'Unable to analyse the bill.',
+              actionLabel: 'Analyse with AI',
+              onAnalyse: analyseBill,
+            }}
+            trigger={(open) => (
+              <button
+                type="button"
+                onClick={open}
+                aria-label="Scan a bill"
+                title="Scan a bill"
+                className="surface flex size-11 shrink-0 items-center justify-center rounded-xl text-primary transition hover:bg-primary/10 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary active:scale-95 motion-reduce:transition-none"
+              >
+                <Camera aria-hidden="true" size={20} />
+              </button>
+            )}
+          />
+        )}
       </div>
       <SegmentedControl
         options={[...TRANSACTION_TYPES]}

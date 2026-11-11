@@ -17,7 +17,6 @@ export { Button } from '@/components/ui/button'
 export { MetalActionButton, MetalBadge, MetalCard } from './MetalCard'
 export { AccountCard } from './AccountCard'
 export { CategoryCombobox } from './CategoryCombobox'
-export { BillCapture } from './BillCapture'
 
 export function RequiredMark() {
   return (
