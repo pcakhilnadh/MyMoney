@@ -180,9 +180,7 @@ export default function FoodReviewScan({
       )}
       {items.length === 0 && (
         <p className="surface rounded-2xl p-4 text-sm text-muted-foreground">
-          {initialItems.length
-            ? 'No items remain in this scan.'
-            : 'No food was found in this photo. Try another photo.'}
+          No items remain in this scan.
         </p>
       )}
       {step === 2 ? (

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Check, Loader2, ScanLine, Search } from 'lucide-react'
+import { Check, Loader2, ScanLine, Search, Sparkles, X } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { api } from '@/auth/api'
 import { Button, PageHeader } from '@/components/kit'
@@ -24,6 +24,7 @@ export default function FoodLog() {
   const [message, setMessage] = useState('')
   const [portions, setPortions] = useState<Portion[]>([])
   const [scanItems, setScanItems] = useState<ScanItem[] | null>(null)
+  const [scanUnavailable, setScanUnavailable] = useState(false)
   const [saved, setSaved] = useState(false)
   const requestId = useRef(0)
   const saveTimeout = useRef<number | undefined>(undefined)
@@ -34,6 +35,7 @@ export default function FoodLog() {
     event.preventDefault()
     const term = query.trim()
     const id = ++requestId.current
+    setScanUnavailable(false)
     if (!term) {
       setResults([])
       setStatus('error')
@@ -77,6 +79,29 @@ export default function FoodLog() {
     <div className="food-log space-y-6">
       <PageHeader title="Log Meal" subtitle="Search, scan, and build your meal" />
 
+      {scanUnavailable && (
+        <div
+          role="status"
+          className="pop-in flex items-start gap-3 rounded-xl border border-amber-500/30 bg-amber-500/10 px-4 py-3"
+        >
+          <Sparkles size={18} className="mt-0.5 shrink-0 text-amber-500" aria-hidden="true" />
+          <div className="min-w-0 flex-1 space-y-0.5">
+            <p className="text-sm font-semibold text-foreground">Our AI magic is unavailable</p>
+            <p className="text-xs text-muted-foreground">
+              Sorry about that — search for your food instead and add it in a tap.
+            </p>
+          </div>
+          <button
+            type="button"
+            aria-label="Dismiss AI scan notice"
+            onClick={() => setScanUnavailable(false)}
+            className="tap-scale -mr-1 flex size-8 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+          >
+            <X size={16} />
+          </button>
+        </div>
+      )}
+
       <form onSubmit={search} className="surface flex items-center gap-2 rounded-[1.75rem] p-2">
         <input
           className="field h-12 min-w-0 flex-1 border-0"
@@ -111,11 +136,23 @@ export default function FoodLog() {
             onAnalyse: async (images, signal) => {
               const image = await encodeImage(images[0])
               signal.throwIfAborted()
-              const result = await api<{ items: ScanItem[] }>('/food/ai/food-analyse', token ?? '', {
-                method: 'POST', body: JSON.stringify({ images: [image] }), signal,
-              })
-              signal.throwIfAborted()
-              setScanItems(result.items)
+              try {
+                const result = await api<{ items: ScanItem[] }>(
+                  '/food/ai/food-analyse',
+                  token ?? '',
+                  { method: 'POST', body: JSON.stringify({ images: [image] }), signal },
+                )
+                signal.throwIfAborted()
+                if (result.items.length > 0) {
+                  setScanUnavailable(false)
+                  setScanItems(result.items)
+                  return
+                }
+              } catch (error) {
+                if (signal.aborted) return
+                console.error('Unable to analyse the food photo', error)
+              }
+              setScanUnavailable(true)
             },
           }}
           trigger={(open) => (

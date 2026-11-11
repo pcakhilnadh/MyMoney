@@ -453,12 +453,14 @@ test.describe('food scanner', () => {
     await expect(page.getByRole('spinbutton', { name: 'Amount for Boiled egg' })).toHaveValue('3')
   })
 
-  test('handles empty analysis and failed batch searches without losing scan items', async ({ page }) => {
+  test('falls back to search when a scan finds nothing or the AI fails', async ({ page }) => {
     let analysisCount = 0
     let batches = 0
     const scan = { name: 'Egg', canonical_name: 'egg', qty: 1, unit: 'Nos', cal: 70, food_type: 'processed', food_category: 'egg' }
     await page.route('**/food/ai/food-analyse', (route) => {
       analysisCount += 1
+      if (analysisCount === 2)
+        return route.fulfill({ status: 502, json: { detail: 'AI provider unavailable' } })
       return route.fulfill({ json: { items: analysisCount === 1 ? [] : Array.from({ length: 11 }, () => scan) } })
     })
     await page.route('**/food/catalog/search-batch', (route) => {
@@ -467,16 +469,26 @@ test.describe('food scanner', () => {
       const queries: string[] = route.request().postDataJSON().queries
       return route.fulfill({ json: { results: queries.map((query) => ({ query, matches: [{ id: 'egg', name: 'Egg', score: 1 }] })) } })
     })
+    await page.route('**/food/catalog?*', (route) => route.fulfill({ json: [{ id: 'egg', name: 'Egg' }] }))
     await page.goto('/food/add')
     async function analyse() {
       await page.getByRole('button', { name: 'Scan food' }).click()
       await page.getByLabel('Upload a food photo').setInputFiles('public\\icon-192.png')
       await page.getByRole('button', { name: 'Analyse with AI' }).click()
     }
+    const notice = page.getByRole('status').filter({ hasText: 'Our AI magic is unavailable' })
     await analyse()
-    await expect(page.getByText('No food was found in this photo. Try another photo.')).toBeVisible()
-    await expect(page.getByRole('button', { name: 'Search catalog' })).toBeDisabled()
-    await page.getByRole('button', { name: 'Cancel scan' }).click()
+    await expect(notice).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Review scan' })).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Search catalog' })).toHaveCount(0)
+    await notice.getByRole('button', { name: 'Dismiss AI scan notice' }).click()
+    await expect(notice).toHaveCount(0)
+    await analyse()
+    await expect(notice).toBeVisible()
+    await page.getByRole('searchbox', { name: 'Search foods' }).fill('egg')
+    await page.getByRole('button', { name: 'Search', exact: true }).click()
+    await expect(notice).toHaveCount(0)
+    await expect(page.getByRole('button', { name: 'Egg', exact: true })).toBeVisible()
     await analyse()
     await page.getByRole('button', { name: 'Search catalog' }).click()
     await expect(page.getByRole('alert')).toHaveText('Search unavailable')
@@ -484,6 +496,19 @@ test.describe('food scanner', () => {
     await page.getByRole('button', { name: 'Search catalog' }).click()
     await expect(page.getByRole('button', { name: 'Continue to confirmation' })).toBeEnabled()
     expect(batches).toBe(3)
+  })
+
+  test('shows an empty review after removing all scanned items', async ({ page }) => {
+    await page.route('**/food/ai/food-analyse', (route) => route.fulfill({ json: { items: [
+      { name: 'Egg', canonical_name: 'egg', qty: 1, unit: 'Nos', cal: 70, food_type: 'processed', food_category: 'egg' },
+    ] } }))
+    await page.goto('/food/add')
+    await page.getByRole('button', { name: 'Scan food' }).click()
+    await page.getByLabel('Upload a food photo').setInputFiles('public\\icon-192.png')
+    await page.getByRole('button', { name: 'Analyse with AI' }).click()
+    await page.getByRole('button', { name: 'Remove Egg' }).click()
+    await expect(page.getByText('No items remain in this scan.', { exact: true })).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Search catalog' })).toBeDisabled()
   })
 })
 
