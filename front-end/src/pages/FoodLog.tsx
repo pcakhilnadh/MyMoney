@@ -1,9 +1,11 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Check, Loader2, Minus, Plus, ScanLine, Search, Trash2, Utensils, X } from 'lucide-react'
+import { Check, Loader2, Minus, Plus, ScanLine, Search, Trash2, Utensils } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { api } from '@/auth/api'
 import { Button, PageHeader, Select } from '@/components/kit'
 import { ImageCapture } from '@/components/kit/ImageCapture'
+import FoodReviewScan, { type ScanItem } from '@/food/FoodReviewScan'
+import { encodeImage } from '@/food/image'
 
 interface Food {
   id: string
@@ -45,7 +47,7 @@ export default function FoodLog() {
   const [status, setStatus] = useState<'idle' | 'searching' | 'done' | 'error'>('idle')
   const [message, setMessage] = useState('')
   const [portions, setPortions] = useState<Portion[]>([])
-  const [scannerMessage, setScannerMessage] = useState(false)
+  const [scanItems, setScanItems] = useState<ScanItem[] | null>(null)
   const [saved, setSaved] = useState(false)
   const requestId = useRef(0)
   const saveTimeout = useRef<number | undefined>(undefined)
@@ -91,6 +93,10 @@ export default function FoodLog() {
 
   const itemWord = portions.length === 1 ? 'item' : 'items'
 
+  if (scanItems !== null) {
+    return <FoodReviewScan initialItems={scanItems} onCancel={() => setScanItems(null)} />
+  }
+
   return (
     <div className="food-log space-y-6">
       <PageHeader title="Log Meal" subtitle="Search, scan, and build your meal" />
@@ -116,41 +122,39 @@ export default function FoodLog() {
         <ImageCapture
           title="Scan food"
           photoDescription="a food photo"
-          onCapture={() => setScannerMessage(true)}
+          maxImages={1}
+          review={{
+            dialogLabel: 'Review food photo',
+            title: 'Preview the Photo',
+            firstImageLabel: 'Captured food',
+            imageLabel: (index) => `Food photo ${index}`,
+            notice: 'This photo will be sent to AI for analysis.',
+            progressLabel: 'Analysing your food',
+            errorMessage: 'Unable to analyse the food.',
+            actionLabel: 'Analyse with AI',
+            onAnalyse: async (images, signal) => {
+              const image = await encodeImage(images[0])
+              signal.throwIfAborted()
+              const result = await api<{ items: ScanItem[] }>('/food/ai/food-analyse', token ?? '', {
+                method: 'POST', body: JSON.stringify({ images: [image] }), signal,
+              })
+              signal.throwIfAborted()
+              setScanItems(result.items)
+            },
+          }}
           trigger={(open) => (
             <Button
               type="button"
               variant="outline"
               className="size-12 shrink-0 rounded-2xl px-0"
               aria-label="Scan food"
-              onClick={() => {
-                setScannerMessage(false)
-                open()
-              }}
+              onClick={open}
             >
               <ScanLine size={19} />
             </Button>
           )}
         />
       </form>
-
-      {scannerMessage && (
-        <div
-          role="status"
-          className="pop-in surface flex items-center gap-2.5 rounded-2xl px-4 py-3 text-sm text-muted-foreground"
-        >
-          <ScanLine size={16} className="shrink-0 text-primary" aria-hidden="true" />
-          <span className="min-w-0 flex-1">Photo captured. Food analysis is not available yet; the photo was not saved.</span>
-          <button
-            type="button"
-            aria-label="Dismiss photo notice"
-            onClick={() => setScannerMessage(false)}
-            className="tap-scale flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-primary/10 hover:text-foreground focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-primary"
-          >
-            <X size={17} aria-hidden="true" />
-          </button>
-        </div>
-      )}
 
       {status !== 'idle' && (
         <section

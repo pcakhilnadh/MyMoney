@@ -284,7 +284,8 @@ test.describe('food scanner', () => {
     })
     await capture.click()
     await expect(dialog).toBeHidden()
-    await expect(page.getByText('Photo captured. Food analysis is not available yet; the photo was not saved.')).toBeVisible()
+    const preview = page.getByRole('dialog', { name: 'Review food photo' })
+    await expect(preview.getByRole('img', { name: 'Captured food' })).toBeVisible()
     await expect.poll(() => page.evaluate(() => {
       const track = (window as Window & { foodCameraTrack: MediaStreamTrack }).foodCameraTrack
       return track.readyState
@@ -294,8 +295,7 @@ test.describe('food scanner', () => {
     expect(photo.size).toBeGreaterThan(0)
     expect(photo.size).toBeLessThanOrEqual(3 * 1024 * 1024)
     expect(uploads).toEqual([])
-    await page.getByRole('button', { name: 'Dismiss photo notice' }).click()
-    await expect(page.getByText('Photo captured. Food analysis is not available yet; the photo was not saved.')).toHaveCount(0)
+    await preview.getByRole('button', { name: 'Close preview' }).click()
     await page.getByRole('button', { name: 'Scan food' }).click()
     await expect(dialog).toBeVisible()
     await dialog.getByRole('button', { name: 'Cancel' }).click()
@@ -312,12 +312,12 @@ test.describe('food scanner', () => {
     await expect(dialog.getByRole('alert')).toHaveText('Choose a JPEG, PNG or WebP image.')
     await dialog.getByLabel('Upload a food photo').setInputFiles('public\\icon-192.png')
     await expect(dialog).toBeHidden()
-    await expect(page.getByText('Photo captured. Food analysis is not available yet; the photo was not saved.')).toBeVisible()
+    const preview = page.getByRole('dialog', { name: 'Review food photo' })
+    await expect(preview.getByRole('img', { name: 'Captured food' })).toBeVisible()
     const photo = JSON.parse((await page.locator('html').getAttribute('data-last-photo'))!)
     expect(photo.type).toBe('image/jpeg')
     expect(photo.size).toBeLessThanOrEqual(3 * 1024 * 1024)
-    await page.getByRole('button', { name: 'Scan food' }).click()
-    await expect(page.getByText('Photo captured. Food analysis is not available yet; the photo was not saved.')).toBeHidden()
+    await preview.getByRole('button', { name: 'Retake' }).click()
     await dialog.getByRole('button', { name: 'Cancel' }).click()
     await expect(dialog).toBeHidden()
   })
@@ -335,7 +335,95 @@ test.describe('food scanner', () => {
     await expect(dialog.getByRole('button', { name: 'Take a photo' })).toBeVisible()
     await dialog.getByLabel('Upload a food photo').setInputFiles('public\\icon-192.png')
     await expect(dialog).toBeHidden()
-    await expect(page.getByText('Photo captured. Food analysis is not available yet; the photo was not saved.')).toBeVisible()
+    await expect(page.getByRole('dialog', { name: 'Review food photo' }).getByRole('img', { name: 'Captured food' })).toBeVisible()
+  })
+
+  test('analyses, searches, creates a food and confirms without saving a meal', async ({ page }) => {
+    let analysisBody: { images: { mime_type: string; data: string }[] } | undefined
+    let createdBody: Record<string, unknown> | undefined
+    let posts = 0
+    await page.route('**/food/ai/food-analyse', async (route) => {
+      analysisBody = route.request().postDataJSON()
+      await route.fulfill({ json: { items: [
+        { name: 'Rice puttu', canonical_name: 'rice puttu', qty: 100, unit: 'g', kcal: 130, food_type: 'processed', food_category: 'grain' },
+        { name: 'Sambar', canonical_name: 'sambar', qty: 150, unit: 'ml', kcal: 90, food_type: 'processed', food_category: 'legume' },
+        { name: 'Curry', canonical_name: 'curry', qty: 100, unit: 'g', kcal: 100, food_type: 'processed', food_category: 'legume' },
+      ] } })
+    })
+    await page.route('**/food/catalog/search-batch', async (route) => {
+      expect(route.request().postDataJSON().queries).toEqual(['rice puttu', 'sambar', 'curry'])
+      await route.fulfill({ json: { results: [
+        { query: 'rice puttu', matches: [{ id: '1', name: 'Rice puttu', score: 1 }] },
+        { query: 'sambar', matches: [{ id: '2', name: 'Sambar tiffin', score: 1 }, { id: '3', name: 'Dal sambar', score: 1 }] },
+        { query: 'curry', matches: [] },
+      ] } })
+    })
+    await page.route('**/food/catalog', async (route) => {
+      posts += 1
+      createdBody = route.request().postDataJSON()
+      await route.fulfill({ status: 201, json: { id: '4', base_food_name: 'Curry', aliases: 'Kari', category: 'legume', food_type: 'processed' } })
+    })
+    await page.goto('/food/add')
+    await page.getByRole('button', { name: 'Scan food' }).click()
+    await page.getByLabel('Upload a food photo').setInputFiles('public\\icon-192.png')
+    await page.getByRole('button', { name: 'Analyse with AI' }).click()
+    await expect(page.getByRole('heading', { name: 'Review scan' })).toBeVisible()
+    expect(analysisBody?.images[0].mime_type).toBe('image/jpeg')
+    expect(analysisBody?.images[0].data.length).toBeGreaterThan(0)
+    await page.getByRole('button', { name: 'Search catalog' }).click()
+    await expect(page.getByRole('button', { name: 'Rice puttu', exact: true })).toHaveAttribute('aria-pressed', 'true')
+    await expect(page.getByRole('button', { name: 'Resolve 2 more' })).toBeDisabled()
+    await page.getByRole('button', { name: 'Dal sambar' }).click()
+    await page.getByRole('button', { name: '+ Create “Curry”' }).click()
+    const create = page.getByRole('dialog', { name: 'Create food' })
+    await create.getByLabel('Food name', { exact: true }).fill('Curry')
+    await create.getByLabel('Regional names (comma-separated)').fill('Kari')
+    await create.getByLabel('Food image (optional)').setInputFiles('public\\icon-192.png')
+    await create.getByRole('button', { name: 'Save food' }).click()
+    await expect(create).toBeHidden()
+    await expect(page.getByText('Created: processed · legume · Kari')).toBeVisible()
+    expect(createdBody?.aliases).toBe('Kari')
+    expect(createdBody?.image).toBeTruthy()
+    await page.getByRole('button', { name: 'Continue to confirmation' }).click()
+    await expect(page.getByRole('heading', { name: '2 · Dal sambar' })).toBeVisible()
+    await page.getByRole('button', { name: 'Remove Sambar' }).click()
+    await page.getByRole('button', { name: 'Save as one meal' }).click()
+    expect(posts).toBe(1)
+    await page.getByRole('button', { name: 'Cancel', exact: true }).click()
+    await expect(page.getByRole('heading', { name: 'Log Meal' })).toBeVisible()
+  })
+
+  test('handles empty analysis and failed batch searches without losing scan items', async ({ page }) => {
+    let analysisCount = 0
+    let batches = 0
+    const scan = { name: 'Egg', canonical_name: 'egg', qty: 1, unit: 'Nos', kcal: 70, food_type: 'processed', food_category: 'egg' }
+    await page.route('**/food/ai/food-analyse', (route) => {
+      analysisCount += 1
+      return route.fulfill({ json: { items: analysisCount === 1 ? [] : Array.from({ length: 11 }, () => scan) } })
+    })
+    await page.route('**/food/catalog/search-batch', (route) => {
+      batches += 1
+      if (batches === 1) return route.fulfill({ status: 503, json: { detail: 'Search unavailable' } })
+      const queries: string[] = route.request().postDataJSON().queries
+      return route.fulfill({ json: { results: queries.map((query) => ({ query, matches: [{ id: 'egg', name: 'Egg', score: 1 }] })) } })
+    })
+    await page.goto('/food/add')
+    async function analyse() {
+      await page.getByRole('button', { name: 'Scan food' }).click()
+      await page.getByLabel('Upload a food photo').setInputFiles('public\\icon-192.png')
+      await page.getByRole('button', { name: 'Analyse with AI' }).click()
+    }
+    await analyse()
+    await expect(page.getByText('No food was found in this photo. Try another photo.')).toBeVisible()
+    await expect(page.getByRole('button', { name: 'Search catalog' })).toBeDisabled()
+    await page.getByRole('button', { name: 'Cancel scan' }).click()
+    await analyse()
+    await page.getByRole('button', { name: 'Search catalog' }).click()
+    await expect(page.getByRole('alert')).toHaveText('Search unavailable')
+    await expect(page.getByRole('heading', { name: '1 · Egg', exact: true })).toBeVisible()
+    await page.getByRole('button', { name: 'Search catalog' }).click()
+    await expect(page.getByRole('button', { name: 'Continue to confirmation' })).toBeEnabled()
+    expect(batches).toBe(3)
   })
 })
 

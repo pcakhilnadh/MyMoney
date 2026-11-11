@@ -12,6 +12,7 @@ class Provider(Protocol):
     name: str
 
     def expense_request(self, model: str, images: list[tuple[str, str]], categories: list[str]) -> dict: ...
+    def food_request(self, model: str, images: list[tuple[str, str]], prompt: str) -> dict: ...
     def send(self, payload: dict) -> requests.Response: ...
     def content(self, response: dict) -> str: ...
     def usage(self, response: dict) -> dict: ...
@@ -25,12 +26,15 @@ class NvidiaProvider:
         self.api_key = api_key
 
     def expense_request(self, model: str, images: list[tuple[str, str]], categories: list[str]) -> dict:
+        return self.food_request(model, images, expense_prompt(categories))
+
+    def food_request(self, model: str, images: list[tuple[str, str]], prompt: str) -> dict:
         return {
             "model": model,
             "messages": [{
                 "role": "user",
                 "content": [
-                    {"type": "text", "text": expense_prompt(categories)},
+                    {"type": "text", "text": prompt},
                     *[
                         {"type": "image_url", "image_url": {"url": f"data:{mime};base64,{data}"}}
                         for mime, data in images
@@ -69,7 +73,7 @@ class DeepseekProvider(NvidiaProvider):
     def __init__(self, base_url: str, api_key: str):
         super().__init__(f"{base_url.rstrip('/')}/chat/completions", api_key)
 
-    def expense_request(self, model: str, images: list[tuple[str, str]], categories: list[str]) -> dict:
-        payload = super().expense_request(model, images, categories)
+    def food_request(self, model: str, images: list[tuple[str, str]], prompt: str) -> dict:
+        payload = super().food_request(model, images, prompt)
         payload["thinking"] = {"type": "disabled"}
         return payload

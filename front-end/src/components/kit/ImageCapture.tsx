@@ -297,12 +297,14 @@ export function ImageCapture({
   trigger,
   onCapture,
   review,
+  maxImages = review ? 3 : 1,
 }: {
   title: string
   photoDescription: string
   trigger: (open: () => void) => ReactNode
   onCapture?: (images: Blob[]) => void
   review?: ImageReview
+  maxImages?: number
 }) {
   const [stage, setStage] = useState<Stage>('closed')
   const [images, setImages] = useState<Captured[]>([])
@@ -373,7 +375,6 @@ export function ImageCapture({
 
   async function selectImages(blobs: Blob[]) {
     const requestId = ++captureId.current
-    const maxImages = review ? 3 : 1
     if (blobs.length === 0 || blobs.length > maxImages || blobs.some((blob) => !['image/jpeg', 'image/png', 'image/webp'].includes(blob.type))) {
       setError(maxImages === 1 ? 'Choose a JPEG, PNG or WebP image.' : 'Choose up to 3 JPEG, PNG or WebP images.')
       return
@@ -419,7 +420,7 @@ export function ImageCapture({
             onCapture={selectImages}
             title={title}
             photoDescription={photoDescription}
-            multiple={Boolean(review)}
+            multiple={maxImages > 1}
             selectionError={error}
           />
         )}

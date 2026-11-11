@@ -5,7 +5,7 @@ import json
 import re
 from datetime import date, datetime, timezone
 from decimal import Decimal
-from typing import Literal
+from typing import Callable, Literal, TypeVar
 
 import requests
 from fastapi import APIRouter, Depends, HTTPException
@@ -25,6 +25,7 @@ MAX_TOTAL_BYTES = settings.max_image_upload_mb * 1024 * 1024
 MAX_COMPRESSED_TOTAL_BYTES = 3 * 1024 * 1024
 MAX_IMAGE_DIMENSION = 2000
 MAX_IMAGE_PIXELS = 40_000_000
+T = TypeVar("T")
 
 
 class Image(BaseModel):
@@ -156,6 +157,28 @@ def analyse_expense(
     db: Session = Depends(get_db),
 ) -> ExpenseResult:
     compressed_images = _validate_images(body.images)
+    def parse(content: str) -> ExpenseResult:
+        content = re.sub(r"^```(?:json)?\s*|\s*```$", "", content.strip(), flags=re.IGNORECASE)
+        parsed = json.loads(content)
+        if isinstance(parsed, dict) and parsed.get("is_bill") is False:
+            result = ExpenseResult(is_bill=False)
+        else:
+            result = ExpenseResult.model_validate(parsed)
+        if result.category not in body.categories:
+            result.category = None
+        return result
+
+    return run_analysis(
+        user, db, "expense_analysis",
+        lambda provider: provider.expense_request(settings.expense_ai_model, compressed_images, body.categories),
+        parse,
+    )
+
+
+def run_analysis(
+    user: Profile, db: Session, task: str,
+    make_payload: Callable[[Provider], dict], parse: Callable[[str], T],
+) -> T:
     if settings.expense_ai_provider == "deepseek" and settings.deepseek_api_key:
         provider: Provider = DeepseekProvider(settings.deepseek_base_url, settings.deepseek_api_key)
         api_key, base_url = settings.deepseek_api_key, settings.deepseek_base_url
@@ -163,15 +186,11 @@ def analyse_expense(
         provider = NvidiaProvider(settings.nvidia_base_url, settings.nvidia_api_key)
         api_key, base_url = settings.nvidia_api_key, settings.nvidia_base_url
     else:
-        raise HTTPException(503, "Expense AI is not configured")
-    payload = provider.expense_request(
-        settings.expense_ai_model,
-        compressed_images,
-        body.categories,
-    )
+        raise HTTPException(503, "Expense AI is not configured" if task == "expense_analysis" else "Food AI is not configured")
+    payload = make_payload(provider)
     started_at = datetime.now(timezone.utc)
     log = AICallLog(
-        user_id=user.id, task="expense_analysis", provider=provider.name,
+        user_id=user.id, task=task, provider=provider.name,
         model=settings.expense_ai_model, status="pending",
         request_payload=_redact_secret(payload, api_key),
         created_at=started_at,
@@ -196,18 +215,11 @@ def analyse_expense(
                     setattr(log, target, value)
         if not response.ok:
             log.error = "Provider returned an error"
-            raise HTTPException(502, "AI provider could not analyse the bill")
+            message = "AI provider could not analyse the bill" if task == "expense_analysis" else "AI provider could not analyse the food"
+            raise HTTPException(502, message)
         if not isinstance(raw, dict):
             raise ValueError("Invalid response body")
-        content = provider.content(raw)
-        content = re.sub(r"^```(?:json)?\s*|\s*```$", "", content.strip(), flags=re.IGNORECASE)
-        parsed = json.loads(content)
-        if isinstance(parsed, dict) and parsed.get("is_bill") is False:
-            result = ExpenseResult(is_bill=False)
-        else:
-            result = ExpenseResult.model_validate(parsed)
-        if result.category not in body.categories:
-            result.category = None
+        result = parse(provider.content(raw))
         log.status = "success"
         return result
     except requests.Timeout as exc:

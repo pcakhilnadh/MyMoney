@@ -15,7 +15,7 @@ def create_writable_catalog(client):
             "CREATE TABLE food_catalog_master ("
             "id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, description text, "
             "category text, food_type text, calories_100g numeric, protein_100g numeric, "
-            "carbs_100g numeric, fat_100g numeric, fiber_100g numeric, user_id uuid)"
+            "carbs_100g numeric, fat_100g numeric, fiber_100g numeric, image_data text, user_id uuid)"
         ))
         db.commit()
 

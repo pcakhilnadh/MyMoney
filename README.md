@@ -69,9 +69,19 @@ The database columns remain text and are protected by `CHECK` and `NOT NULL` con
 The migration fails if existing rows contain null or unsupported values; inspect and resolve such
 rows before running `uv run alembic upgrade head`. Back up the database before applying migrations.
 Created items are searchable by all users; `user_id` identifies their contributor, not their visibility.
-These portions are a temporary draft and are not saved to the diary. The food scanner can capture
-or upload one image using the same JPEG compression as bill capture, but it does not yet analyse
-or save the image.
+The optional `image` field on catalogue creation accepts `{"mime_type": "image/png", "data": "<base64>"}`;
+JPEG, PNG and WebP images are validated, compressed to JPEG and stored with the catalogue item.
+Apply the latest migration before using this field.
+
+The food scanner captures or uploads one image, previews it, and sends it to
+`POST /api/food/ai/food-analyse` as `{"images": [{"mime_type": "image/jpeg", "data": "<base64>"}]}`.
+It uses the same configured provider and model as expense analysis and returns `{"items": [...]}`
+with estimated portions and calories. Review and remove recognized foods, search the shared
+catalogue, select or create matches, and confirm the draft. Catalogue creation is permanent;
+the confirmation's Save as one meal button does not yet save anything to the diary. Scan and
+catalogue operations require an online session. Food photos sent for analysis, like bill photos,
+are stored in AI call logs; the audit and retention precautions below apply to them too.
+These portions are a temporary draft and are not saved to the diary.
 Mass units are g and kg; volume units are ml, litre, tsp (5 ml), tbsp (15 ml), and cup
 (250 ml). Count is separate for items such as eggs or glasses; no mass or volume conversion is
 assumed for a count, and mass is not converted to volume.

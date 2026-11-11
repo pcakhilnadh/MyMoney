@@ -19,6 +19,7 @@ catalog = table(
     column("carbs_100g", Numeric),
     column("fat_100g", Numeric),
     column("fiber_100g", Numeric),
+    column("image_data", Text),
     column("user_id", Uuid),
 )
 

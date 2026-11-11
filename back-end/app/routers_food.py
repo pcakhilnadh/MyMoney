@@ -11,6 +11,7 @@ from app.auth import get_current_user
 from app.db import get_db
 from app.food_search import catalog, hybrid_food_search
 from app.models import Profile
+from app.ai.expense import Image, _validate_images
 
 router = APIRouter(prefix="/food", tags=["food"], dependencies=[Depends(get_current_user)])
 
@@ -51,6 +52,7 @@ class FoodCatalogCreate(BaseModel):
     carbs_100g: NutritionValue | None = None
     fat_100g: NutritionValue | None = None
     fiber_100g: NutritionValue | None = None
+    image: Image | None = None
 
     @field_validator("base_food_name")
     @classmethod
@@ -111,7 +113,11 @@ def create_catalog_item(
     db: Session = Depends(get_db),
 ) -> FoodCatalogCreated:
     food_id = str(uuid4())
-    db.execute(insert(catalog).values(id=food_id, user_id=user.id, **body.model_dump()))
+    values = body.model_dump(exclude={"image"})
+    if body.image is not None:
+        mime, data = _validate_images([body.image])[0]
+        values["image_data"] = f"data:{mime};base64,{data}"
+    db.execute(insert(catalog).values(id=food_id, user_id=user.id, **values))
     db.commit()
     return FoodCatalogCreated(id=food_id, user_id=user.id, **body.model_dump())
 
