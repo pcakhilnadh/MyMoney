@@ -6,6 +6,7 @@ from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
 from app.ai.expense import Image, _validate_images, run_analysis
+from app.ai.prompts import food_prompt
 from app.auth import get_current_user
 from app.config import settings
 from app.db import get_db
@@ -13,31 +14,6 @@ from app.models import Profile
 from app.routers_food import FoodCategory, FoodType
 
 router = APIRouter(prefix="/food/ai", tags=["food AI"])
-
-FOOD_PROMPT = """You are a food recognition engine for an Indian-first calorie tracker.
-Identify every distinct food item visible in the photo.
-
-Output ONLY a TOON table, with no prose and no markdown fences:
-
-items[N]{name,canonical_name,qty,unit,kcal,food_type,food_category}:
-  <one row per item, comma-separated, 2-space indent>
-
-Rules:
-- N = number of rows. If no food is visible, output exactly: items[0]:
-- name: common name as served, e.g. "Rice puttu".
-- canonical_name: lowercase, generic English catalog name with no brand, e.g. "rice puttu".
-- qty: estimated portion visible, as a number.
-- unit: exactly one of g, kg, ml, L, Nos. Use g for solids and ml for liquids (kg or L only if >=1000). Use Nos for countable items such as idli, egg or roti.
-- kcal: integer, total calories for qty (not per 100 g).
-- food_type: raw or processed. Cooked, packaged or mixed dishes are processed.
-- food_category: exactly one of base_food, dairy, egg, fish, fruit, grain, ingredient, legume, meat, nut_seed, seafood, vegetable.
-- Split mixed plates into separate items (e.g. sambar and puttu are two rows). Don't list plates, cutlery or garnish.
-- Never put commas inside values.
-
-Example:
-items[2]{name,canonical_name,qty,unit,kcal,food_type,food_category}:
-  Rice puttu,rice puttu,100,g,130,processed,grain
-  Sambar,sambar,150,ml,90,processed,legume"""
 
 
 class FoodAnalysisRequest(BaseModel):
@@ -103,6 +79,6 @@ def analyse_food(
     images = _validate_images(body.images)
     return run_analysis(
         user, db, "food_analysis",
-        lambda provider: provider.food_request(settings.expense_ai_model, images, FOOD_PROMPT),
+        lambda provider: provider.food_request(settings.expense_ai_model, images, food_prompt()),
         parse_food_table,
     )
