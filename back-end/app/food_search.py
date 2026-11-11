@@ -3,7 +3,7 @@ from collections.abc import Iterator
 from difflib import SequenceMatcher
 from heapq import nsmallest
 
-from sqlalchemy import Text, Uuid, case, column, func, or_, select, table
+from sqlalchemy import Numeric, Text, Uuid, case, column, func, or_, select, table
 from sqlalchemy.orm import Session
 
 catalog = table(
@@ -11,6 +11,14 @@ catalog = table(
     column("id", Text),
     column("base_food_name", Text),
     column("aliases", Text),
+    column("description", Text),
+    column("category", Text),
+    column("food_type", Text),
+    column("calories_100g", Numeric),
+    column("protein_100g", Numeric),
+    column("carbs_100g", Numeric),
+    column("fat_100g", Numeric),
+    column("fiber_100g", Numeric),
     column("user_id", Uuid),
 )
 

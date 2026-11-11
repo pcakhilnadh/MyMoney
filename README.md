@@ -55,8 +55,20 @@ For multiple foods, authenticated clients can send `POST /api/food/catalog/searc
 Each query uses the same rules and up-to-10 result limit as `GET /api/food/catalog?q=...`.
 Input order and duplicate queries are preserved; a whitespace-only query has an empty match list.
 The batch runs synchronously, and fuzzy searches can scan the catalogue once per query.
-The catalogue table must be populated separately; the migration creates it empty. Search requires
+The migration creates the catalogue table empty. Search requires
 an authenticated online session. Select search results to prepare portions in expandable cards.
+Authenticated users can also add a shared catalogue item with `POST /api/food/catalog`.
+Required body fields are `base_food_name` (1–100 characters, not blank), `category`, and
+`food_type`. Optional fields are `aliases` (comma-separated text), `description`, and
+`calories_100g`, `protein_100g`, `carbs_100g`, `fat_100g`, `fiber_100g` (non-negative numbers
+per 100 g). The server records the authenticated profile as `user_id` and generates the `id`.
+`category` must be one of `base_food`, `dairy`, `egg`, `fish`, `fruit`, `grain`,
+`ingredient`, `legume`, `meat`, `nut_seed`, `seafood`, or `vegetable`; `food_type` must be
+`processed` or `raw`. These values are based on the bundled catalogue data.
+The database columns remain text and are protected by `CHECK` and `NOT NULL` constraints.
+The migration fails if existing rows contain null or unsupported values; inspect and resolve such
+rows before running `uv run alembic upgrade head`. Back up the database before applying migrations.
+Created items are searchable by all users; `user_id` identifies their contributor, not their visibility.
 These portions are a temporary draft and are not saved to the diary. The food scanner can capture
 or upload one image using the same JPEG compression as bill capture, but it does not yet analyse
 or save the image.

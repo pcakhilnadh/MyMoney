@@ -1,11 +1,113 @@
 import csv
 from pathlib import Path
 
-from sqlalchemy import insert, text
+from sqlalchemy import insert, select, text
 
 from app.models import Profile
 from app.food_search import catalog, fuzzy_score
+from app.routers_food import FoodCategory, FoodType
 from tests.conftest import H
+
+
+def create_writable_catalog(client):
+    with client.session_factory() as db:
+        db.execute(text(
+            "CREATE TABLE food_catalog_master ("
+            "id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, description text, "
+            "category text, food_type text, calories_100g numeric, protein_100g numeric, "
+            "carbs_100g numeric, fat_100g numeric, fiber_100g numeric, user_id uuid)"
+        ))
+        db.commit()
+
+
+def test_create_catalog_item_and_search_as_another_user(client):
+    create_writable_catalog(client)
+    body = {
+        "base_food_name": "  Rice puttu  ", "aliases": "Ari puttu",
+        "description": "Steamed rice dish", "category": "base_food", "food_type": "processed",
+        "calories_100g": 81.5, "protein_100g": 1.2, "carbs_100g": 11.8,
+        "fat_100g": 3.1, "fiber_100g": 0.0,
+    }
+    response = client.post("/api/food/catalog", json=body, headers=H("alice"))
+    assert response.status_code == 201
+    result = response.json()
+    assert result["base_food_name"] == "Rice puttu"
+    for key in body.keys() - {"base_food_name"}:
+        assert result[key] == body[key]
+    with client.session_factory() as db:
+        alice = db.query(Profile).filter_by(email="alice@gmail.com").one()
+        stored = db.execute(select(catalog).where(catalog.c.id == result["id"])).one()
+        assert result["user_id"] == str(alice.id)
+        assert stored.user_id == alice.id
+        assert stored.base_food_name == "Rice puttu"
+        for key in ("aliases", "description", "category", "food_type"):
+            assert getattr(stored, key) == body[key]
+        for key in ("calories_100g", "protein_100g", "carbs_100g", "fat_100g", "fiber_100g"):
+            assert float(getattr(stored, key)) == body[key]
+    assert client.get("/api/food/catalog", params={"q": "putt"}, headers=H("bob")).json() == [
+        {"id": result["id"], "name": "Rice puttu", "score": 1.0},
+    ]
+    assert client.get("/api/food/catalog", params={"q": "ari"}, headers=H("bob")).json() == [
+        {"id": result["id"], "name": "Rice puttu", "score": 0.9},
+    ]
+
+
+def test_create_catalog_item_requires_name_category_and_food_type(client):
+    create_writable_catalog(client)
+    url = "/api/food/catalog"
+    assert client.post(url, json={"base_food_name": "Food"}).status_code == 401
+    valid = {"base_food_name": "Food", "category": "fruit", "food_type": "raw"}
+    for body in (
+        {}, {"base_food_name": ""}, {"base_food_name": "   "},
+        {"base_food_name": "Food"},
+        {"base_food_name": "Food", "category": "fruit"},
+        {"base_food_name": "Food", "food_type": "raw"},
+        {**valid, "base_food_name": ""},
+        {**valid, "base_food_name": "   "},
+        {**valid, "base_food_name": "x" * 101},
+        {**valid, "category": None},
+        {**valid, "food_type": None},
+        {**valid, "user_id": "00000000-0000-0000-0000-000000000001"},
+        {**valid, "id": "chosen"},
+        {**valid, "protein_100g": -1},
+        {**valid, "calories_100g": "NaN"},
+        {**valid, "fat_100g": "Infinity"},
+        {**valid, "category": "unknown"},
+        {**valid, "food_type": "cooked"},
+    ):
+        assert client.post(url, json=body, headers=H("alice")).status_code == 422
+    response = client.post(url, json=valid, headers=H("alice"))
+    assert response.status_code == 201
+    data = response.json()
+    assert data["base_food_name"] == "Food"
+    assert all(data[key] is None for key in (
+        "aliases", "description", "calories_100g",
+        "protein_100g", "carbs_100g", "fat_100g", "fiber_100g",
+    ))
+
+
+def test_catalog_enums_match_dataset_and_accept_all_values(client):
+    dataset = Path(__file__).resolve().parents[1] / "food_dataset_prep" / "food_catelog_master.csv"
+    with dataset.open(encoding="utf-8", newline="") as file:
+        rows = list(csv.DictReader(file))
+    assert {row["category"] for row in rows} == {category.value for category in FoodCategory}
+    assert {row["food_type"] for row in rows} == {food_type.value for food_type in FoodType}
+
+    create_writable_catalog(client)
+    for category in FoodCategory:
+        for food_type in FoodType:
+            response = client.post(
+                "/api/food/catalog",
+                json={"base_food_name": "Food", "category": category.value, "food_type": food_type.value},
+                headers=H("alice"),
+            )
+            assert response.status_code == 201
+            assert response.json()["category"] == category.value
+            assert response.json()["food_type"] == food_type.value
+            with client.session_factory() as db:
+                row = db.execute(select(catalog).where(catalog.c.id == response.json()["id"])).one()
+                assert row.category == category.value
+                assert row.food_type == food_type.value
 
 
 def test_search_catalog_is_shared_and_matches_names_and_aliases(client):
