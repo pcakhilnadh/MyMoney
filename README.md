@@ -77,7 +77,10 @@ The food scanner captures or uploads one image, previews it, and sends it to
 `POST /api/food/ai/food-analyse` as `{"images": [{"mime_type": "image/jpeg", "data": "<base64>"}]}`.
 It uses the same configured provider and model as expense analysis and returns `{"items": [...]}`
 with estimated portions and calories. Review and remove recognized foods, search the shared
-catalogue, select or create matches, and confirm the draft. Catalogue creation is permanent;
+catalogue, select or create matches, and confirm the draft. After searching starts, items can
+only be removed from the search or confirmation steps. A single catalogue result is selected
+automatically; multiple results require a choice from the six highest-scoring matches. Confirmation
+starts with the estimated quantity and unit, which can be adjusted. Catalogue creation is permanent;
 the confirmation's Save as one meal button does not yet save anything to the diary. Scan and
 catalogue operations require an online session. Food photos sent for analysis, like bill photos,
 are stored in AI call logs; the audit and retention precautions below apply to them too.

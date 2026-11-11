@@ -1,44 +1,20 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Check, Loader2, Minus, Plus, ScanLine, Search, Trash2, Utensils } from 'lucide-react'
+import { Check, Loader2, ScanLine, Search } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { api } from '@/auth/api'
-import { Button, PageHeader, Select } from '@/components/kit'
+import { Button, PageHeader } from '@/components/kit'
 import { ImageCapture } from '@/components/kit/ImageCapture'
 import FoodReviewScan, { type ScanItem } from '@/food/FoodReviewScan'
 import { encodeImage } from '@/food/image'
+import { MealPortionCard } from '@/food/MealPortionCard'
+import type { Portion } from '@/food/portions'
 
 interface Food {
   id: string
   name: string
 }
 
-type Unit = 'g' | 'kg' | 'ml' | 'litre' | 'tsp' | 'tbsp' | 'cup' | 'count'
-interface Portion {
-  food: Food
-  amount: string
-  unit: Unit
-  baseAmount: number | null
-}
-
-const units: Record<
-  Unit,
-  { label: string; shortLabel: string; kind: 'mass' | 'volume' | 'count'; factor: number; step: number }
-> = {
-  g: { label: 'Grams (g)', shortLabel: 'g', kind: 'mass', factor: 1, step: 50 },
-  kg: { label: 'Kilograms (kg)', shortLabel: 'kg', kind: 'mass', factor: 1000, step: 0.5 },
-  ml: { label: 'Millilitres (ml)', shortLabel: 'ml', kind: 'volume', factor: 1, step: 50 },
-  litre: { label: 'Litres (L)', shortLabel: 'L', kind: 'volume', factor: 1000, step: 0.5 },
-  tsp: { label: 'Teaspoon (5 ml)', shortLabel: 'tsp', kind: 'volume', factor: 5, step: 0.5 },
-  tbsp: { label: 'Tablespoon (15 ml)', shortLabel: 'tbsp', kind: 'volume', factor: 15, step: 0.5 },
-  cup: { label: 'Cup (250 ml)', shortLabel: 'cup', kind: 'volume', factor: 250, step: 0.5 },
-  count: { label: 'Count', shortLabel: '', kind: 'count', factor: 1, step: 0.5 },
-}
-
 const SAVE_FEEDBACK_MS = 1800
-
-function formatAmount(value: number): string {
-  return String(Number(value.toFixed(2)))
-}
 
 export default function FoodLog() {
   const { token } = useAuth()
@@ -245,134 +221,14 @@ export default function FoodLog() {
             </p>
           </div>
           <div className="space-y-3">
-            {portions.map((portion) => {
-              const info = units[portion.unit]
-              const numericAmount = Number(portion.amount)
-              const validAmount =
-                portion.amount.trim() !== '' &&
-                Number.isFinite(numericAmount) &&
-                numericAmount > 0 &&
-                portion.baseAmount !== null
-              const decDisabled = !validAmount || numericAmount - info.step <= 0
-              return (
-                <div key={portion.food.id} className="food-item-card pop-in surface rounded-2xl p-3.5">
-                  <div className="flex items-start gap-3">
-                    <span
-                      aria-hidden="true"
-                      className="flex size-11 shrink-0 items-center justify-center rounded-2xl bg-primary/10 text-primary"
-                    >
-                      <Utensils size={19} />
-                    </span>
-                    <div className="min-w-0 flex-1">
-                      <p className="truncate font-semibold">{portion.food.name}</p>
-                      {info.kind !== 'count' &&
-                        validAmount &&
-                        portion.unit !== 'g' &&
-                        portion.unit !== 'ml' && (
-                          <p className="mt-0.5 text-xs text-muted-foreground">
-                            ≈ {formatAmount(portion.baseAmount!)} {info.kind === 'mass' ? 'g' : 'ml'} total
-                            {info.kind === 'volume' ? ' · 1 cup = 250 ml' : ''}
-                          </p>
-                        )}
-                    </div>
-                    <button
-                      type="button"
-                      aria-label={`Remove ${portion.food.name}`}
-                      onClick={() =>
-                        setPortions((current) => current.filter((item) => item.food.id !== portion.food.id))
-                      }
-                      className="tap-scale flex size-9 shrink-0 items-center justify-center rounded-full text-muted-foreground hover:bg-destructive/10 hover:text-destructive"
-                    >
-                      <Trash2 size={17} />
-                    </button>
-                  </div>
-
-                  <div className="mt-3 flex items-center gap-2">
-                    <button
-                      type="button"
-                      aria-label={`Decrease ${portion.food.name}`}
-                      disabled={decDisabled}
-                      onClick={() =>
-                        updatePortion(portion.food.id, (current) => {
-                          const amount = Math.max(0, numericAmount - info.step)
-                          return { ...current, amount: formatAmount(amount), baseAmount: amount * info.factor }
-                        })
-                      }
-                      className="tap-scale surface flex size-10 shrink-0 items-center justify-center rounded-full text-primary disabled:pointer-events-none disabled:opacity-30"
-                    >
-                      <Minus size={16} />
-                    </button>
-                    <div className="well flex h-10 flex-1 items-center justify-center gap-1.5 rounded-2xl px-2">
-                      <input
-                        type="number"
-                        inputMode="decimal"
-                        min="0"
-                        step="any"
-                        aria-label={`Amount for ${portion.food.name}`}
-                        value={portion.amount}
-                        onChange={(event) => {
-                          const amount = event.target.value
-                          const value = Number(amount)
-                          updatePortion(portion.food.id, (current) => ({
-                            ...current,
-                            amount,
-                            baseAmount:
-                              amount.trim() && Number.isFinite(value) ? value * units[current.unit].factor : null,
-                          }))
-                        }}
-                        className="w-full min-w-0 border-0 bg-transparent text-center text-base font-semibold tabular-nums outline-none [appearance:textfield] [&::-webkit-inner-spin-button]:appearance-none [&::-webkit-outer-spin-button]:appearance-none"
-                      />
-                      {info.kind !== 'count' && (
-                        <span aria-hidden="true" className="shrink-0 text-sm font-medium text-muted-foreground">
-                          {info.shortLabel}
-                        </span>
-                      )}
-                    </div>
-                    <button
-                      type="button"
-                      aria-label={`Increase ${portion.food.name}`}
-                      onClick={() =>
-                        updatePortion(portion.food.id, (current) => {
-                          const base = validAmount ? numericAmount : 0
-                          const amount = base + info.step
-                          return { ...current, amount: formatAmount(amount), baseAmount: amount * info.factor }
-                        })
-                      }
-                      className="tap-scale surface flex size-10 shrink-0 items-center justify-center rounded-full text-primary"
-                    >
-                      <Plus size={16} />
-                    </button>
-                  </div>
-                  <Select
-                    aria-label={`Unit for ${portion.food.name}`}
-                    alignItemWithTrigger={false}
-                    value={portion.unit}
-                    className="mt-2 min-h-11 py-0 font-medium normal-case"
-                    options={Object.entries(units).map(([value, unit]) => ({ value, label: unit.label }))}
-                    onValueChange={(value) => {
-                      const nextUnit = value as Unit
-                      updatePortion(portion.food.id, (current) => {
-                        const previous = units[current.unit]
-                        const next = units[nextUnit]
-                        const baseAmount =
-                          previous.kind === next.kind
-                            ? current.baseAmount
-                            : next.kind === 'mass'
-                              ? 100
-                              : next.kind === 'volume'
-                                ? 250
-                                : 1
-                        const amount = baseAmount === null ? '' : formatAmount(baseAmount / next.factor)
-                        return { ...current, unit: nextUnit, amount, baseAmount }
-                      })
-                    }}
-                  />
-                  {!validAmount && (
-                    <p className="mt-2 text-xs text-destructive">Enter an amount greater than zero.</p>
-                  )}
-                </div>
-              )
-            })}
+            {portions.map((portion) => (
+              <MealPortionCard
+                key={portion.food.id}
+                portion={portion}
+                onChange={(update) => updatePortion(portion.food.id, update)}
+                onRemove={() => setPortions((current) => current.filter((item) => item.food.id !== portion.food.id))}
+              />
+            ))}
           </div>
 
           <div>

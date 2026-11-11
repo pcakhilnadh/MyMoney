@@ -4,6 +4,8 @@ import { api } from '@/auth/api'
 import { useAuth } from '@/auth/AuthContext'
 import { Button } from '@/components/kit'
 import { encodeImage } from './image'
+import { MealPortionCard } from './MealPortionCard'
+import { units, type Portion, type Unit } from './portions'
 
 const categories = [
   'base_food',
@@ -45,6 +47,7 @@ interface ReviewItem {
   scan: ScanItem
   matches: Match[]
   selected: Match | null
+  portion: Portion
 }
 interface BatchResult {
   results: { query: string; matches: Match[] }[]
@@ -251,11 +254,27 @@ export default function FoodReviewScan({
 }) {
   const { token } = useAuth()
   const [items, setItems] = useState<ReviewItem[]>(() =>
-    initialItems.map((scan, key) => ({ key, scan, matches: [], selected: null })),
+    initialItems.map((scan, key) => {
+      const unit: Unit = scan.unit === 'L' ? 'litre' : scan.unit === 'Nos' ? 'count' : scan.unit
+      return {
+        key,
+        scan,
+        matches: [],
+        selected: null,
+        portion: {
+          food: { id: '', name: scan.name },
+          amount: String(scan.qty),
+          unit,
+          baseAmount: scan.qty * units[unit].factor,
+        },
+      }
+    }),
   )
   const [step, setStep] = useState<0 | 1 | 2>(0)
   const [creating, setCreating] = useState<number | null>(null)
   const [busy, setBusy] = useState(false)
+  const [searchStarted, setSearchStarted] = useState(false)
+  const [searchComplete, setSearchComplete] = useState(false)
   const [error, setError] = useState('')
   const active = useRef(true)
   useEffect(() => {
@@ -270,10 +289,15 @@ export default function FoodReviewScan({
   }
   function select(key: number, match: Match) {
     setItems((current) =>
-      current.map((item) => (item.key === key ? { ...item, selected: match } : item)),
+      current.map((item) =>
+        item.key === key
+          ? { ...item, selected: match, portion: { ...item.portion, food: match } }
+          : item,
+      ),
     )
   }
   async function search() {
+    setSearchStarted(true)
     setBusy(true)
     setError('')
     try {
@@ -294,15 +318,17 @@ export default function FoodReviewScan({
       if (!active.current) return
       setItems(
         items.map((item, index) => {
-          const matches = results[index].matches
-          const exact = matches.find(
-            (match) =>
-              match.name.trim().toLocaleLowerCase() ===
-              item.scan.canonical_name.trim().toLocaleLowerCase(),
-          )
-          return { ...item, matches, selected: exact ?? null }
+          const matches = [...results[index].matches].sort((a, b) => b.score - a.score).slice(0, 6)
+          const selected = matches.length === 1 ? matches[0] : null
+          return {
+            ...item,
+            matches,
+            selected,
+            portion: selected ? { ...item.portion, food: selected } : item.portion,
+          }
         }),
       )
+      setSearchComplete(true)
       setStep(1)
     } catch (reason) {
       console.error('Unable to search scan results', reason)
@@ -334,14 +360,14 @@ export default function FoodReviewScan({
           <X size={18} />
         </button>
       </header>
-      <ol aria-label="Scan progress" className="grid grid-cols-3 gap-1 text-center text-xs">
+      <ol aria-label="Scan progress" className="relative grid grid-cols-3 text-center text-xs before:absolute before:left-[16.666%] before:right-[16.666%] before:top-3.5 before:h-px before:bg-primary/40 before:content-['']">
         {['Scan Result', 'Search Result', 'Confirmation'].map((label, index) => (
           <li
             key={label}
             aria-current={step === index ? 'step' : undefined}
             className={step === index ? 'font-bold text-primary' : 'text-muted-foreground'}
           >
-            <span className="mx-auto mb-1 flex size-7 items-center justify-center rounded-full border border-primary/40">
+            <span className="relative mx-auto mb-1 flex size-7 items-center justify-center rounded-full border border-primary/40 bg-card">
               {index + 1}
             </span>
             {label}
@@ -364,81 +390,134 @@ export default function FoodReviewScan({
             : 'No food was found in this photo. Try another photo.'}
         </p>
       )}
-      <div className="space-y-3">
-        {items.map((item, index) => (
-          <section key={item.key} className="surface space-y-3 rounded-2xl p-4">
-            <div className="flex items-center justify-between gap-2">
-              <h2 className="font-semibold">
-                {index + 1} · {step === 2 ? item.selected?.name : item.scan.name}
-              </h2>
-              <button
-                type="button"
-                aria-label={`Remove ${item.scan.name}`}
-                onClick={() => remove(item.key)}
-                disabled={busy}
-                className="rounded-full p-1 text-muted-foreground hover:text-foreground"
-              >
-                <X size={18} />
-              </button>
-            </div>
-            {step !== 1 && (
-              <p className="text-sm text-muted-foreground">
-                {item.scan.qty} {item.scan.unit} · {item.scan.kcal} kcal (estimated)
-              </p>
-            )}
-            {step === 1 && (
-              <>
-                <p className="text-xs text-muted-foreground">
-                  {item.matches.length === 0
-                    ? 'No match found in the catalog.'
-                    : item.selected
-                      ? 'Selected match'
-                      : 'Choose a match'}
-                </p>
-                <div className="flex flex-wrap gap-2">
-                  {item.matches.map((match) => (
-                    <button
-                      key={match.id}
-                      type="button"
-                      aria-pressed={item.selected?.id === match.id}
-                      onClick={() => select(item.key, match)}
-                      className={`rounded-full border px-3 py-2 text-sm ${item.selected?.id === match.id ? 'border-primary bg-primary text-primary-foreground' : 'border-primary/30 bg-background'}`}
-                    >
-                      {match.name}
-                    </button>
-                  ))}
-                </div>
-                {item.selected?.createdDetails && (
-                  <p className="text-xs text-muted-foreground">
-                    Created: {item.selected.createdDetails.food_type} ·{' '}
-                    {item.selected.createdDetails.category.replace('_', ' ')}
-                    {item.selected.createdDetails.aliases &&
-                      ` · ${item.selected.createdDetails.aliases}`}
-                  </p>
+      {step === 2 ? (
+        <section
+          aria-labelledby="scan-meal-title"
+          className="pop-in surface space-y-4 rounded-[1.75rem] p-4"
+        >
+          <div>
+            <h2 id="scan-meal-title" className="text-sm font-semibold text-foreground/90">
+              Your meal
+            </h2>
+            <p className="text-xs text-muted-foreground">
+              {items.length} {items.length === 1 ? 'item' : 'items'} added to this meal
+            </p>
+          </div>
+          <div className="space-y-3">
+            {items.map((item) => (
+              <MealPortionCard
+                key={item.key}
+                portion={item.portion}
+                estimatedCalories={item.scan.kcal}
+                removeLabel={`Remove ${item.scan.name}`}
+                onRemove={() => remove(item.key)}
+                onChange={(update) =>
+                  setItems((current) =>
+                    current.map((entry) =>
+                      entry.key === item.key ? { ...entry, portion: update(entry.portion) } : entry,
+                    ),
+                  )
+                }
+              />
+            ))}
+          </div>
+        </section>
+      ) : (
+        <div className="space-y-3">
+          {items.map((item, index) => (
+            <section key={item.key} className="surface space-y-3 rounded-2xl p-4">
+              <div className="flex items-center justify-between gap-2">
+                <h2 className="font-semibold">
+                  {index + 1} · {item.scan.name}
+                </h2>
+                {step === 1 && (
+                  <span
+                    className={`ml-auto rounded-full px-2 py-1 text-xs font-medium ${
+                      item.matches.length === 1
+                        ? 'bg-primary/15 text-primary'
+                        : 'bg-amber-500/20 text-amber-500'
+                    }`}
+                  >
+                    {item.matches.length === 0
+                      ? 'No match'
+                      : item.matches.length === 1
+                        ? 'Exact match'
+                        : 'Choose One'}
+                  </span>
                 )}
                 <button
                   type="button"
-                  onClick={() => setCreating(item.key)}
-                  className="w-full rounded-full border border-dashed border-primary/50 px-3 py-2 text-sm font-semibold text-primary"
+                  aria-label={`Remove ${item.scan.name}`}
+                  onClick={() => remove(item.key)}
+                  disabled={busy || (step === 0 && searchStarted)}
+                  className="rounded-full p-1 text-muted-foreground hover:text-foreground"
                 >
-                  + Create “{item.scan.name}”
+                  <X size={18} />
                 </button>
-              </>
-            )}
-          </section>
-        ))}
-      </div>
+              </div>
+              {step === 0 && (
+                <p className="text-sm text-muted-foreground">
+                  {item.scan.qty} {item.scan.unit} · {item.scan.kcal} kcal (estimated)
+                </p>
+              )}
+              {step === 1 && (
+                <>
+                  {item.matches.length === 0 && (
+                    <p className="text-xs text-muted-foreground">No match found in the catalog.</p>
+                  )}
+                  <div className="flex flex-wrap gap-2">
+                    {item.matches.map((match) => (
+                      <button
+                        key={match.id}
+                        type="button"
+                        aria-pressed={item.selected?.id === match.id}
+                        onClick={() => select(item.key, match)}
+                        className={`rounded-full border px-3 py-2 text-sm ${item.selected?.id === match.id ? 'border-primary bg-primary text-primary-foreground' : 'border-primary/30 bg-background'}`}
+                      >
+                        {match.name}
+                      </button>
+                    ))}
+                  </div>
+                  {item.selected?.createdDetails && (
+                    <p className="text-xs text-muted-foreground">
+                      Created: {item.selected.createdDetails.food_type} ·{' '}
+                      {item.selected.createdDetails.category.replace('_', ' ')}
+                      {item.selected.createdDetails.aliases &&
+                        ` · ${item.selected.createdDetails.aliases}`}
+                    </p>
+                  )}
+                  {item.matches.length === 0 && (
+                    <button
+                      type="button"
+                      onClick={() => setCreating(item.key)}
+                      className="w-full rounded-full border border-dashed border-primary/50 px-3 py-2 text-sm font-semibold text-primary"
+                    >
+                      + Create “{item.scan.name}”
+                    </button>
+                  )}
+                </>
+              )}
+            </section>
+          ))}
+        </div>
+      )}
       {error && (
         <p role="alert" className="text-sm text-destructive">
           {error}
         </p>
       )}
       {step === 0 && (
-        <Button className="w-full" disabled={!items.length || busy} onClick={() => void search()}>
+        <Button
+          className="w-full"
+          disabled={!items.length || busy}
+          onClick={() => (searchComplete ? setStep(1) : void search())}
+        >
           {busy ? (
             <>
               <Loader2 className="animate-spin" /> Searching…
             </>
+          ) : searchComplete ? (
+            'Continue to search results'
           ) : (
             'Search catalog'
           )}
@@ -475,7 +554,12 @@ export default function FoodReviewScan({
             setItems((current) =>
               current.map((item) =>
                 item.key === creatingItem.key
-                  ? { ...item, matches: [match, ...item.matches], selected: match }
+                  ? {
+                      ...item,
+                      matches: [match],
+                      selected: match,
+                      portion: { ...item.portion, food: match },
+                    }
                   : item,
               ),
             )

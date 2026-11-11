@@ -91,7 +91,7 @@ test('intelligent per-unit steppers and conversions', async ({ page }) => {
     const trigger = page.getByRole('combobox', { name })
     await trigger.scrollIntoViewIfNeeded()
     await trigger.click()
-    await page.getByRole('option', { name: unitLabels[value], exact: true }).click()
+    await page.locator('[data-slot="select-content"][data-open]').getByRole('option', { name: unitLabels[value], exact: true }).click()
   }
   const unit = { selectOption: (value: string) => chooseUnit('Unit for Egg', value) }
   const themedSurfaces = await amount.evaluate((input) => {
@@ -385,12 +385,72 @@ test.describe('food scanner', () => {
     expect(createdBody?.aliases).toBe('Kari')
     expect(createdBody?.image).toBeTruthy()
     await page.getByRole('button', { name: 'Continue to confirmation' }).click()
-    await expect(page.getByRole('heading', { name: '2 · Dal sambar' })).toBeVisible()
+    await expect(page.getByRole('heading', { name: 'Your meal' })).toBeVisible()
+    await expect(page.getByRole('spinbutton', { name: 'Amount for Dal sambar' })).toHaveValue('150')
+    await expect(page.getByRole('combobox', { name: 'Unit for Dal sambar' })).toContainText('Millilitres (ml)')
     await page.getByRole('button', { name: 'Remove Sambar' }).click()
     await page.getByRole('button', { name: 'Save as one meal' }).click()
     expect(posts).toBe(1)
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Log Meal' })).toBeVisible()
+  })
+
+  test('locks scan removal after searching and shows sorted, limited match choices', async ({ page }) => {
+    let releaseSearch: (() => void) | undefined
+    const gate = new Promise<void>((resolve) => { releaseSearch = resolve })
+    let searchCount = 0
+    await page.route('**/food/ai/food-analyse', (route) => route.fulfill({ json: { items: [
+      { name: 'Rice', canonical_name: 'rice', qty: 1.5, unit: 'kg', kcal: 400, food_type: 'processed', food_category: 'grain' },
+      { name: 'Egg', canonical_name: 'egg', qty: 2, unit: 'Nos', kcal: 140, food_type: 'processed', food_category: 'egg' },
+    ] } }))
+    await page.route('**/food/catalog/search-batch', async (route) => {
+      searchCount += 1
+      await gate
+      await route.fulfill({ json: { results: [
+        { query: 'rice', matches: [
+          { id: '1', name: 'Rice variety 1', score: 0.1 },
+          { id: '2', name: 'Rice variety 2', score: 0.2 },
+          { id: '3', name: 'Rice variety 3', score: 0.3 },
+          { id: '4', name: 'Rice variety 4', score: 0.4 },
+          { id: '5', name: 'Rice variety 5', score: 0.5 },
+          { id: '6', name: 'Rice variety 6', score: 0.6 },
+          { id: '7', name: 'Rice variety 7', score: 0.7 },
+        ] },
+        { query: 'egg', matches: [{ id: '8', name: 'Boiled egg', score: 0.9 }] },
+      ] } })
+    })
+    await page.goto('/food/add')
+    await page.getByRole('button', { name: 'Scan food' }).click()
+    await page.getByLabel('Upload a food photo').setInputFiles('public\\icon-192.png')
+    await page.getByRole('button', { name: 'Analyse with AI' }).click()
+    const progress = page.getByRole('list', { name: 'Scan progress' })
+    expect(await progress.evaluate((element) => parseFloat(getComputedStyle(element, '::before').width))).toBeGreaterThan(100)
+    await page.getByRole('button', { name: 'Search catalog' }).click()
+    await expect(page.getByRole('button', { name: 'Remove Rice' })).toBeDisabled()
+    releaseSearch!()
+    const rice = page.locator('section').filter({ has: page.getByRole('heading', { name: '1 · Rice' }) })
+    const egg = page.locator('section').filter({ has: page.getByRole('heading', { name: '2 · Egg' }) })
+    await expect(rice.getByText('Choose One')).toBeVisible()
+    await expect(egg.getByText('Exact match')).toBeVisible()
+    await expect(egg.getByRole('button', { name: 'Boiled egg' })).toHaveAttribute('aria-pressed', 'true')
+    await expect(egg.getByRole('button', { name: /Create/ })).toHaveCount(0)
+    await expect(rice.getByRole('button', { name: /Rice variety/ })).toHaveCount(6)
+    await expect(rice.getByRole('button', { name: /Rice variety/ }).first()).toHaveText('Rice variety 7')
+    await expect(rice.getByRole('button', { name: 'Rice variety 1' })).toHaveCount(0)
+    await page.getByRole('button', { name: 'Back' }).click()
+    await expect(page.getByRole('button', { name: 'Remove Rice' })).toBeDisabled()
+    await page.getByRole('button', { name: 'Continue to search results' }).click()
+    expect(searchCount).toBe(1)
+    await rice.getByRole('button', { name: 'Rice variety 7' }).click()
+    await page.getByRole('button', { name: 'Continue to confirmation' }).click()
+    await expect(page.getByRole('spinbutton', { name: 'Amount for Rice variety 7' })).toHaveValue('1.5')
+    await expect(page.getByRole('combobox', { name: 'Unit for Rice variety 7' })).toContainText('Kilograms (kg)')
+    await expect(page.getByRole('spinbutton', { name: 'Amount for Boiled egg' })).toHaveValue('2')
+    await expect(page.getByRole('combobox', { name: 'Unit for Boiled egg' })).toContainText('Count')
+    await page.getByRole('spinbutton', { name: 'Amount for Boiled egg' }).fill('3')
+    await page.getByRole('button', { name: 'Back' }).click()
+    await page.getByRole('button', { name: 'Continue to confirmation' }).click()
+    await expect(page.getByRole('spinbutton', { name: 'Amount for Boiled egg' })).toHaveValue('3')
   })
 
   test('handles empty analysis and failed batch searches without losing scan items', async ({ page }) => {
