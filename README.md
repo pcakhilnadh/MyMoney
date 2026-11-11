@@ -49,6 +49,12 @@ Each result contains `id`, `name`, and a `score` from 0 to 1. Name substring mat
 alias-only substring matches score 0.9. Fuzzy scores are text-similarity ratios, not probabilities
 or calibrated confidence levels.
 Fuzzy matching currently scans the catalogue in the API and does not use vector embeddings.
+For multiple foods, authenticated clients can send `POST /api/food/catalog/search-batch` with
+`{"queries": ["putt", "egg"]}`. It accepts 1–10 queries, each 1–100 characters, and returns
+`{"results": [{"query": "putt", "matches": [...]}, {"query": "egg", "matches": [...]}]}`.
+Each query uses the same rules and up-to-10 result limit as `GET /api/food/catalog?q=...`.
+Input order and duplicate queries are preserved; a whitespace-only query has an empty match list.
+The batch runs synchronously, and fuzzy searches can scan the catalogue once per query.
 The catalogue table must be populated separately; the migration creates it empty. Search requires
 an authenticated online session. Select search results to prepare portions in expandable cards.
 These portions are a temporary draft and are not saved to the diary. The food scanner can capture

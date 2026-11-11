@@ -191,3 +191,89 @@ def test_name_matches_rank_above_alias_matches_before_limit(client):
             for i in range(8)
         ],
     ]
+
+
+def test_batch_search_matches_single_search_and_preserves_input_order(client):
+    with client.session_factory() as db:
+        db.execute(text(
+            "CREATE TABLE food_catalog_master "
+            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, user_id uuid)"
+        ))
+        db.execute(insert(catalog), [
+            {"id": "puttu", "base_food_name": "Rice puttu", "aliases": "Ari puttu", "user_id": None},
+            {"id": "alias", "base_food_name": "Mushroom", "aliases": "Putta Godugu", "user_id": None},
+            {"id": "egg", "base_food_name": "Egg", "aliases": "Anda", "user_id": None},
+            {"id": "fuzzy", "base_food_name": "Rice flakes", "aliases": "Beaten rice", "user_id": None},
+        ])
+        db.commit()
+
+    queries = [" putt ", "beatan rice", "missing food", "putt", "   ", "egg", "putt"]
+    response = client.post(
+        "/api/food/catalog/search-batch", json={"queries": queries}, headers=H("alice"),
+    )
+    assert response.status_code == 200
+    results = response.json()["results"]
+    assert [item["query"] for item in results] == queries
+    for query, item in zip(queries, results):
+        single = client.get("/api/food/catalog", params={"q": query}, headers=H("alice"))
+        assert item["matches"] == single.json()
+    assert results[0]["matches"] == [
+        {"id": "puttu", "name": "Rice puttu", "score": 1.0},
+        {"id": "alias", "name": "Mushroom", "score": 0.9},
+    ]
+    assert results[1]["matches"] == [{
+        "id": "fuzzy", "name": "Rice flakes",
+        "score": fuzzy_score("beatan rice", "Rice flakes", "Beaten rice"),
+    }]
+    assert results[2]["matches"] == []
+    assert results[4]["matches"] == []
+
+
+def test_batch_search_validates_request_and_requires_authentication(client):
+    url = "/api/food/catalog/search-batch"
+    assert client.post(url, json={"queries": ["egg"]}).status_code == 401
+    for body in (
+        {},
+        {"queries": []},
+        {"queries": ["egg"] * 11},
+        {"queries": [""]},
+        {"queries": ["x" * 101]},
+        {"queries": ["egg", 123]},
+    ):
+        assert client.post(url, json=body, headers=H("alice")).status_code == 422
+
+    with client.session_factory() as db:
+        db.execute(text(
+            "CREATE TABLE food_catalog_master "
+            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, user_id uuid)"
+        ))
+        db.commit()
+    response = client.post(url, json={"queries": ["x" * 100] * 10}, headers=H("alice"))
+    assert response.status_code == 200
+    assert len(response.json()["results"]) == 10
+
+
+def test_batch_search_limits_each_query_independently(client):
+    with client.session_factory() as db:
+        db.execute(text(
+            "CREATE TABLE food_catalog_master "
+            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, user_id uuid)"
+        ))
+        db.execute(insert(catalog), [
+            {"id": f"{food}-{i}", "base_food_name": f"{food} {i:02}",
+             "aliases": None, "user_id": None}
+            for food in ("Apple", "Banana") for i in range(12)
+        ])
+        db.commit()
+    response = client.post(
+        "/api/food/catalog/search-batch",
+        json={"queries": ["apple", "banana"]},
+        headers=H("alice"),
+    )
+    assert response.status_code == 200
+    results = response.json()["results"]
+    for food, item in zip(("Apple", "Banana"), results):
+        assert item["matches"] == [
+            {"id": f"{food}-{i}", "name": f"{food} {i:02}", "score": 1.0}
+            for i in range(10)
+        ]

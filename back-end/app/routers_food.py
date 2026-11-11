@@ -1,3 +1,5 @@
+from typing import Annotated
+
 from fastapi import APIRouter, Depends, Query
 from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
@@ -22,15 +24,45 @@ class FoodSearchResult(BaseModel):
     )
 
 
-@router.get("/catalog", response_model=list[FoodSearchResult])
-def search_catalog(
-    q: str = Query(min_length=1, max_length=100),
-    db: Session = Depends(get_db),
-) -> list[FoodSearchResult]:
-    query = q.strip()
+class FoodBatchSearchRequest(BaseModel):
+    queries: list[Annotated[str, Field(min_length=1, max_length=100)]] = Field(
+        min_length=1, max_length=10,
+    )
+
+
+class FoodBatchSearchItem(BaseModel):
+    query: str
+    matches: list[FoodSearchResult]
+
+
+class FoodBatchSearchResponse(BaseModel):
+    results: list[FoodBatchSearchItem]
+
+
+def _search_catalog(db: Session, query: str) -> list[FoodSearchResult]:
+    query = query.strip()
     if not query:
         return []
     return [
         FoodSearchResult(id=food_id, name=name, score=score)
         for food_id, name, score in hybrid_food_search(db, query)
     ]
+
+
+@router.get("/catalog", response_model=list[FoodSearchResult])
+def search_catalog(
+    q: str = Query(min_length=1, max_length=100),
+    db: Session = Depends(get_db),
+) -> list[FoodSearchResult]:
+    return _search_catalog(db, q)
+
+
+@router.post("/catalog/search-batch", response_model=FoodBatchSearchResponse)
+def search_catalog_batch(
+    request: FoodBatchSearchRequest,
+    db: Session = Depends(get_db),
+) -> FoodBatchSearchResponse:
+    return FoodBatchSearchResponse(results=[
+        FoodBatchSearchItem(query=query, matches=_search_catalog(db, query))
+        for query in request.queries
+    ])
