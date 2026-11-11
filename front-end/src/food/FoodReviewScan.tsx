@@ -1,28 +1,13 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { ArrowLeft, Loader2, X } from 'lucide-react'
+import { useEffect, useRef, useState } from 'react'
+import { ArrowLeft, Loader2, Sparkles, X } from 'lucide-react'
 import { api } from '@/auth/api'
 import { useAuth } from '@/auth/AuthContext'
 import { Button } from '@/components/kit'
-import { encodeImage } from './image'
+import { CreateFood } from './CreateFood'
+import type { Category, FoodType, Match } from './catalog'
 import { MealPortionCard } from './MealPortionCard'
 import { units, type Portion, type Unit } from './portions'
 
-const categories = [
-  'base_food',
-  'dairy',
-  'egg',
-  'fish',
-  'fruit',
-  'grain',
-  'ingredient',
-  'legume',
-  'meat',
-  'nut_seed',
-  'seafood',
-  'vegetable',
-] as const
-type Category = (typeof categories)[number]
-type FoodType = 'raw' | 'processed'
 export interface ScanItem {
   name: string
   canonical_name: string
@@ -31,16 +16,6 @@ export interface ScanItem {
   kcal: number
   food_type: FoodType
   food_category: Category
-}
-interface Match {
-  id: string
-  name: string
-  score: number
-  createdDetails?: {
-    aliases: string | null
-    category: Category
-    food_type: FoodType
-  }
 }
 interface ReviewItem {
   key: number
@@ -51,198 +26,6 @@ interface ReviewItem {
 }
 interface BatchResult {
   results: { query: string; matches: Match[] }[]
-}
-
-const fieldClass = 'field w-full rounded-xl px-3 py-2'
-
-function CreateFood({
-  item,
-  token,
-  onClose,
-  onCreated,
-}: {
-  item: ScanItem
-  token: string
-  onClose: () => void
-  onCreated: (food: Match) => void
-}) {
-  const dialog = useRef<HTMLDialogElement>(null)
-  const [name, setName] = useState(item.canonical_name)
-  const [aliases, setAliases] = useState('')
-  const [description, setDescription] = useState('')
-  const [category, setCategory] = useState<Category>(item.food_category)
-  const [foodType, setFoodType] = useState<FoodType>(item.food_type)
-  const [nutrition, setNutrition] = useState<Record<string, string>>({})
-  const [image, setImage] = useState<File | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState('')
-  useEffect(() => {
-    dialog.current?.showModal()
-  }, [])
-
-  async function submit(event: FormEvent) {
-    event.preventDefault()
-    if (!name.trim()) {
-      setError('Enter a food name.')
-      return
-    }
-    setBusy(true)
-    setError('')
-    try {
-      const body: Record<string, unknown> = {
-        base_food_name: name.trim(),
-        aliases: aliases.trim() || null,
-        description: description.trim() || null,
-        category,
-        food_type: foodType,
-      }
-      for (const key of ['calories_100g', 'protein_100g', 'carbs_100g', 'fat_100g', 'fiber_100g']) {
-        body[key] = nutrition[key] ? Number(nutrition[key]) : null
-      }
-      if (image) body.image = await encodeImage(image)
-      const created = await api<{
-        id: string
-        base_food_name: string
-        aliases: string | null
-        category: Category
-        food_type: FoodType
-      }>('/food/catalog', token, {
-        method: 'POST',
-        body: JSON.stringify(body),
-      })
-      onCreated({
-        id: created.id,
-        name: created.base_food_name,
-        score: 1,
-        createdDetails: {
-          aliases: created.aliases,
-          category: created.category,
-          food_type: created.food_type,
-        },
-      })
-    } catch (reason) {
-      console.error('Unable to create food', reason)
-      setError(
-        reason instanceof Error ? reason.message : 'Unable to create food. Please try again.',
-      )
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <dialog
-      ref={dialog}
-      aria-label="Create food"
-      onCancel={(event) => {
-        event.preventDefault()
-        if (!busy) onClose()
-      }}
-      className="m-auto max-h-[90dvh] w-[min(94vw,30rem)] overflow-y-auto rounded-3xl bg-card p-5 text-foreground backdrop:bg-black/75"
-    >
-      <form onSubmit={submit} className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-xl font-semibold">Create food</h2>
-          <button type="button" aria-label="Close create food" onClick={onClose} disabled={busy}>
-            <X size={20} />
-          </button>
-        </div>
-        <label className="block space-y-1 text-sm">
-          Food name{' '}
-          <input
-            className={fieldClass}
-            value={name}
-            onChange={(e) => setName(e.target.value)}
-            maxLength={100}
-            required
-          />
-        </label>
-        <label className="block space-y-1 text-sm">
-          Regional names (comma-separated){' '}
-          <input
-            className={fieldClass}
-            value={aliases}
-            onChange={(e) => setAliases(e.target.value)}
-            maxLength={1000}
-          />
-        </label>
-        <label className="block space-y-1 text-sm">
-          Description{' '}
-          <textarea
-            className={fieldClass}
-            value={description}
-            onChange={(e) => setDescription(e.target.value)}
-            maxLength={2000}
-          />
-        </label>
-        <label className="block space-y-1 text-sm">
-          Category{' '}
-          <select
-            className={fieldClass}
-            value={category}
-            onChange={(e) => setCategory(e.target.value as Category)}
-          >
-            {categories.map((value) => (
-              <option key={value} value={value}>
-                {value.replace('_', ' ')}
-              </option>
-            ))}
-          </select>
-        </label>
-        <label className="block space-y-1 text-sm">
-          Food type{' '}
-          <select
-            className={fieldClass}
-            value={foodType}
-            onChange={(e) => setFoodType(e.target.value as FoodType)}
-          >
-            <option value="raw">Raw</option>
-            <option value="processed">Processed</option>
-          </select>
-        </label>
-        <div className="grid grid-cols-2 gap-3">
-          {(
-            [
-              ['calories_100g', 'Calories'],
-              ['protein_100g', 'Protein (g)'],
-              ['carbs_100g', 'Carbs (g)'],
-              ['fat_100g', 'Fat (g)'],
-              ['fiber_100g', 'Fiber (g)'],
-            ] as const
-          ).map(([key, label]) => (
-            <label key={key} className="block space-y-1 text-sm">
-              {label} per 100 g{' '}
-              <input
-                className={fieldClass}
-                type="number"
-                min="0"
-                step="any"
-                value={nutrition[key] ?? ''}
-                onChange={(e) => setNutrition({ ...nutrition, [key]: e.target.value })}
-              />
-            </label>
-          ))}
-        </div>
-        <label className="block space-y-1 text-sm">
-          Food image (optional){' '}
-          <input
-            className="block w-full text-sm"
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            onChange={(e) => setImage(e.target.files?.[0] ?? null)}
-          />
-        </label>
-        {error && (
-          <p role="alert" className="text-sm text-destructive">
-            {error}
-          </p>
-        )}
-        <Button type="submit" className="w-full" disabled={busy}>
-          {busy ? 'Saving…' : 'Save food'}
-        </Button>
-      </form>
-    </dialog>
-  )
 }
 
 export default function FoodReviewScan({
@@ -347,7 +130,7 @@ export default function FoodReviewScan({
         <div>
           <h1 className="text-2xl font-bold">Review scan</h1>
           <p className="text-sm text-muted-foreground">
-            {items.length} {items.length === 1 ? 'item' : 'items'} found on your plate
+            {items.length} {items.length === 1 ? 'item' : 'items'} found on your photo.
           </p>
         </div>
         <button
@@ -360,7 +143,10 @@ export default function FoodReviewScan({
           <X size={18} />
         </button>
       </header>
-      <ol aria-label="Scan progress" className="relative grid grid-cols-3 text-center text-xs before:absolute before:left-[16.666%] before:right-[16.666%] before:top-3.5 before:h-px before:bg-primary/40 before:content-['']">
+      <ol
+        aria-label="Scan progress"
+        className="relative grid grid-cols-3 text-center text-xs before:absolute before:left-[16.666%] before:right-[16.666%] before:top-3.5 before:h-px before:bg-primary/40 before:content-['']"
+      >
         {['Scan Result', 'Search Result', 'Confirmation'].map((label, index) => (
           <li
             key={label}
@@ -374,6 +160,12 @@ export default function FoodReviewScan({
           </li>
         ))}
       </ol>
+      {step === 0 && items.length > 0 && (
+        <p className="pop-in flex items-center gap-2 rounded-2xl border border-primary/25 bg-primary/10 px-3 py-2 text-xs font-medium text-primary">
+          <Sparkles size={14} className="shrink-0" aria-hidden="true" />
+          Our Magic is Done ! Here are results from our AI..
+        </p>
+      )}
       {step > 0 && (
         <button
           type="button"
@@ -457,7 +249,7 @@ export default function FoodReviewScan({
               </div>
               {step === 0 && (
                 <p className="text-sm text-muted-foreground">
-                  {item.scan.qty} {item.scan.unit} · {item.scan.kcal} kcal (estimated)
+                  {item.scan.qty} {item.scan.unit} · {item.scan.kcal} cal
                 </p>
               )}
               {step === 1 && (
@@ -547,8 +339,12 @@ export default function FoodReviewScan({
       )}
       {creatingItem && (
         <CreateFood
-          item={creatingItem.scan}
           token={token ?? ''}
+          initialValues={{
+            name: creatingItem.scan.canonical_name,
+            category: creatingItem.scan.food_category,
+            foodType: creatingItem.scan.food_type,
+          }}
           onClose={() => setCreating(null)}
           onCreated={(match) => {
             setItems((current) =>
