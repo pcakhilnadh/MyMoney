@@ -467,15 +467,16 @@ export function ImageCapture({
                 <X aria-hidden="true" size={18} />
               </button>
             </div>
-            <div className="relative min-h-12 flex-1 overflow-hidden rounded-2xl border border-primary/25 bg-black">
-              <div className="flex size-full gap-1 overflow-auto">
+            <div className="relative min-h-12 flex-1 overflow-hidden rounded-2xl bg-secondary/30">
+              <div className="flex size-full items-center gap-1 overflow-auto">
                 {images.map((image, index) => (
-                  <img
-                    key={image.url}
-                    src={image.url}
-                    alt={index === 0 ? review.firstImageLabel : review.imageLabel(index + 1)}
-                    className="min-w-0 flex-1 object-contain"
-                  />
+                  <div key={image.url} className="flex h-full min-w-0 flex-1 items-center justify-center">
+                    <img
+                      src={image.url}
+                      alt={index === 0 ? review.firstImageLabel : review.imageLabel(index + 1)}
+                      className="block h-auto max-h-full w-auto max-w-full rounded-xl object-contain"
+                    />
+                  </div>
                 ))}
               </div>
               {busy && <div aria-hidden="true" className="bill-scan-overlay" />}

@@ -11,7 +11,7 @@ export function BillCapture({ onAnalyse }: { onAnalyse: (images: Blob[], signal:
         title: 'Review your bill',
         firstImageLabel: 'Captured bill',
         imageLabel: (index) => `Bill photo ${index}`,
-        notice: 'Images are sent to the AI provider and stored in the audit log. Verify the results before saving.',
+        notice: 'Images are about to sent to our AI for the Magic 🪄',
         progressLabel: 'Analysing your bill',
         errorMessage: 'Unable to analyse the bill.',
         actionLabel: 'Analyse with AI',

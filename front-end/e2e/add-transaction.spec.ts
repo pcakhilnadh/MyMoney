@@ -464,6 +464,12 @@ test.describe('bill capture', () => {
       expect(dimensions.displayedWidth).toBeGreaterThan(0)
       expect(dimensions.displayedHeight).toBeGreaterThan(0)
       expect(dimensions.objectFit).toBe('contain')
+      const scale = Math.min(
+        dimensions.displayedWidth / dimensions.width,
+        dimensions.displayedHeight / dimensions.height,
+      )
+      expect(dimensions.displayedWidth - dimensions.width * scale).toBeLessThan(2)
+      expect(dimensions.displayedHeight - dimensions.height * scale).toBeLessThan(2)
       expect(
         await preview.evaluate((element) => element.scrollHeight <= element.clientHeight),
       ).toBe(true)
@@ -484,6 +490,53 @@ test.describe('bill capture', () => {
       expect(horizontalFit).toBe(true)
     })
   }
+
+  test('shows complete uploaded photos without black letterboxing, including after resizing', async ({ page }) => {
+    await page.setViewportSize({ width: 320, height: 568 })
+    await page.goto('/money/expenses/new')
+    const makePhoto = async (width: number, height: number) => {
+      const data = await page.evaluate(({ width, height }) => {
+        const canvas = document.createElement('canvas')
+        canvas.width = width
+        canvas.height = height
+        const context = canvas.getContext('2d')!
+        context.fillStyle = '#e84949'
+        context.fillRect(0, 0, width, height)
+        return canvas.toDataURL('image/png').split(',')[1]
+      }, { width, height })
+      return Buffer.from(data, 'base64')
+    }
+    const landscape = await makePhoto(800, 400)
+    const portrait = await makePhoto(400, 800)
+    await page.getByRole('button', { name: 'Scan a bill' }).click()
+    await page.getByLabel('Upload a bill photo').setInputFiles([
+      { name: 'landscape.png', mimeType: 'image/png', buffer: landscape },
+      { name: 'portrait.png', mimeType: 'image/png', buffer: portrait },
+    ])
+    const preview = page.getByRole('dialog', { name: 'Review bill photo' })
+    for (const viewport of [{ width: 320, height: 568 }, { width: 640, height: 360 }]) {
+      await page.setViewportSize(viewport)
+      for (const image of await preview.getByRole('img').all()) {
+        await expect(image).toBeVisible()
+        const result = await image.evaluate(async (element) => {
+          const image = element as HTMLImageElement
+          await image.decode()
+          const { width, height } = image.getBoundingClientRect()
+          return {
+            width,
+            height,
+            naturalWidth: image.naturalWidth,
+            naturalHeight: image.naturalHeight,
+            background: getComputedStyle(image.parentElement!.parentElement!.parentElement!).backgroundColor,
+          }
+        })
+        expect(result.width).toBeGreaterThan(0)
+        expect(result.height).toBeGreaterThan(0)
+        expect(result.width / result.height).toBeCloseTo(result.naturalWidth / result.naturalHeight, 1)
+        expect(result.background).not.toBe('rgb(0, 0, 0)')
+      }
+    }
+  })
 
   test('keeps analysis controls within a narrow screen while busy and after an error', async ({ page }) => {
     await page.setViewportSize({ width: 320, height: 568 })
