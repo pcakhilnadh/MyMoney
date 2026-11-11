@@ -22,13 +22,6 @@ app.add_middleware(
 )
 
 
-# Auth and sync remain shared across all MyTracker features. Domain routes are
-# mounted both locally and beneath the deployment's /api base path.
-app.include_router(auth_router)
-app.include_router(sync_router)
-app.include_router(money_router)
-app.include_router(food_router)
-app.include_router(ai_router)
 app.include_router(auth_router, prefix="/api")
 app.include_router(sync_router, prefix="/api")
 app.include_router(money_router, prefix="/api")

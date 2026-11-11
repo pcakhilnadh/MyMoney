@@ -1,6 +1,6 @@
 import type { GoogleUser } from './jwt'
 
-const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000'
+const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api'
 export const AUTH_EXPIRED_EVENT = 'mymoney:auth-expired'
 
 export interface AuthResponse {

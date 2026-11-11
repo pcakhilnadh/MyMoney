@@ -1,7 +1,7 @@
 import { expect, test } from '@playwright/test'
 import { chooseCategory, chooseOption, fakeSignIn } from '../e2e/helpers'
 
-const API = 'http://localhost:8001'
+const API = 'http://localhost:8001/api/money'
 
 test('local expense reaches the server, and a fresh device pulls it back', async ({
   page,

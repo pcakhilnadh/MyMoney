@@ -34,6 +34,9 @@ describe('api session refresh', () => {
     })
 
     expect(fetchMock).toHaveBeenCalledTimes(3)
+    expect(new URL(String(fetchMock.mock.calls[0][0])).pathname).toBe('/api/auth/me')
+    expect(new URL(String(fetchMock.mock.calls[1][0])).pathname).toBe('/api/auth/refresh')
+    expect(new URL(String(fetchMock.mock.calls[2][0])).pathname).toBe('/api/auth/me')
     const firstRequest = fetchMock.mock.calls[0][1]
     const refreshRequest = fetchMock.mock.calls[1][1]
     const retryRequest = fetchMock.mock.calls[2][1]

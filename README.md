@@ -114,7 +114,7 @@ uv sync                     # creates .venv and installs dependencies
 uv run alembic upgrade head # creates/updates tables in the database
 uv run uvicorn app.main:app --reload --port 8000
 ```
-API: http://localhost:8000 · interactive docs: http://localhost:8000/docs · health: `/health` (reports database connectivity; returns HTTP 503 when the database is unavailable)
+API: http://localhost:8000/api · interactive docs: http://localhost:8000/docs · health: `/health` (reports database connectivity; returns HTTP 503 when the database is unavailable)
 
 ### 3. Front-end
 ```bash
@@ -144,7 +144,7 @@ Open http://localhost:5173 and sign in with Google.
 | `front-end/.env` | `VITE_MAX_IMAGE_UPLOAD_MB` | No (public) | Frontend limit for bill images; defaults to `5`; keep in sync with the back-end value |
 | `back-end/.env` | `NVIDIA_BASE_URL` | No | Defaults to NVIDIA's chat completions endpoint |
 | `front-end/.env` | `VITE_GOOGLE_CLIENT_ID` | No (public) | Same client ID |
-| `front-end/.env` | `VITE_API_URL` | No | Defaults to `http://localhost:8000` |
+| `front-end/.env` | `VITE_API_URL` | No | Defaults to `http://localhost:8000/api`; use `/api` for same-origin deployment |
 
 - **Real secrets live only in `back-end/.env`** (database password, SMTP password). It is git-ignored; never commit it
   or paste it in chat/tickets. Rotate the database password in Supabase (Project Settings → Database) if it is ever exposed.

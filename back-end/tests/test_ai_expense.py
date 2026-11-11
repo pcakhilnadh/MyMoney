@@ -96,7 +96,7 @@ def test_large_image_is_compressed_before_calling_provider(client, monkeypatch):
         "images": [{"mime_type": "image/png", "data": base64.b64encode(original).decode()}],
     }
 
-    result = client.post("/money/ai/expense", json=body, headers=H("alice"))
+    result = client.post("/api/money/ai/expense", json=body, headers=H("alice"))
 
     assert result.status_code == 200
     compressed = seen[0]["messages"][0]["content"][1]["image_url"]["url"]
@@ -142,7 +142,7 @@ def test_elapsed_time_is_null_while_pending_and_recorded_on_completion(client, m
         return provider_response({"is_bill": False})
 
     monkeypatch.setattr(NvidiaProvider, "send", send)
-    assert client.post("/money/ai/expense", json=BODY, headers=H("alice")).status_code == 200
+    assert client.post("/api/money/ai/expense", json=BODY, headers=H("alice")).status_code == 200
     with client.session_factory() as db:
         log = db.scalar(select(AICallLog))
         assert log.elapsed_ms == 175063
@@ -154,13 +154,13 @@ def test_non_bill_and_unknown_category(client, monkeypatch):
     monkeypatch.setattr(NvidiaProvider, "send", lambda self, payload: provider_response(
         {"is_bill": False, "total_amount": "not a number"}
     ))
-    result = client.post("/money/ai/expense", json=BODY, headers=H("alice"))
+    result = client.post("/api/money/ai/expense", json=BODY, headers=H("alice"))
     assert result.status_code == 200
     assert result.json()["is_bill"] is False
     monkeypatch.setattr(NvidiaProvider, "send", lambda self, payload: provider_response(
         {"is_bill": True, "category": "Unlisted"}
     ))
-    result = client.post("/money/ai/expense", json=BODY, headers=H("alice"))
+    result = client.post("/api/money/ai/expense", json=BODY, headers=H("alice"))
     assert result.json()["category"] is None
 
 
@@ -171,10 +171,10 @@ def test_failure_is_audited_and_invalid_input_does_not_call_provider(client, mon
         raise requests.Timeout("private connection details")
 
     monkeypatch.setattr(NvidiaProvider, "send", fail)
-    assert client.post("/money/ai/expense", json=BODY).status_code == 401
+    assert client.post("/api/money/ai/expense", json=BODY).status_code == 401
     invalid = {**BODY, "images": [{"mime_type": "image/png", "data": "aGVsbG8="}]}
-    assert client.post("/money/ai/expense", json=invalid, headers=H("alice")).status_code == 422
-    result = client.post("/money/ai/expense", json=BODY, headers=H("alice"))
+    assert client.post("/api/money/ai/expense", json=invalid, headers=H("alice")).status_code == 422
+    result = client.post("/api/money/ai/expense", json=BODY, headers=H("alice"))
     assert result.status_code == 504
     assert result.json()["detail"] == "AI provider timed out. Please try again later."
     with client.session_factory() as db:
@@ -199,7 +199,7 @@ def test_connection_error_is_distinct_from_non_bill(client, monkeypatch):
         raise requests.ConnectionError(socket.gaierror(-2, "private connection details"))
 
     monkeypatch.setattr(NvidiaProvider, "send", fail)
-    result = client.post("/money/ai/expense", json=BODY, headers=H("alice"))
+    result = client.post("/api/money/ai/expense", json=BODY, headers=H("alice"))
     assert result.status_code == 502
     assert result.json()["detail"] == "Could not connect to the AI provider. Please try again later."
     with client.session_factory() as db:
@@ -216,9 +216,9 @@ def test_provider_error_and_bad_json_are_logged(client, monkeypatch):
     monkeypatch.setattr(NvidiaProvider, "send", lambda self, payload: provider_response(
         {"error": "test-key"}, 429
     ))
-    assert client.post("/money/ai/expense", json=BODY, headers=H("alice")).status_code == 502
+    assert client.post("/api/money/ai/expense", json=BODY, headers=H("alice")).status_code == 502
     monkeypatch.setattr(NvidiaProvider, "send", lambda self, payload: provider_response("not json"))
-    assert client.post("/money/ai/expense", json=BODY, headers=H("alice")).status_code == 502
+    assert client.post("/api/money/ai/expense", json=BODY, headers=H("alice")).status_code == 502
     with client.session_factory() as db:
         logs = db.scalars(select(AICallLog)).all()
         assert [log.status for log in logs] == ["failed", "failed"]
@@ -235,7 +235,7 @@ def test_invalid_response_diagnostics_exclude_sensitive_input(client, monkeypatc
     monkeypatch.setattr(NvidiaProvider, "send", lambda self, payload: provider_response({
         "is_bill": True, "total_amount": "private receipt data",
     }))
-    result = client.post("/money/ai/expense", json=BODY, headers=H("alice"))
+    result = client.post("/api/money/ai/expense", json=BODY, headers=H("alice"))
     assert result.status_code == 502
     with client.session_factory() as db:
         log = db.scalar(select(AICallLog))

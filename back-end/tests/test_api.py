@@ -5,7 +5,7 @@ from tests.conftest import H
 
 
 def me(c, u):
-    return c.get("/auth/me", headers=H(u)).json()["id"]
+    return c.get("/api/auth/me", headers=H(u)).json()["id"]
 
 
 def tx(**kw):
@@ -18,27 +18,27 @@ def tx(**kw):
 
 
 def make_account(c, user="alice"):
-    response = c.post("/money/accounts", json={"name": "Everyday"}, headers=H(user))
+    response = c.post("/api/money/accounts", json={"name": "Everyday"}, headers=H(user))
     assert response.status_code == 201
     return response.json()["id"]
 
 
 def make_group(c):
     a, b = me(c, "alice"), me(c, "bob")
-    g = c.post("/money/groups", json={"name": "Trip"}, headers=H("alice")).json()
-    assert c.post(f"/money/groups/{g['id']}/members", json={"email": "Bob@gmail.com"}, headers=H("alice")).status_code == 201
+    g = c.post("/api/money/groups", json={"name": "Trip"}, headers=H("alice")).json()
+    assert c.post(f"/api/money/groups/{g['id']}/members", json={"email": "Bob@gmail.com"}, headers=H("alice")).status_code == 201
     return g["id"], a, b
 
 
 def test_category_creation_returns_existing_user_or_default_category(client):
     c = client
     first = c.post(
-        "/money/categories",
+        "/api/money/categories",
         json={"name": "Custom food", "transaction_type": "expense"},
         headers=H("alice"),
     )
     duplicate = c.post(
-        "/money/categories",
+        "/api/money/categories",
         json={"name": "  CUSTOM   FOOD ", "transaction_type": "expense"},
         headers=H("alice"),
     )
@@ -60,7 +60,7 @@ def test_category_creation_returns_existing_user_or_default_category(client):
         )
         db.commit()
     default_duplicate = c.post(
-        "/money/categories",
+        "/api/money/categories",
         json={"name": "groceries", "transaction_type": "expense"},
         headers=H("alice"),
     )
@@ -71,31 +71,31 @@ def test_category_creation_returns_existing_user_or_default_category(client):
 
 def test_currency_preference_is_user_scoped_and_defaults_new_money_records(client):
     c = client
-    assert c.get("/money/preferences", headers=H("alice")).json() == {
+    assert c.get("/api/money/preferences", headers=H("alice")).json() == {
         "preferred_currency": "INR"
     }
 
     updated = c.put(
-        "/money/preferences",
+        "/api/money/preferences",
         json={"preferred_currency": "USD"},
         headers=H("alice"),
     )
     assert updated.status_code == 200
     assert updated.json() == {"preferred_currency": "USD"}
-    assert c.get("/auth/me", headers=H("alice")).json()["preferred_currency"] == "USD"
-    assert c.get("/money/preferences", headers=H("bob")).json() == {
+    assert c.get("/api/auth/me", headers=H("alice")).json()["preferred_currency"] == "USD"
+    assert c.get("/api/money/preferences", headers=H("bob")).json() == {
         "preferred_currency": "INR"
     }
 
     account_id = make_account(c)
     account = next(
-        item for item in c.get("/money/accounts", headers=H("alice")).json()
+        item for item in c.get("/api/money/accounts", headers=H("alice")).json()
         if item["id"] == account_id
     )
     assert account["currency"] == "USD"
 
     transaction = c.post(
-        "/money/transactions",
+        "/api/money/transactions",
         json=tx(account_id=account_id, currency="INR"),
         headers=H("alice"),
     )
@@ -103,7 +103,7 @@ def test_currency_preference_is_user_scoped_and_defaults_new_money_records(clien
     assert transaction.json()["currency"] == "USD"
 
     budget = c.post(
-        "/money/budgets",
+        "/api/money/budgets",
         json={"name": "Monthly", "amount_minor": 50000, "period_start": "2026-01-01"},
         headers=H("alice"),
     )
@@ -111,7 +111,7 @@ def test_currency_preference_is_user_scoped_and_defaults_new_money_records(clien
     assert budget.json()["currency"] == "USD"
 
     invalid = c.put(
-        "/money/preferences",
+        "/api/money/preferences",
         json={"preferred_currency": "XYZ"},
         headers=H("alice"),
     )
@@ -126,20 +126,20 @@ def test_personal_private_and_idempotent(client):
         long_description="Dinner with friends",
         merchant="Example Restaurant",
     )
-    r1 = c.post("/money/transactions", json=body, headers=H("alice"))
-    r2 = c.post("/money/transactions", json=body, headers=H("alice"))
+    r1 = c.post("/api/money/transactions", json=body, headers=H("alice"))
+    r2 = c.post("/api/money/transactions", json=body, headers=H("alice"))
     assert r1.status_code == 201 and r1.json()["id"] == r2.json()["id"]
     assert r1.json()["title"] == "Dinner"
     assert r1.json()["long_description"] == "Dinner with friends"
     assert r1.json()["merchant"] == "Example Restaurant"
-    assert len(c.get("/money/transactions", headers=H("alice")).json()) == 1
-    assert c.get("/money/transactions", headers=H("bob")).json() == []
-    assert c.delete(f"/money/transactions/{r1.json()['id']}", headers=H("bob")).status_code == 404
+    assert len(c.get("/api/money/transactions", headers=H("alice")).json()) == 1
+    assert c.get("/api/money/transactions", headers=H("bob")).json() == []
+    assert c.delete(f"/api/money/transactions/{r1.json()['id']}", headers=H("bob")).status_code == 404
 
 
 def test_transaction_long_description_and_merchant_are_optional(client):
     response = client.post(
-        "/money/transactions",
+        "/api/money/transactions",
         json=tx(account_id=make_account(client)),
         headers=H("alice"),
     )
@@ -151,38 +151,38 @@ def test_transaction_long_description_and_merchant_are_optional(client):
 
 def test_transaction_amount_uses_minor_units_for_two_decimal_precision(client):
     response = client.post(
-        "/money/transactions",
+        "/api/money/transactions",
         json=tx(account_id=make_account(client), amount_minor=1234),
         headers=H("alice"),
     )
 
     assert response.status_code == 201
     assert response.json()["amount_minor"] == 1234
-    assert client.get("/money/transactions", headers=H("alice")).json()[0]["amount_minor"] == 1234
+    assert client.get("/api/money/transactions", headers=H("alice")).json()[0]["amount_minor"] == 1234
 
 
 def test_personal_transaction_requires_owned_active_account(client):
     me(client, "alice")
-    missing = client.post("/money/transactions", json=tx(), headers=H("alice"))
+    missing = client.post("/api/money/transactions", json=tx(), headers=H("alice"))
     assert missing.status_code == 422
 
     account_id = make_account(client, "bob")
     foreign = client.post(
-        "/money/transactions", json=tx(account_id=account_id), headers=H("alice")
+        "/api/money/transactions", json=tx(account_id=account_id), headers=H("alice")
     )
     assert foreign.status_code == 422
 
 
 def test_transfer_requires_two_different_owned_accounts(client):
     category = client.post(
-        "/money/categories",
+        "/api/money/categories",
         json={"name": "Self Transfer", "transaction_type": "transfer"},
         headers=H("alice"),
     ).json()
     source = make_account(client)
     destination = make_account(client)
     response = client.post(
-        "/money/transactions",
+        "/api/money/transactions",
         json=tx(
             account_id=source,
             transfer_to_account_id=destination,
@@ -195,7 +195,7 @@ def test_transfer_requires_two_different_owned_accounts(client):
     assert response.json()["transfer_to_account_id"] == destination
 
     same_account = client.post(
-        "/money/transactions",
+        "/api/money/transactions",
         json=tx(
             account_id=source,
             transfer_to_account_id=source,
@@ -208,7 +208,7 @@ def test_transfer_requires_two_different_owned_accounts(client):
 
     foreign_destination = make_account(client, "bob")
     foreign = client.post(
-        "/money/transactions",
+        "/api/money/transactions",
         json=tx(
             account_id=source,
             transfer_to_account_id=foreign_destination,
@@ -220,7 +220,7 @@ def test_transfer_requires_two_different_owned_accounts(client):
     assert foreign.status_code == 422
 
     missing_destination = client.post(
-        "/money/transactions",
+        "/api/money/transactions",
         json=tx(account_id=source, category_id=category["id"], transaction_type="transfer"),
         headers=H("alice"),
     )
@@ -229,7 +229,7 @@ def test_transfer_requires_two_different_owned_accounts(client):
 
 def test_savings_and_investments_requires_two_different_owned_accounts(client):
     category = client.post(
-        "/money/categories",
+        "/api/money/categories",
         json={"name": "Savings & Investments", "transaction_type": "transfer"},
         headers=H("alice"),
     ).json()
@@ -237,7 +237,7 @@ def test_savings_and_investments_requires_two_different_owned_accounts(client):
     destination = make_account(client)
 
     response = client.post(
-        "/money/transactions",
+        "/api/money/transactions",
         json=tx(
             account_id=source,
             transfer_to_account_id=destination,
@@ -249,7 +249,7 @@ def test_savings_and_investments_requires_two_different_owned_accounts(client):
     assert response.status_code == 201
 
     missing_destination = client.post(
-        "/money/transactions",
+        "/api/money/transactions",
         json=tx(
             account_id=source,
             category_id=category["id"],
@@ -264,18 +264,18 @@ def test_directional_transfer_categories_require_only_the_users_account(client):
     source = make_account(client)
     destination = make_account(client)
     lent_category = client.post(
-        "/money/categories",
+        "/api/money/categories",
         json={"name": "Money Lent", "transaction_type": "transfer"},
         headers=H("alice"),
     ).json()
     borrowed_category = client.post(
-        "/money/categories",
+        "/api/money/categories",
         json={"name": "Money Borrow", "transaction_type": "transfer"},
         headers=H("alice"),
     ).json()
 
     lent = client.post(
-        "/money/transactions",
+        "/api/money/transactions",
         json=tx(
             account_id=source,
             category_id=lent_category["id"],
@@ -288,7 +288,7 @@ def test_directional_transfer_categories_require_only_the_users_account(client):
     assert lent.json()["transfer_to_account_id"] is None
 
     borrowed = client.post(
-        "/money/transactions",
+        "/api/money/transactions",
         json=tx(
             account_id=None,
             transfer_to_account_id=destination,
@@ -302,7 +302,7 @@ def test_directional_transfer_categories_require_only_the_users_account(client):
     assert borrowed.json()["transfer_to_account_id"] == destination
 
     invalid_lent = client.post(
-        "/money/transactions",
+        "/api/money/transactions",
         json=tx(
             account_id=None,
             transfer_to_account_id=destination,
@@ -317,13 +317,13 @@ def test_directional_transfer_categories_require_only_the_users_account(client):
 def test_pocket_money_can_be_given_or_received_through_either_account(client):
     account = make_account(client)
     category = client.post(
-        "/money/categories",
+        "/api/money/categories",
         json={"name": "Pocket Money", "transaction_type": "transfer"},
         headers=H("alice"),
     ).json()
 
     given = client.post(
-        "/money/transactions",
+        "/api/money/transactions",
         json=tx(
             account_id=account,
             category_id=category["id"],
@@ -332,7 +332,7 @@ def test_pocket_money_can_be_given_or_received_through_either_account(client):
         headers=H("alice"),
     )
     received = client.post(
-        "/money/transactions",
+        "/api/money/transactions",
         json=tx(
             account_id=None,
             transfer_to_account_id=account,
@@ -353,7 +353,7 @@ def test_pocket_money_can_be_given_or_received_through_either_account(client):
 def test_personal_rejects_group_fields(client):
     me(client, "alice")
     r = client.post(
-        "/money/transactions",
+        "/api/money/transactions",
         json=tx(account_id=make_account(client), splits=[{"user_id": me(client, "alice")}]),
         headers=H("alice"),
     )
@@ -365,42 +365,42 @@ def test_group_flow_split_balance_settle(client):
     gid, a, b = make_group(c)
     account_id = make_account(c)
     # invited but not yet active: cannot see group
-    assert c.get(f"/money/groups/{gid}/members", headers=H("bob")).status_code == 404
-    assert [g["id"] for g in c.get("/money/groups/invitations", headers=H("bob")).json()] == [gid]
-    m = c.post(f"/money/groups/{gid}/join", headers=H("bob")).json()
+    assert c.get(f"/api/money/groups/{gid}/members", headers=H("bob")).status_code == 404
+    assert [g["id"] for g in c.get("/api/money/groups/invitations", headers=H("bob")).json()] == [gid]
+    m = c.post(f"/api/money/groups/{gid}/join", headers=H("bob")).json()
     assert m["status"] == "active" and m["display_name"] == "Bob"
 
     r = c.post(
-        "/money/transactions",
+        "/api/money/transactions",
         json=tx(account_id=account_id, context="group", group_id=gid, split_method="equal", splits=[{"user_id": a}, {"user_id": b}]),
         headers=H("alice"),
     )
     assert r.status_code == 201 and r.json()["is_shared"]
     # bob sees the shared expense
-    assert len(c.get("/money/transactions", headers=H("bob")).json()) == 1
-    bal = c.get(f"/money/groups/{gid}/balances", headers=H("bob")).json()
+    assert len(c.get("/api/money/transactions", headers=H("bob")).json()) == 1
+    bal = c.get(f"/api/money/groups/{gid}/balances", headers=H("bob")).json()
     assert bal["net"] == {a: 15000, b: -15000}
     assert bal["transfers"] == [{"from": b, "to": a, "amount_minor": 15000}]
 
-    s = c.post("/money/settlements", json={"group_id": gid, "receiver_user_id": a, "amount_minor": 5000}, headers=H("bob"))
+    s = c.post("/api/money/settlements", json={"group_id": gid, "receiver_user_id": a, "amount_minor": 5000}, headers=H("bob"))
     assert s.status_code == 201
-    bal = c.get(f"/money/groups/{gid}/balances", headers=H("alice")).json()
+    bal = c.get(f"/api/money/groups/{gid}/balances", headers=H("alice")).json()
     assert bal["net"][a] == 10000
 
-    summ = c.get("/money/insights/summary", params={"year": 2026, "month": 10}, headers=H("bob")).json()
+    summ = c.get("/api/money/insights/summary", params={"year": 2026, "month": 10}, headers=H("bob")).json()
     assert summ["total_minor"] == 15000
 
 
 def test_only_owner_can_delete_group(client):
     c = client
     gid, _, _ = make_group(c)
-    c.post(f"/money/groups/{gid}/join", headers=H("bob"))
-    assert c.delete(f"/money/groups/{gid}", headers=H("bob")).status_code == 403
-    response = c.delete(f"/money/groups/{gid}", headers=H("alice"))
+    c.post(f"/api/money/groups/{gid}/join", headers=H("bob"))
+    assert c.delete(f"/api/money/groups/{gid}", headers=H("bob")).status_code == 403
+    response = c.delete(f"/api/money/groups/{gid}", headers=H("alice"))
     assert response.status_code == 204
-    assert c.get("/money/groups", headers=H("alice")).json() == []
-    assert c.get("/money/groups", headers=H("bob")).json() == []
-    assert c.get(f"/money/groups/{gid}/members", headers=H("bob")).status_code == 404
+    assert c.get("/api/money/groups", headers=H("alice")).json() == []
+    assert c.get("/api/money/groups", headers=H("bob")).json() == []
+    assert c.get(f"/api/money/groups/{gid}/members", headers=H("bob")).status_code == 404
     with c.session_factory() as db:
         group_id = UUID(gid)
         assert db.get(ExpenseGroup, group_id).status == "inactive"
@@ -412,61 +412,61 @@ def test_only_owner_can_delete_group(client):
 def test_member_can_leave_and_owner_can_reinvite(client):
     c = client
     gid, _, _ = make_group(c)
-    c.post(f"/money/groups/{gid}/join", headers=H("bob"))
+    c.post(f"/api/money/groups/{gid}/join", headers=H("bob"))
 
-    assert c.delete(f"/money/groups/{gid}/members/me", headers=H("alice")).status_code == 403
-    assert c.delete(f"/money/groups/{gid}/members/me", headers=H("bob")).status_code == 204
-    assert c.get("/money/groups", headers=H("bob")).json() == []
-    assert c.get(f"/money/groups/{gid}/members", headers=H("bob")).status_code == 404
+    assert c.delete(f"/api/money/groups/{gid}/members/me", headers=H("alice")).status_code == 403
+    assert c.delete(f"/api/money/groups/{gid}/members/me", headers=H("bob")).status_code == 204
+    assert c.get("/api/money/groups", headers=H("bob")).json() == []
+    assert c.get(f"/api/money/groups/{gid}/members", headers=H("bob")).status_code == 404
 
-    members = c.get(f"/money/groups/{gid}/members", headers=H("alice")).json()
+    members = c.get(f"/api/money/groups/{gid}/members", headers=H("alice")).json()
     bob = next(member for member in members if member["email"] == "bob@gmail.com")
     assert bob["status"] == "inactive"
 
     reinvite = c.post(
-        f"/money/groups/{gid}/members",
+        f"/api/money/groups/{gid}/members",
         json={"email": "Bob@gmail.com"},
         headers=H("alice"),
     )
     assert reinvite.status_code == 201
     assert reinvite.json()["id"] == bob["id"]
     assert reinvite.json()["status"] == "invited"
-    assert c.post(f"/money/groups/{gid}/join", headers=H("bob")).json()["status"] == "active"
-    assert [group["id"] for group in c.get("/money/groups", headers=H("bob")).json()] == [gid]
+    assert c.post(f"/api/money/groups/{gid}/join", headers=H("bob")).json()["status"] == "active"
+    assert [group["id"] for group in c.get("/api/money/groups", headers=H("bob")).json()] == [gid]
 
 
 def test_split_validation_and_outsiders(client):
     c = client
     gid, a, b = make_group(c)
     account_id = make_account(c)
-    c.post(f"/money/groups/{gid}/join", headers=H("bob"))
+    c.post(f"/api/money/groups/{gid}/join", headers=H("bob"))
     carol = me(c, "carol")
     bad = tx(account_id=account_id, context="group", group_id=gid, split_method="exact_amount",
              splits=[{"user_id": a, "value": 1}, {"user_id": b, "value": 2}])
-    assert c.post("/money/transactions", json=bad, headers=H("alice")).status_code == 422
+    assert c.post("/api/money/transactions", json=bad, headers=H("alice")).status_code == 422
     outsider = tx(account_id=account_id, context="group", group_id=gid, splits=[{"user_id": carol}])
-    assert c.post("/money/transactions", json=outsider, headers=H("alice")).status_code == 422
+    assert c.post("/api/money/transactions", json=outsider, headers=H("alice")).status_code == 422
     # carol cannot post into or read the group
-    assert c.post("/money/transactions", json=tx(account_id=account_id, context="group", group_id=gid), headers=H("carol")).status_code == 404
-    assert c.get(f"/money/groups/{gid}/balances", headers=H("carol")).status_code == 404
+    assert c.post("/api/money/transactions", json=tx(account_id=account_id, context="group", group_id=gid), headers=H("carol")).status_code == 404
+    assert c.get(f"/api/money/groups/{gid}/balances", headers=H("carol")).status_code == 404
 
 
 def test_only_admin_invites_and_no_self_settlement(client):
     c = client
     gid, a, b = make_group(c)
-    c.post(f"/money/groups/{gid}/join", headers=H("bob"))
-    r = c.post(f"/money/groups/{gid}/members", json={"email": "x@gmail.com"}, headers=H("bob"))
+    c.post(f"/api/money/groups/{gid}/join", headers=H("bob"))
+    r = c.post(f"/api/money/groups/{gid}/members", json={"email": "x@gmail.com"}, headers=H("bob"))
     assert r.status_code == 403
-    assert c.post("/money/settlements", json={"receiver_user_id": a, "amount_minor": 1}, headers=H("alice")).status_code == 422
+    assert c.post("/api/money/settlements", json={"receiver_user_id": a, "amount_minor": 1}, headers=H("alice")).status_code == 422
 
 
 def test_budget_and_accounts(client):
     c = client
-    r = c.post("/money/budgets", json={"name": "Food", "amount_minor": 500000, "period_start": "2026-10-01"}, headers=H("alice"))
+    r = c.post("/api/money/budgets", json={"name": "Food", "amount_minor": 500000, "period_start": "2026-10-01"}, headers=H("alice"))
     assert r.status_code == 201
-    assert len(c.get("/money/budgets", headers=H("alice")).json()) == 1
-    assert c.get("/money/budgets", headers=H("bob")).json() == []
-    assert c.post("/money/accounts", json={"name": "HDFC", "account_type": "bank"}, headers=H("alice")).status_code == 201
+    assert len(c.get("/api/money/budgets", headers=H("alice")).json()) == 1
+    assert c.get("/api/money/budgets", headers=H("bob")).json() == []
+    assert c.post("/api/money/accounts", json={"name": "HDFC", "account_type": "bank"}, headers=H("alice")).status_code == 201
 
 
 def test_invite_sends_email_and_account_limits(client, monkeypatch):
@@ -475,16 +475,16 @@ def test_invite_sends_email_and_account_limits(client, monkeypatch):
     sent = []
     monkeypatch.setattr(routers_money, "send_email", lambda to, subj, body: sent.append((to, subj, body)))
     c = client
-    g = c.post("/money/groups", json={"name": "Flat"}, headers=H("alice")).json()
-    r = c.post(f"/money/groups/{g['id']}/members", json={"email": "Bob@Gmail.com"}, headers=H("alice"))
+    g = c.post("/api/money/groups", json={"name": "Flat"}, headers=H("alice")).json()
+    r = c.post(f"/api/money/groups/{g['id']}/members", json={"email": "Bob@Gmail.com"}, headers=H("alice"))
     assert r.status_code == 201
     assert sent and sent[0][0] == "bob@gmail.com" and "Flat" in sent[0][1]
     # failed delivery never fails the invite
     monkeypatch.setattr(routers_money, "send_email", lambda *a: False)
-    assert c.post(f"/money/groups/{g['id']}/members", json={"email": "x@gmail.com"}, headers=H("alice")).status_code == 201
+    assert c.post(f"/api/money/groups/{g['id']}/members", json={"email": "x@gmail.com"}, headers=H("alice")).status_code == 201
 
     acc = c.post(
-        "/money/accounts",
+        "/api/money/accounts",
         json={"name": "Visa", "account_type": "credit_card", "credit_limit": 100000, "opening_balance": 2500},
         headers=H("alice"),
     ).json()

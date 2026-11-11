@@ -59,7 +59,7 @@ describe('sync dependencies', () => {
     const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
       const path = new URL(String(input)).pathname
       requestPaths.push(path)
-      if (path === '/sync/push') {
+      if (path === '/api/sync/push') {
         const body = JSON.parse(String(init?.body)) as { categories: Category[] }
         pushedCategories = body.categories
         return new Response(JSON.stringify({ accepted: [], conflicts: [] }), {
@@ -67,7 +67,7 @@ describe('sync dependencies', () => {
           headers: { 'Content-Type': 'application/json' },
         })
       }
-      if (path === '/sync/pull') {
+      if (path === '/api/sync/pull') {
         return new Response(
           JSON.stringify({
             categories: [],
@@ -92,7 +92,7 @@ describe('sync dependencies', () => {
     await runSync('token', 'user')
 
     expect(pushedCategories).toContainEqual(category)
-    expect(requestPaths.indexOf('/sync/pull')).toBeLessThan(requestPaths.indexOf('/sync/push'))
+    expect(requestPaths.indexOf('/api/sync/pull')).toBeLessThan(requestPaths.indexOf('/api/sync/push'))
   })
 
   it('merges a duplicate category into the server category after the initial pull', async () => {
@@ -103,7 +103,7 @@ describe('sync dependencies', () => {
     let pullCount = 0
     const fetchMock = vi.fn<typeof fetch>(async (input) => {
       const path = new URL(String(input)).pathname
-      if (path === '/sync/push') {
+      if (path === '/api/sync/push') {
         return new Response(
           JSON.stringify({
             accepted: [
@@ -118,7 +118,7 @@ describe('sync dependencies', () => {
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         )
       }
-      if (path === '/sync/pull') {
+      if (path === '/api/sync/pull') {
         pullCount += 1
         return new Response(
           JSON.stringify({
@@ -166,7 +166,7 @@ describe('sync dependencies', () => {
     const fetchMock = vi.fn<typeof fetch>(async (input) => {
       const path = new URL(String(input)).pathname
       requestPaths.push(path)
-      if (path === '/sync/pull') {
+      if (path === '/api/sync/pull') {
         pullCount += 1
         return new Response(
           JSON.stringify({

@@ -15,7 +15,7 @@ export default defineConfig({
     {
       command: 'npm run dev -- --port 5174',
       url: 'http://localhost:5174',
-      env: { VITE_API_URL: 'http://localhost:8001' },
+      env: { VITE_API_URL: 'http://localhost:8001/api' },
       reuseExistingServer: false,
     },
   ],
