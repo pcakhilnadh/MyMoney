@@ -41,11 +41,14 @@ Key ideas
 ## MyFood log
 
 The Food + button opens a food search against the shared `food_catalog_master`, matching names and
-aliases regardless of the catalogue row's `user_id`. Case-insensitive substring matches come first,
-followed by spelling-similar name and alias matches with a minimum score of 0.9; fuzzy matching
-starts at four letters or digits.
-The response contains at most 50 results. Fuzzy matching currently scans the catalogue in the API
-and does not use vector embeddings.
+aliases regardless of the catalogue row's `user_id`. The API returns up to 10 case-insensitive
+substring matches. Only when none are found, it returns up to 10 spelling-similar name or alias
+matches. Results are ordered by score descending, then by name case-insensitively for equal scores.
+Fuzzy matching requires at least four word characters and a minimum score of 0.9.
+Each result contains `id`, `name`, and a `score` from 0 to 1. Name substring matches score 1.0;
+alias-only substring matches score 0.9. Fuzzy scores are text-similarity ratios, not probabilities
+or calibrated confidence levels.
+Fuzzy matching currently scans the catalogue in the API and does not use vector embeddings.
 The catalogue table must be populated separately; the migration creates it empty. Search requires
 an authenticated online session. Select search results to prepare portions in expandable cards.
 These portions are a temporary draft and are not saved to the diary. The food scanner can capture

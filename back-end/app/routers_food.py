@@ -1,5 +1,5 @@
 from fastapi import APIRouter, Depends, Query
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
@@ -12,6 +12,14 @@ router = APIRouter(prefix="/food", tags=["food"], dependencies=[Depends(get_curr
 class FoodSearchResult(BaseModel):
     id: str
     name: str
+    score: float = Field(
+        ge=0.0,
+        le=1.0,
+        description=(
+            "Match score: 1.0 for name substrings, 0.9 for alias-only substrings, "
+            "otherwise fuzzy text similarity; not a probability."
+        ),
+    )
 
 
 @router.get("/catalog", response_model=list[FoodSearchResult])
@@ -22,4 +30,7 @@ def search_catalog(
     query = q.strip()
     if not query:
         return []
-    return [FoodSearchResult(id=food_id, name=name) for food_id, name in hybrid_food_search(db, query)]
+    return [
+        FoodSearchResult(id=food_id, name=name, score=score)
+        for food_id, name, score in hybrid_food_search(db, query)
+    ]
