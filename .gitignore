@@ -73,3 +73,6 @@ Desktop.ini
 *.sln.docstates
 *.swp
 *.swo
+
+#some local dev files
+docs/
