@@ -21,10 +21,12 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await expect(page.getByLabel('Amount')).toHaveValue('250.50')
   await page.getByLabel('Title').fill('Lunch')
   await page.getByLabel('Merchant').fill('Amazon')
+  // Leaving the title guesses the category from it; the user can still change it.
   await page.getByLabel('Long Description').fill('Lunch during a work break')
-  await expect(page.getByRole('button', { name: 'Save Expense' })).toBeDisabled()
-  await expect(page.getByText('Still needed: Category')).toBeVisible()
-  await chooseCategory(page, 'Food & Dining')
+  await expect(page.getByRole('combobox', { name: 'Category', exact: true })).toHaveValue(
+    'Food & Dining',
+  )
+  await expect(page.getByText('Suggested from the title — change it if you like.')).toBeVisible()
   await expect(page.getByText('✓ All set — ready to save')).toBeVisible()
   await expect(page.getByRole('button', { name: 'Save Expense' })).toBeEnabled()
   await page.getByRole('button', { name: 'Save Expense' }).click()

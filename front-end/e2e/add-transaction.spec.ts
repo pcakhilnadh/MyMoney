@@ -60,6 +60,32 @@ test('required fields come first, are marked, and a category can be created inli
   await expect(page.getByRole('option', { name: 'Pet care', exact: true })).toBeVisible()
 })
 
+test('suggests a category from the title and lets the user override it', async ({ page }) => {
+  await page.goto('/money/expenses/new')
+  const category = page.getByRole('combobox', { name: 'Category', exact: true })
+  const hint = page.getByText('Suggested from the title — change it if you like.')
+
+  // Leaving the title fills the category from what was typed.
+  await page.getByLabel('Title').fill('Dinner with the team')
+  await page.getByLabel('Amount').focus()
+  await expect(category).toHaveValue('Food & Dining')
+  await expect(hint).toBeVisible()
+
+  // Editing the title again re-runs the guess while it is still only a suggestion.
+  await page.getByLabel('Title').fill('Uber ride to office')
+  await page.getByLabel('Amount').focus()
+  await expect(category).toHaveValue('Transportation')
+  await expect(hint).toBeVisible()
+
+  // A manual pick is respected from then on, even if the title changes.
+  await chooseCategory(page, 'Shopping')
+  await expect(category).toHaveValue('Shopping')
+  await expect(hint).toHaveCount(0)
+  await page.getByLabel('Title').fill('Dinner with the team')
+  await page.getByLabel('Amount').focus()
+  await expect(category).toHaveValue('Shopping')
+})
+
 test('category and date toggle, categories are sorted and transfers default to Self Transfer', async ({
   page,
 }) => {

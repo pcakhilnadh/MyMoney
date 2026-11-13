@@ -29,6 +29,7 @@ import {
   transferCategoryAccountError,
 } from '@/lib/transaction-categories'
 import { toMinor } from '@/lib/money'
+import { suggestCategory } from '@/lib/category-suggestions'
 import { currencySymbol } from '@/lib/currency'
 import { useCurrency } from '@/money/CurrencyContext'
 import { api } from '@/auth/api'
@@ -235,6 +236,9 @@ export default function AddExpense() {
   const [longDescription, setLongDescription] = useState('')
   const [merchant, setMerchant] = useState('')
   const [category, setCategory] = useState<string | null>(null)
+  // Whether the current category was guessed from the title or picked by the user.
+  // Manual picks are never replaced by a later guess.
+  const [categorySource, setCategorySource] = useState<'suggested' | 'manual' | null>(null)
   const [date, setDate] = useState(today())
   const [chosenAccountId, setAccountId] = useState('')
   const [transferToAccountId, setTransferToAccountId] = useState('')
@@ -335,8 +339,12 @@ export default function AddExpense() {
     if (result.bill_date !== null) setDate(result.bill_date)
     if (result.merchant_name !== null) setMerchant(result.merchant_name)
     if (result.summary !== null) setLongDescription(result.summary)
-    if (result.category !== null && visibleCategories.some((item) => item.name === result.category)) {
+    if (
+      result.category !== null &&
+      visibleCategories.some((item) => item.name === result.category)
+    ) {
       setCategory(result.category)
+      setCategorySource('manual')
     }
   }
 
@@ -411,6 +419,26 @@ export default function AddExpense() {
     )
   }
 
+  /**
+   * Prefill the category from the title once the user leaves the title field.
+   * It only runs while the category is empty or was itself suggested, so a
+   * choice the user made in the dropdown always wins.
+   */
+  function applyCategorySuggestion() {
+    if (transactionType === 'transfer') return
+    if (categorySource === 'manual') return
+    if (category && categorySource !== 'suggested') return
+    const suggestion = suggestCategory(title, visibleCategories.map((item) => item.name))
+    if (suggestion) {
+      setCategory(suggestion)
+      setCategorySource('suggested')
+    } else if (categorySource === 'suggested') {
+      // The title no longer points anywhere: drop the stale guess.
+      setCategory(null)
+      setCategorySource(null)
+    }
+  }
+
   const categoryLabel = transactionType === 'refund' ? 'Expense category' : 'Category'
   const categoryField = (
     <Field
@@ -419,7 +447,9 @@ export default function AddExpense() {
       hint={
         visibleCategories.length === 0
           ? 'No categories yet. Type a name to add your first one.'
-          : undefined
+          : categorySource === 'suggested' && selectedCategory
+            ? 'Suggested from the title — change it if you like.'
+            : undefined
       }
     >
       <CategoryCombobox
@@ -427,6 +457,7 @@ export default function AddExpense() {
         value={selectedCategory?.name ?? null}
         onChange={(nextCategory) => {
           setCategory(nextCategory)
+          setCategorySource('manual')
           if (transactionType === 'transfer') {
             setAccountId('')
             setTransferToAccountId('')
@@ -479,6 +510,7 @@ export default function AddExpense() {
           const nextType = value.toLowerCase() as TransactionType
           setTransactionType(nextType)
           setCategory(nextType === 'transfer' ? 'Self Transfer' : null)
+          setCategorySource(null)
           setAccountId('')
           setTransferToAccountId('')
           setTransferAccountDirection('From')
@@ -500,6 +532,7 @@ export default function AddExpense() {
           enterKeyHint="next"
           value={title}
           onChange={(e) => setTitle(e.target.value)}
+          onBlur={applyCategorySuggestion}
         />
       </Field>
       <CurrencyInput required value={amount} onChange={setAmount} />
