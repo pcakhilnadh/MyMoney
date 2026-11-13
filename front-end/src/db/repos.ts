@@ -6,6 +6,7 @@ import type {
   Budget,
   Category,
   DuePayment,
+  MealLog,
   Merchant,
   Syncable,
   Transaction,
@@ -78,6 +79,27 @@ class AccountsRepository extends Repository<Account> {
 export const accountsRepo = new AccountsRepository(db.accounts)
 export const budgetsRepo = new Repository<Budget>(db.budgets)
 export const duePaymentsRepo = new Repository<DuePayment>(db.due_payments)
+
+class MealLogsRepository extends Repository<MealLog> {
+  /** Save a whole meal as local rows first; sync pushes them in the background. */
+  async createMany(data: NewRecord<MealLog>[]): Promise<MealLog[]> {
+    const now = new Date().toISOString()
+    const records: MealLog[] = data.map((item) => ({
+      ...item,
+      id: crypto.randomUUID(),
+      version: 1,
+      sync_state: 'pending',
+      status: 'active',
+      created_at: now,
+      updated_at: now,
+    }))
+    await db.transaction('rw', db.meal_logs, () => db.meal_logs.bulkAdd(records))
+    requestSync()
+    return records
+  }
+}
+
+export const mealLogsRepo = new MealLogsRepository(db.meal_logs)
 
 class CategoriesRepository extends Repository<Category> {
   async removeWithTransactions(id: string): Promise<void> {

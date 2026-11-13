@@ -29,6 +29,7 @@ from app.models import (
     Merchant,
     Profile,
     Transaction,
+    UserMealLog,
 )
 
 router = APIRouter(prefix="/sync", tags=["sync"], dependencies=[Depends(get_current_user)])
@@ -98,6 +99,23 @@ class MerchantSyncRec(Rec):
     name: str
 
 
+class MealLogRec(Rec):
+    entry_date: date
+    meal: Literal["breakfast", "lunch", "snacks", "dinner"]
+    food_id: str = Field(min_length=1, max_length=200)
+    food_name: str = Field(min_length=1, max_length=200)
+    weight_g: float = Field(gt=0, le=1000000, allow_inf_nan=False)
+    calories: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    protein: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    carbs: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    fat: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    calories_100g: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    protein_100g: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    carbs_100g: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    fat_100g: float | None = Field(default=None, ge=0, allow_inf_nan=False)
+    image: str | None = None
+
+
 class PushIn(BaseModel):
     categories: list[CategoryRec] = []
     accounts: list[AccountRec] = []
@@ -105,6 +123,7 @@ class PushIn(BaseModel):
     transactions: list[TransactionRec] = []
     budgets: list[BudgetRec] = []
     due_payments: list[DuePaymentRec] = []
+    meal_logs: list[MealLogRec] = []
 
 
 # entity name -> (model, owner column, fields copied from the record)
@@ -155,6 +174,26 @@ SPECS = {
             "period_end",
             "alert_threshold_percent",
             "is_active",
+        ],
+    ),
+    "meal_logs": (
+        UserMealLog,
+        "user_id",
+        [
+            "entry_date",
+            "meal",
+            "food_id",
+            "food_name",
+            "weight_g",
+            "calories",
+            "protein",
+            "carbs",
+            "fat",
+            "calories_100g",
+            "protein_100g",
+            "carbs_100g",
+            "fat_100g",
+            "image",
         ],
     ),
 }
@@ -364,6 +403,7 @@ def push(body: PushIn, user: Profile = Depends(get_current_user), db: Session = 
         "transactions",
         "budgets",
         "due_payments",
+        "meal_logs",
     ):
         records = getattr(body, name)
         if name == "accounts":

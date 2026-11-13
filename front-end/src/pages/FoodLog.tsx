@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, type FormEvent } from 'react'
+import { useRef, useState, type FormEvent } from 'react'
 import { Check, Loader2, ScanLine, Search, Sparkles, X } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { api } from '@/auth/api'
@@ -7,14 +7,17 @@ import { ImageCapture } from '@/components/kit/ImageCapture'
 import FoodReviewScan, { type ScanItem } from '@/food/FoodReviewScan'
 import { encodeImage } from '@/food/image'
 import { MealPortionCard } from '@/food/MealPortionCard'
+import { SaveMeal } from '@/food/SaveMeal'
 import type { Portion } from '@/food/portions'
 
 interface Food {
   id: string
   name: string
+  calories_100g?: number | null
+  protein_100g?: number | null
+  carbs_100g?: number | null
+  fat_100g?: number | null
 }
-
-const SAVE_FEEDBACK_MS = 1800
 
 export default function FoodLog() {
   const { token } = useAuth()
@@ -25,11 +28,7 @@ export default function FoodLog() {
   const [portions, setPortions] = useState<Portion[]>([])
   const [scanItems, setScanItems] = useState<ScanItem[] | null>(null)
   const [scanUnavailable, setScanUnavailable] = useState(false)
-  const [saved, setSaved] = useState(false)
   const requestId = useRef(0)
-  const saveTimeout = useRef<number | undefined>(undefined)
-
-  useEffect(() => () => window.clearTimeout(saveTimeout.current), [])
 
   async function search(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -61,12 +60,6 @@ export default function FoodLog() {
     setPortions((current) =>
       current.map((portion) => (portion.food.id === id ? update(portion) : portion)),
     )
-  }
-
-  function saveMeal() {
-    window.clearTimeout(saveTimeout.current)
-    setSaved(true)
-    saveTimeout.current = window.setTimeout(() => setSaved(false), SAVE_FEEDBACK_MS)
   }
 
   const itemWord = portions.length === 1 ? 'item' : 'items'
@@ -268,25 +261,7 @@ export default function FoodLog() {
             ))}
           </div>
 
-          <div>
-            <Button
-              type="button"
-              className="w-full justify-center rounded-2xl"
-              onClick={saveMeal}
-              disabled={saved}
-            >
-              {saved ? (
-                <span className="check-pop flex items-center gap-2">
-                  <Check size={18} aria-hidden="true" /> Meal saved
-                </span>
-              ) : (
-                `Save meal · ${portions.length} ${itemWord}`
-              )}
-            </Button>
-            <p className="mt-2 text-center text-xs text-muted-foreground">
-              Saving will sync with your diary soon — for now this is just a preview.
-            </p>
-          </div>
+          <SaveMeal portions={portions} />
         </section>
       )}
     </div>

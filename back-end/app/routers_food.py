@@ -1,16 +1,18 @@
 from enum import StrEnum
+from datetime import date
+from decimal import Decimal
 from typing import Annotated
 from uuid import UUID, uuid4
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel, ConfigDict, Field, field_validator
-from sqlalchemy import insert
+from sqlalchemy import insert, select
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
 from app.db import get_db
 from app.food_search import catalog, hybrid_food_search
-from app.models import Profile
+from app.models import FoodGoal, Profile, UserMealLog
 from app.ai.expense import Image, _validate_images
 
 router = APIRouter(prefix="/food", tags=["food"], dependencies=[Depends(get_current_user)])
@@ -79,6 +81,10 @@ class FoodSearchResult(BaseModel):
             "otherwise fuzzy text similarity; not a probability."
         ),
     )
+    calories_100g: float | None = None
+    protein_100g: float | None = None
+    carbs_100g: float | None = None
+    fat_100g: float | None = None
 
 
 class FoodBatchSearchRequest(BaseModel):
@@ -96,13 +102,111 @@ class FoodBatchSearchResponse(BaseModel):
     results: list[FoodBatchSearchItem]
 
 
+class MealType(StrEnum):
+    BREAKFAST = "breakfast"
+    LUNCH = "lunch"
+    SNACKS = "snacks"
+    DINNER = "dinner"
+
+
+class FoodPortion(BaseModel):
+    food_id: str = Field(min_length=1, max_length=200)
+    weight_g: Decimal = Field(gt=0, le=1000000, max_digits=12, decimal_places=3, allow_inf_nan=False)
+
+
+class FoodMealCreate(BaseModel):
+    entry_date: date
+    meal: MealType
+    items: list[FoodPortion] = Field(min_length=1, max_length=100)
+
+
+class FoodEntryResponse(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: UUID
+    entry_date: date
+    meal: MealType
+    food_id: str
+    food_name: str
+    weight_g: float
+    calories: float | None
+    protein: float | None
+    carbs: float | None
+    fat: float | None
+    calories_100g: float | None
+    protein_100g: float | None
+    carbs_100g: float | None
+    fat_100g: float | None
+    image: str | None = None
+
+
+class FoodGoalBody(BaseModel):
+    calories: int = Field(strict=True, gt=0, le=100000)
+
+
+@router.get("/goal")
+def get_goal(user: Profile = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
+    goal = db.get(FoodGoal, user.id)
+    return {"calories": goal.calories if goal else None}
+
+
+@router.put("/goal")
+def set_goal(body: FoodGoalBody, user: Profile = Depends(get_current_user), db: Session = Depends(get_db)) -> dict:
+    goal = db.get(FoodGoal, user.id)
+    if goal is None:
+        goal = FoodGoal(user_id=user.id, calories=body.calories)
+        db.add(goal)
+    else:
+        goal.calories = body.calories
+    db.commit()
+    return {"calories": goal.calories}
+
+
+@router.get("/entries", response_model=list[FoodEntryResponse])
+def list_entries(user: Profile = Depends(get_current_user), db: Session = Depends(get_db)) -> list[UserMealLog]:
+    return list(db.scalars(
+        select(UserMealLog)
+        .where(UserMealLog.user_id == user.id, UserMealLog.status != "deleted")
+        .order_by(UserMealLog.entry_date, UserMealLog.id)
+    ))
+
+
+@router.post("/entries", response_model=list[FoodEntryResponse], status_code=201)
+def create_entries(body: FoodMealCreate, user: Profile = Depends(get_current_user), db: Session = Depends(get_db)) -> list[UserMealLog]:
+    ids = {item.food_id for item in body.items}
+    rows = db.execute(select(
+        catalog.c.id, catalog.c.base_food_name, catalog.c.calories_100g,
+        catalog.c.protein_100g, catalog.c.carbs_100g, catalog.c.fat_100g,
+    ).where(catalog.c.id.in_(ids))).all()
+    foods = {row.id: row for row in rows}
+    if len(foods) != len(ids):
+        raise HTTPException(status_code=404, detail="A selected food was not found in the catalogue.")
+    entries = []
+    for item in body.items:
+        food = foods[item.food_id]
+        def scaled(value):
+            return None if value is None else value * item.weight_g / 100
+        entries.append(UserMealLog(
+            user_id=user.id, entry_date=body.entry_date, meal=body.meal,
+            food_id=food.id, food_name=food.base_food_name, weight_g=item.weight_g,
+            calories=scaled(food.calories_100g), protein=scaled(food.protein_100g),
+            carbs=scaled(food.carbs_100g), fat=scaled(food.fat_100g),
+            calories_100g=food.calories_100g, protein_100g=food.protein_100g,
+            carbs_100g=food.carbs_100g, fat_100g=food.fat_100g,
+        ))
+    db.add_all(entries)
+    db.commit()
+    for entry in entries:
+        db.refresh(entry)
+    return entries
+
+
 def _search_catalog(db: Session, query: str) -> list[FoodSearchResult]:
     query = query.strip()
     if not query:
         return []
     return [
-        FoodSearchResult(id=food_id, name=name, score=score)
-        for food_id, name, score in hybrid_food_search(db, query)
+        FoodSearchResult(**hit)
+        for hit in hybrid_food_search(db, query)
     ]
 
 
@@ -122,7 +226,7 @@ def create_catalog_item(
     return FoodCatalogCreated(id=food_id, user_id=user.id, **body.model_dump())
 
 
-@router.get("/catalog", response_model=list[FoodSearchResult])
+@router.get("/catalog", response_model=list[FoodSearchResult], response_model_exclude_none=True)
 def search_catalog(
     q: str = Query(min_length=1, max_length=100),
     db: Session = Depends(get_db),
@@ -130,7 +234,7 @@ def search_catalog(
     return _search_catalog(db, q)
 
 
-@router.post("/catalog/search-batch", response_model=FoodBatchSearchResponse)
+@router.post("/catalog/search-batch", response_model=FoodBatchSearchResponse, response_model_exclude_none=True)
 def search_catalog_batch(
     request: FoodBatchSearchRequest,
     db: Session = Depends(get_db),

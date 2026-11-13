@@ -1,6 +1,14 @@
 export type Unit = 'g' | 'kg' | 'ml' | 'litre' | 'tsp' | 'tbsp' | 'cup' | 'count'
+export interface PortionFood {
+  id: string
+  name: string
+  calories_100g?: number | null
+  protein_100g?: number | null
+  carbs_100g?: number | null
+  fat_100g?: number | null
+}
 export interface Portion {
-  food: { id: string; name: string }
+  food: PortionFood
   amount: string
   unit: Unit
   baseAmount: number | null

@@ -1,6 +1,6 @@
 # MyTracker
 
-An installable personal tracker for money, with MyFood and MyHabbit screens ready to be rebuilt.
+An installable personal tracker for money and food, with MyHabbit screens ready to be rebuilt.
 For a previously signed-in account, cached local data opens immediately, including offline. Changes are queued locally and sync to the server when the connection returns.
 
 - **Front-end:** React + TypeScript + Vite, Tailwind CSS 4, shadcn/ui, TanStack Query, Dexie (IndexedDB), vite-plugin-pwa
@@ -20,7 +20,7 @@ For a previously signed-in account, cached local data opens immediately, includi
               │ HTTPS + app access token; HttpOnly refresh cookie
 ┌─────────────▼───────────── FastAPI (monolith) ────────────────────┐
 │ verify Google sign-in → issue renewable app session               │
-│ routes: /money/*, shared /auth/* and /sync/*                      │
+│ routes: /money/*, /food/*, shared /auth/* and /sync/*             │
 │ authorization + split/balance rules live here (app/splits.py)     │
 └─────────────┬─────────────────────────────────────────────────────┘
               │ SQLAlchemy (server-side connection string)
@@ -28,8 +28,8 @@ For a previously signed-in account, cached local data opens immediately, includi
 ```
 
 Key ideas
-- **Local-first for personal data.** Accounts, categories, budgets and personal transactions are written to
-  IndexedDB immediately and marked `pending`. The sync engine pushes them (`POST /sync/push`) and pulls
+- **Local-first for personal data.** Accounts, categories, budgets, personal transactions and meal logs are
+  written to IndexedDB immediately and marked `pending`. The sync engine pushes them (`POST /sync/push`) and pulls
   changes (`GET /sync/pull`). Records have a client-generated UUID and a `version`; the higher version wins.
 - **Groups need the internet.** Group/family expenses, splits, balances and settlements go straight to the API.
 - **No Supabase Auth / RLS.** Google verifies the initial sign-in; FastAPI issues short-lived app access tokens and
@@ -47,7 +47,9 @@ matches. Results are ordered by score descending, then by name case-insensitivel
 Fuzzy matching requires at least four word characters and a minimum score of 0.9.
 Each result contains `id`, `name`, and a `score` from 0 to 1. Name substring matches score 1.0;
 alias-only substring matches score 0.9. Fuzzy scores are text-similarity ratios, not probabilities
-or calibrated confidence levels.
+or calibrated confidence levels. Results also include the catalogue's optional per-100 g
+`calories_100g`, `protein_100g`, `carbs_100g` and `fat_100g` values, which the client uses to
+snapshot nutrition when a meal is saved.
 Fuzzy matching currently scans the catalogue in the API and does not use vector embeddings.
 For multiple foods, authenticated clients can send `POST /api/food/catalog/search-batch` with
 `{"queries": ["putt", "egg"]}`. It accepts 1–10 queries, each 1–100 characters, and returns
@@ -73,6 +75,23 @@ The optional `image` field on catalogue creation accepts `{"mime_type": "image/p
 JPEG, PNG and WebP images are validated, compressed to JPEG and stored with the catalogue item.
 Apply the latest migration before using this field.
 
+The food diary is local-first like the money app. Meal items are written to the synced
+`meal_logs` IndexedDB store immediately, then pushed to the server's `user_meal_log` table
+(renamed from `food_entries`) by the sync engine. Each row stores the catalogue's per-100 g
+nutrition values and portion-scaled totals as snapshots, so later catalogue edits do not change
+history. Values unavailable for older rows remain null. The `image` column is reserved for future
+meal photos and currently stays `null`.
+Opening the food screens reads IndexedDB instead of fetching the diary over HTTP, so previously
+synced meals appear instantly and remain visible offline. Meal saving works offline and syncs
+when the connection returns. The daily calorie goal is cached locally; setting a goal still
+requires an online session and is not part of the sync queue. On Home, set one daily calorie
+goal per user; the current goal is used for all dates. Meals can be saved to a chosen date and
+meal category from search or scan. For volume and count portions, enter the total weight in
+grams; no density or per-item weight is assumed. Missing catalogue nutrition remains unknown,
+not zero. Diary shows logged dates and meal details. Insights averages completed logged days
+with known calories, counts days at or below the goal, and measures streaks as consecutive dates
+with any logged food (a streak remains current through the following day).
+
 The food scanner captures or uploads one image, previews it, and sends it to
 `POST /api/food/ai/food-analyse` as `{"images": [{"mime_type": "image/jpeg", "data": "<base64>"}]}`.
 It uses the same configured provider and model as expense analysis and returns `{"items": [...]}`
@@ -80,11 +99,9 @@ with estimated portions and calories. Review and remove recognized foods, search
 catalogue, select or create matches, and confirm the draft. After searching starts, items can
 only be removed from the search or confirmation steps. A single catalogue result is selected
 automatically; multiple results require a choice from the six highest-scoring matches. Confirmation
-starts with the estimated quantity and unit, which can be adjusted. Catalogue creation is permanent;
-the confirmation's Save as one meal button does not yet save anything to the diary. Scan and
-catalogue operations require an online session. Food photos sent for analysis, like bill photos,
+starts with the estimated quantity and unit, which can be adjusted. Catalogue creation is permanent.
+Scan and catalogue operations require an online session. Food photos sent for analysis, like bill photos,
 are stored in AI call logs; the audit and retention precautions below apply to them too.
-These portions are a temporary draft and are not saved to the diary.
 Mass units are g and kg; volume units are ml, litre, tsp (5 ml), tbsp (15 ml), and cup
 (250 ml). Count is separate for items such as eggs or glasses; no mass or volume conversion is
 assumed for a count, and mass is not converted to volume.

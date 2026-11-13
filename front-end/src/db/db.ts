@@ -6,9 +6,15 @@ import type {
   Category,
   DuePayment,
   GroupCache,
+  MealLog,
   Merchant,
   Transaction,
 } from './types'
+
+export interface FoodSetting {
+  key: string
+  calories: number | null
+}
 
 export class AppDB extends Dexie {
   accounts!: EntityTable<Account, 'id'>
@@ -30,6 +36,8 @@ export class AppDB extends Dexie {
     'id'
   >
   groups!: EntityTable<GroupCache, 'id'>
+  meal_logs!: EntityTable<MealLog, 'id'>
+  food_settings!: EntityTable<FoodSetting, 'key'>
 
   constructor(name = 'exptracker') {
     super(name)
@@ -129,6 +137,14 @@ export class AppDB extends Dexie {
       habits: null,
       habit_logs: null,
       groups: 'id, membership_status',
+    })
+    this.version(8).stores({
+      food_cache: 'userSub',
+    })
+    this.version(9).stores({
+      food_cache: null,
+      meal_logs: 'id, entry_date, meal, food_id, status, sync_state, [entry_date+meal]',
+      food_settings: 'key',
     })
   }
 }

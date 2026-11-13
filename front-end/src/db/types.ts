@@ -19,6 +19,8 @@ export type AccountType =
   | 'loan_payable'
   | 'money_lent'
 
+export type Meal = 'breakfast' | 'lunch' | 'snacks' | 'dinner'
+
 /** Fields every locally stored, syncable record carries. */
 export interface Syncable {
   id: string // client-generated uuid, also the idempotency key
@@ -94,6 +96,24 @@ export interface Budget extends Syncable {
   period_end: string | null
   alert_threshold_percent: number
   is_active: boolean
+}
+
+/** A single food item logged in a meal. Nutrition is a snapshot taken when saving. */
+export interface MealLog extends Syncable {
+  entry_date: string
+  meal: Meal
+  food_id: string
+  food_name: string
+  weight_g: number
+  calories: number | null
+  protein: number | null
+  carbs: number | null
+  fat: number | null
+  calories_100g: number | null
+  protein_100g: number | null
+  carbs_100g: number | null
+  fat_100g: number | null
+  image: string | null
 }
 
 export interface GroupCache {

@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { fakeSignIn } from './helpers'
+import { fakeSignIn, readMealLogs } from './helpers'
 
 test.use({
   permissions: ['camera'],
@@ -204,16 +204,16 @@ test('intelligent per-unit steppers and conversions', async ({ page }) => {
   await expect(page.getByText('1 item added to this meal')).toBeVisible()
 })
 
-test('save meal gives feedback without persisting anything', async ({ page }) => {
+test('save meal persists the selected portion and opens the diary', async ({ page }) => {
   await page.route('**/auth/refresh', (route) => route.abort())
   await page.route('**/auth/login', (route) => route.abort())
   await page.route('**/food/catalog?*', (route) => route.fulfill({
-    json: [{ id: 'egg', name: 'Egg' }],
+    json: [{
+      id: 'egg', name: 'Egg', calories_100g: 150, protein_100g: 12,
+      carbs_100g: 1, fat_100g: 10,
+    }],
   }))
-  const requests: string[] = []
-  page.on('request', (request) => {
-    if (request.method() !== 'GET' && !request.url().includes('/auth/')) requests.push(request.url())
-  })
+  await page.route('**/food/goal', (route) => route.fulfill({ json: { calories: 2000 } }))
   await fakeSignIn(page)
   await page.goto('/food/add')
   await page.getByRole('searchbox', { name: 'Search foods' }).fill('egg')
@@ -222,13 +222,76 @@ test('save meal gives feedback without persisting anything', async ({ page }) =>
 
   const saveButton = page.getByRole('button', { name: 'Save meal · 1 item' })
   await expect(saveButton).toBeVisible()
-  await expect(page.getByText('Saving will sync with your diary soon — for now this is just a preview.')).toBeVisible()
-  await page.clock.install()
+  await page.getByLabel('Meal date').fill('2026-10-23')
+  await page.getByLabel('Meal', { exact: true }).selectOption('lunch')
+  await page.getByRole('spinbutton', { name: 'Amount for Egg' }).fill('50.0004')
   await saveButton.click()
-  await expect(page.getByRole('button', { name: 'Meal saved' })).toBeDisabled()
-  await page.clock.fastForward(1800)
-  await expect(page.getByRole('button', { name: 'Save meal · 1 item' })).toBeEnabled()
-  expect(requests).toEqual([])
+  await expect(page.getByRole('heading', { name: 'Diary' })).toBeVisible()
+  await expect
+    .poll(async () => {
+      const rows = await readMealLogs(page, 'exptracker-1')
+      const row = rows.find((item) => item.entry_date === '2026-10-23')
+      return row && {
+        entry_date: row.entry_date,
+        meal: row.meal,
+        food_id: row.food_id,
+        weight_g: row.weight_g,
+        calories: row.calories,
+        protein: row.protein,
+        carbs: row.carbs,
+        fat: row.fat,
+        calories_100g: row.calories_100g,
+        protein_100g: row.protein_100g,
+        carbs_100g: row.carbs_100g,
+        fat_100g: row.fat_100g,
+        image: row.image,
+        sync_state: row.sync_state,
+      }
+    })
+    .toEqual({
+      entry_date: '2026-10-23',
+      meal: 'lunch',
+      food_id: 'egg',
+      weight_g: 50,
+      calories: 75,
+      protein: 6,
+      carbs: 0.5,
+      fat: 5,
+      calories_100g: 150,
+      protein_100g: 12,
+      carbs_100g: 1,
+      fat_100g: 10,
+      image: null,
+      sync_state: 'pending',
+    })
+})
+
+test('count portions require their total weight before saving', async ({ page }) => {
+  await page.route('**/auth/refresh', (route) => route.abort())
+  await page.route('**/auth/login', (route) => route.abort())
+  await page.route('**/food/catalog?*', (route) => route.fulfill({
+    json: [{ id: 'egg', name: 'Egg', calories_100g: 150 }],
+  }))
+  await page.route('**/food/goal', (route) => route.fulfill({ json: { calories: null } }))
+  await fakeSignIn(page)
+  await page.goto('/food/add')
+  await page.getByRole('searchbox', { name: 'Search foods' }).fill('egg')
+  await page.getByRole('button', { name: 'Search', exact: true }).click()
+  await page.getByRole('button', { name: 'Egg', exact: true }).click()
+  await page.getByRole('combobox', { name: 'Unit for Egg' }).click()
+  await page.getByRole('option', { name: 'Count', exact: true }).click()
+  await page.getByRole('button', { name: 'Save meal · 1 item' }).click()
+  await expect(page.getByRole('alert')).toContainText('weight in grams')
+  expect(await readMealLogs(page, 'exptracker-1')).toHaveLength(0)
+  await page.getByLabel('Weight of Egg in grams').fill('55')
+  await page.getByRole('button', { name: 'Save meal · 1 item' }).click()
+  await expect(page.getByRole('heading', { name: 'Diary' })).toBeVisible()
+  await expect
+    .poll(async () => {
+      const rows = await readMealLogs(page, 'exptracker-1')
+      return rows.map((row) => ({ food_id: row.food_id, weight_g: row.weight_g }))
+    })
+    .toEqual([{ food_id: 'egg', weight_g: 55 }])
 })
 
 
@@ -389,7 +452,7 @@ test.describe('food scanner', () => {
     await expect(page.getByRole('spinbutton', { name: 'Amount for Dal sambar' })).toHaveValue('150')
     await expect(page.getByRole('combobox', { name: 'Unit for Dal sambar' })).toContainText('Millilitres (ml)')
     await page.getByRole('button', { name: 'Remove Sambar' }).click()
-    await page.getByRole('button', { name: 'Save as one meal' }).click()
+    await expect(page.getByRole('button', { name: 'Save meal · 2 items' })).toBeVisible()
     expect(posts).toBe(1)
     await page.getByRole('button', { name: 'Cancel', exact: true }).click()
     await expect(page.getByRole('heading', { name: 'Log Meal' })).toBeVisible()

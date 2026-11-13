@@ -41,6 +41,46 @@ class Profile(Base):
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 
+class FoodGoal(Base):
+    __tablename__ = "food_goals"
+    __table_args__ = (CheckConstraint("calories > 0"),)
+
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), primary_key=True)
+    calories: Mapped[int] = mapped_column(Integer)
+
+
+class UserMealLog(Base):
+    """A meal item logged in a user's food diary. Merged through the sync engine."""
+
+    __tablename__ = "user_meal_log"
+    __table_args__ = (
+        CheckConstraint("weight_g > 0"),
+        CheckConstraint("meal IN ('breakfast', 'lunch', 'snacks', 'dinner')"),
+        Index("ix_user_meal_log_user_date", "user_id", "entry_date"),
+    )
+
+    id: Mapped[uuid.UUID] = _pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"))
+    entry_date: Mapped[date] = mapped_column(Date)
+    meal: Mapped[str] = mapped_column(String(20))
+    food_id: Mapped[str] = mapped_column(String)
+    food_name: Mapped[str] = mapped_column(String)
+    weight_g: Mapped[float] = mapped_column(Numeric(12, 3))
+    calories: Mapped[float | None] = mapped_column(Numeric(12, 3))
+    protein: Mapped[float | None] = mapped_column(Numeric(12, 3))
+    carbs: Mapped[float | None] = mapped_column(Numeric(12, 3))
+    fat: Mapped[float | None] = mapped_column(Numeric(12, 3))
+    calories_100g: Mapped[float | None] = mapped_column(Numeric)
+    protein_100g: Mapped[float | None] = mapped_column(Numeric)
+    carbs_100g: Mapped[float | None] = mapped_column(Numeric)
+    fat_100g: Mapped[float | None] = mapped_column(Numeric)
+    image: Mapped[str | None] = mapped_column(Text)
+    status: Mapped[str] = mapped_column(String, default="active")
+    version: Mapped[int] = mapped_column(Integer, default=1)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
 class AICallLog(Base):
     __tablename__ = "ai_call_logs"
 

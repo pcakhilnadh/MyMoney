@@ -1,9 +1,9 @@
 import 'fake-indexeddb/auto'
 import Dexie from 'dexie'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppDB, db } from './db'
 import { clearLocalDatabase } from './clear'
-import { accountsRepo, categoriesRepo, merchantsRepo, transactionsRepo } from './repos'
+import { accountsRepo, categoriesRepo, mealLogsRepo, merchantsRepo, transactionsRepo } from './repos'
 import { seedIfEmpty } from './seed'
 import { DEFAULT_CATEGORIES, formatMinor, normalizeMoneyInput, toMinor } from '@/lib/money'
 
@@ -46,15 +46,63 @@ it('removes food and habit stores when upgrading local databases', async () => {
   try {
     await upgraded.open()
     const tableNames = upgraded.tables.map((table) => table.name)
-    for (const tableName of ['food_entries', 'food_library', 'habits', 'habit_logs'])
+    for (const tableName of ['food_entries', 'food_library', 'habits', 'habit_logs', 'food_cache'])
       expect(tableNames).not.toContain(tableName)
+    expect(tableNames).toContain('meal_logs')
+    expect(tableNames).toContain('food_settings')
   } finally {
     upgraded.close()
     await Dexie.delete(name)
   }
 })
 
+it('keeps meal logs and the goal scoped to the local user database and clears them on sign-out', async () => {
+  await db.meal_logs.put({
+    id: 'meal-1',
+    entry_date: '2026-10-01',
+    meal: 'breakfast',
+    food_id: 'egg',
+    food_name: 'Egg',
+    weight_g: 50,
+    calories: 75,
+    protein: 6,
+    carbs: 1,
+    fat: 5,
+    calories_100g: 150,
+    protein_100g: 12,
+    carbs_100g: 2,
+    fat_100g: 10,
+    image: null,
+    version: 1,
+    sync_state: 'pending',
+    status: 'active',
+    created_at: '2026-10-01T00:00:00.000Z',
+    updated_at: '2026-10-01T00:00:00.000Z',
+  })
+  await db.food_settings.put({ key: 'goal', calories: 1800 })
+  expect((await db.meal_logs.get('meal-1'))?.food_name).toBe('Egg')
+  expect((await db.food_settings.get('goal'))?.calories).toBe(1800)
+  await clearLocalDatabase()
+  expect(await db.meal_logs.count()).toBe(0)
+  expect(await db.food_settings.count()).toBe(0)
+})
+
 describe('repository', () => {
+  it('does not partially save a meal if one row fails', async () => {
+    const randomUUID = vi.spyOn(crypto, 'randomUUID').mockReturnValue('aaaaaaaa-0000-0000-0000-000000000001')
+    const item = {
+      entry_date: '2026-10-01', meal: 'breakfast' as const, food_id: 'egg', food_name: 'Egg',
+      weight_g: 50, calories: 75, protein: 6, carbs: null, fat: null,
+      calories_100g: 150, protein_100g: 12, carbs_100g: null, fat_100g: null, image: null,
+    }
+    try {
+      await expect(mealLogsRepo.createMany([item, item])).rejects.toThrow()
+      expect(await db.meal_logs.count()).toBe(0)
+    } finally {
+      randomUUID.mockRestore()
+    }
+  })
+
   it('atomically replaces and clears default accounts', async () => {
     const data = {
       name: 'First', account_type: 'bank' as const, currency: 'INR',

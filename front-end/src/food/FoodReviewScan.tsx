@@ -6,6 +6,7 @@ import { Button } from '@/components/kit'
 import { CreateFood } from './CreateFood'
 import type { Category, FoodType, Match } from './catalog'
 import { MealPortionCard } from './MealPortionCard'
+import { SaveMeal } from './SaveMeal'
 import { units, type Portion, type Unit } from './portions'
 
 export interface ScanItem {
@@ -333,12 +334,7 @@ export default function FoodReviewScan({
       )}
       {step === 2 && (
         <>
-          <p className="text-sm text-muted-foreground">
-            Saving meals is not available yet. Review your selections here.
-          </p>
-          <Button className="w-full" disabled={!items.length} onClick={() => {}}>
-            Save as one meal
-          </Button>
+          <SaveMeal portions={items.map((item) => item.portion)} />
           <Button variant="outline" className="w-full" onClick={onCancel}>
             Cancel
           </Button>

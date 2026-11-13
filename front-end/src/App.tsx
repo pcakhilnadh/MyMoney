@@ -22,6 +22,7 @@ import AccountDetail from './pages/AccountDetail'
 import BudgetCategoryDetail from './pages/BudgetCategoryDetail'
 import FoodHome from './pages/FoodHome'
 import FoodLog from './pages/FoodLog'
+import { FoodDataProvider } from './food/FoodDataProvider'
 import {
   FoodDiary,
   FoodInsights,
@@ -122,7 +123,7 @@ export default function App() {
             <Route path="/money/groups" element={<Groups />} />
             <Route path="/money/groups/:groupId" element={<GroupDetail />} />
           </Route>
-          <Route element={<Layout app="food" />}>
+          <Route element={<FoodDataProvider><Layout app="food" /></FoodDataProvider>}>
             <Route path="/food" element={<Navigate to="/food/home" replace />} />
             <Route path="/food/home" element={<FoodHome />} />
             <Route path="/food/diary" element={<FoodDiary />} />

@@ -79,6 +79,11 @@ export function CreateFood({
         aliases: string | null
         category: Category
         food_type: FoodType
+        calories_100g: number | null
+        protein_100g: number | null
+        carbs_100g: number | null
+        fat_100g: number | null
+        fiber_100g: number | null
       }>('/food/catalog', token, {
         method: 'POST',
         body: JSON.stringify(body),
@@ -87,6 +92,10 @@ export function CreateFood({
         id: created.id,
         name: created.base_food_name,
         score: 1,
+        calories_100g: created.calories_100g,
+        protein_100g: created.protein_100g,
+        carbs_100g: created.carbs_100g,
+        fat_100g: created.fat_100g,
         createdDetails: {
           aliases: created.aliases,
           category: created.category,

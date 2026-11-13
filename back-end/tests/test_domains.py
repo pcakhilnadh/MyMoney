@@ -20,9 +20,9 @@ def test_money_routes_are_namespaced_and_api_auth_paths_remain(client):
     assert client.get("/api/accounts", headers=H("alice")).status_code == 404
 
 
-def test_food_and_habit_api_routes_are_removed(client):
+def test_food_entry_routes_exist_and_habit_routes_are_removed(client):
+    assert client.get("/api/food/entries", headers=H("alice")).status_code == 200
     for path in (
-        "/api/food/entries",
         "/api/food/library",
         "/habits",
         "/api/habits",
@@ -30,8 +30,9 @@ def test_food_and_habit_api_routes_are_removed(client):
         assert client.get(path, headers=H("alice")).status_code == 404
 
 
-def test_sync_no_longer_exposes_food_or_habit_entities(client):
+def test_sync_exposes_meal_logs_and_not_retired_habit_entities(client):
     pulled = client.get("/api/sync/pull", headers=H("alice")).json()
+    assert pulled["meal_logs"] == []
     for entity in ("food_entries", "food_library", "habits", "habit_logs"):
         assert entity not in pulled
 

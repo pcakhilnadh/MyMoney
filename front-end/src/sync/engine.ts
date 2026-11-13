@@ -9,6 +9,7 @@ type EntityName =
   | 'transactions'
   | 'budgets'
   | 'due_payments'
+  | 'meal_logs'
 const ENTITIES: EntityName[] = [
   'categories',
   'accounts',
@@ -16,6 +17,7 @@ const ENTITIES: EntityName[] = [
   'transactions',
   'budgets',
   'due_payments',
+  'meal_logs',
 ]
 
 /** Fields the server may omit, used when a record is first pulled. */
@@ -32,6 +34,13 @@ const DEFAULTS: Record<EntityName, object> = {
     long_description: null,
   },
   budgets: { group_id: null },
+  meal_logs: {
+    image: null,
+    calories_100g: null,
+    protein_100g: null,
+    carbs_100g: null,
+    fat_100g: null,
+  },
 }
 
 interface PullResponse extends Record<EntityName, (Syncable & { id: string })[]> {

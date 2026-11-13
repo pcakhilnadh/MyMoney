@@ -332,6 +332,64 @@ def test_merchants_are_shared_and_duplicate_names_resolve_to_one_record(client):
     assert pulled[0]["id"] == MERCHANT
 
 
+def test_meal_logs_sync_with_nutrition_snapshots_and_stay_private(client):
+    meal_id = "aaaaaaaa-0000-0000-0000-000000000020"
+    meal = {
+        "id": meal_id,
+        "version": 1,
+        "entry_date": "2026-10-23",
+        "meal": "breakfast",
+        "food_id": "egg",
+        "food_name": "Egg",
+        "weight_g": 50,
+        "calories": 75,
+        "protein": 6,
+        "carbs": 0.5,
+        "fat": 5,
+        "calories_100g": 150,
+        "protein_100g": 12,
+        "carbs_100g": 1,
+        "fat_100g": 10,
+    }
+    response = client.post("/api/sync/push", json={"meal_logs": [meal]}, headers=H("alice"))
+    assert response.status_code == 200
+    assert response.json()["accepted"] == [{"entity": "meal_logs", "id": meal_id}]
+
+    pulled = client.get("/api/sync/pull", headers=H("alice")).json()
+    saved = pulled["meal_logs"][0]
+    assert saved["entry_date"] == "2026-10-23"
+    assert (saved["calories"], saved["protein"], saved["carbs"], saved["fat"]) == (75, 6, 0.5, 5)
+    assert (saved["calories_100g"], saved["protein_100g"], saved["carbs_100g"], saved["fat_100g"]) == (150, 12, 1, 10)
+    assert saved["image"] is None
+    assert saved["version"] == 1
+    assert client.get("/api/sync/pull", headers=H("bob")).json()["meal_logs"] == []
+    assert client.get(
+        "/api/sync/pull", params={"since": pulled["server_time"]}, headers=H("alice")
+    ).json()["meal_logs"] == []
+
+    assert client.post(
+        "/api/sync/push", json={"meal_logs": [{**meal, "version": 2}]}, headers=H("bob")
+    ).status_code == 404
+    for invalid in (
+        {**meal, "id": "aaaaaaaa-0000-0000-0000-000000000021", "meal": "brunch"},
+        {**meal, "id": "aaaaaaaa-0000-0000-0000-000000000022", "weight_g": 0},
+        {**meal, "id": "aaaaaaaa-0000-0000-0000-000000000023", "calories": -1},
+        {**meal, "id": "aaaaaaaa-0000-0000-0000-000000000024", "protein_100g": -1},
+    ):
+        assert client.post(
+            "/api/sync/push", json={"meal_logs": [invalid]}, headers=H("alice")
+        ).status_code == 422
+
+    saved_via_api = client.get("/api/food/entries", headers=H("alice")).json()
+    assert saved_via_api[0]["id"] == meal_id
+    assert saved_via_api[0]["image"] is None
+    assert saved_via_api[0]["calories_100g"] == 150
+    deleted = {**meal, "version": 2, "status": "deleted"}
+    assert client.post("/api/sync/push", json={"meal_logs": [deleted]}, headers=H("alice")).status_code == 200
+    assert client.get("/api/food/entries", headers=H("alice")).json() == []
+    assert client.get("/api/sync/pull", headers=H("alice")).json()["meal_logs"][0]["status"] == "deleted"
+
+
 def test_due_day_and_due_payments_sync(client):
     c = client
     DP = "aaaaaaaa-0000-0000-0000-000000000009"

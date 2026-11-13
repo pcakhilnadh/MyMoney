@@ -45,10 +45,16 @@ def test_create_catalog_item_and_search_as_another_user(client):
         for key in ("calories_100g", "protein_100g", "carbs_100g", "fat_100g", "fiber_100g"):
             assert float(getattr(stored, key)) == body[key]
     assert client.get("/api/food/catalog", params={"q": "putt"}, headers=H("bob")).json() == [
-        {"id": result["id"], "name": "Rice puttu", "score": 1.0},
+        {
+            "id": result["id"], "name": "Rice puttu", "score": 1.0,
+            "calories_100g": 81.5, "protein_100g": 1.2, "carbs_100g": 11.8, "fat_100g": 3.1,
+        },
     ]
     assert client.get("/api/food/catalog", params={"q": "ari"}, headers=H("bob")).json() == [
-        {"id": result["id"], "name": "Rice puttu", "score": 0.9},
+        {
+            "id": result["id"], "name": "Rice puttu", "score": 0.9,
+            "calories_100g": 81.5, "protein_100g": 1.2, "carbs_100g": 11.8, "fat_100g": 3.1,
+        },
     ]
 
 
@@ -118,7 +124,7 @@ def test_search_catalog_is_shared_and_matches_names_and_aliases(client):
         bob = db.query(Profile).filter_by(email="bob@gmail.com").one()
         db.execute(text(
             "CREATE TABLE food_catalog_master "
-            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, user_id uuid)"
+            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, calories_100g numeric, protein_100g numeric, carbs_100g numeric, fat_100g numeric, user_id uuid)"
         ))
         db.execute(insert(catalog), [
             {"id": "one", "base_food_name": "Egg", "aliases": "Anda", "user_id": None},
@@ -151,7 +157,7 @@ def test_hybrid_search_on_catalogue_spellings_and_ranking(client):
     with client.session_factory() as db:
         db.execute(text(
             "CREATE TABLE food_catalog_master "
-            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, user_id uuid)"
+            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, calories_100g numeric, protein_100g numeric, carbs_100g numeric, fat_100g numeric, user_id uuid)"
         ))
         dataset = Path(__file__).resolve().parents[1] / "food_dataset_prep" / "food_catelog_master.csv"
         with dataset.open(encoding="utf-8", newline="") as file:
@@ -180,7 +186,7 @@ def test_fuzzy_search_matches_aliases_and_is_bounded(client):
     with client.session_factory() as db:
         db.execute(text(
             "CREATE TABLE food_catalog_master "
-            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, user_id uuid)"
+            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, calories_100g numeric, protein_100g numeric, carbs_100g numeric, fat_100g numeric, user_id uuid)"
         ))
         rows = [
             {"id": str(i), "base_food_name": f"Chapati {i:02}", "aliases": None, "user_id": None}
@@ -207,7 +213,7 @@ def test_fuzzy_threshold_includes_boundary_and_excludes_lower_scores(client):
     with client.session_factory() as db:
         db.execute(text(
             "CREATE TABLE food_catalog_master "
-            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, user_id uuid)"
+            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, calories_100g numeric, protein_100g numeric, carbs_100g numeric, fat_100g numeric, user_id uuid)"
         ))
         db.execute(insert(catalog), [
             {"id": "boundary", "base_food_name": "abcdefghiX", "aliases": None, "user_id": None},
@@ -224,7 +230,7 @@ def test_fuzzy_results_return_similarity_scores_in_descending_order(client):
     with client.session_factory() as db:
         db.execute(text(
             "CREATE TABLE food_catalog_master "
-            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, user_id uuid)"
+            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, calories_100g numeric, protein_100g numeric, carbs_100g numeric, fat_100g numeric, user_id uuid)"
         ))
         db.execute(insert(catalog), [
             {"id": "lower", "base_food_name": "abcdefghijklmnopqrXY", "aliases": None, "user_id": None},
@@ -243,7 +249,7 @@ def test_equal_scores_are_ordered_by_name_before_limiting(client):
     with client.session_factory() as db:
         db.execute(text(
             "CREATE TABLE food_catalog_master "
-            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, user_id uuid)"
+            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, calories_100g numeric, protein_100g numeric, carbs_100g numeric, fat_100g numeric, user_id uuid)"
         ))
         names = [
             "zebra", "apple", "Banana", "cherry", "Date", "elderberry",
@@ -269,7 +275,7 @@ def test_name_matches_rank_above_alias_matches_before_limit(client):
     with client.session_factory() as db:
         db.execute(text(
             "CREATE TABLE food_catalog_master "
-            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, user_id uuid)"
+            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, calories_100g numeric, protein_100g numeric, carbs_100g numeric, fat_100g numeric, user_id uuid)"
         ))
         rows = [
             {"id": f"alias-{i}", "base_food_name": f"Alpha {i:02}", "aliases": "putt",
@@ -299,7 +305,7 @@ def test_batch_search_matches_single_search_and_preserves_input_order(client):
     with client.session_factory() as db:
         db.execute(text(
             "CREATE TABLE food_catalog_master "
-            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, user_id uuid)"
+            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, calories_100g numeric, protein_100g numeric, carbs_100g numeric, fat_100g numeric, user_id uuid)"
         ))
         db.execute(insert(catalog), [
             {"id": "puttu", "base_food_name": "Rice puttu", "aliases": "Ari puttu", "user_id": None},
@@ -347,7 +353,7 @@ def test_batch_search_validates_request_and_requires_authentication(client):
     with client.session_factory() as db:
         db.execute(text(
             "CREATE TABLE food_catalog_master "
-            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, user_id uuid)"
+            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, calories_100g numeric, protein_100g numeric, carbs_100g numeric, fat_100g numeric, user_id uuid)"
         ))
         db.commit()
     response = client.post(url, json={"queries": ["x" * 100] * 10}, headers=H("alice"))
@@ -359,7 +365,7 @@ def test_batch_search_limits_each_query_independently(client):
     with client.session_factory() as db:
         db.execute(text(
             "CREATE TABLE food_catalog_master "
-            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, user_id uuid)"
+            "(id text PRIMARY KEY, base_food_name text NOT NULL, aliases text, calories_100g numeric, protein_100g numeric, carbs_100g numeric, fat_100g numeric, user_id uuid)"
         ))
         db.execute(insert(catalog), [
             {"id": f"{food}-{i}", "base_food_name": f"{food} {i:02}",

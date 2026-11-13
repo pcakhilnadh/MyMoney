@@ -80,6 +80,54 @@
   --app-side-glow: rgba(57, 201, 138, 0.06);
 }
 
+.food-dashboard {
+  color: #fff;
+}
+.food-panel {
+  background: #25403a;
+  border: 1px solid #365a50;
+  border-radius: 20px;
+}
+.food-muted {
+  color: #a9bfb5;
+}
+.food-label {
+  color: #a9bfb5;
+  font-size: 11px;
+  font-weight: 600;
+  letter-spacing: .12em;
+  text-transform: uppercase;
+}
+.food-icon {
+  display: flex;
+  width: 44px;
+  height: 44px;
+  align-items: center;
+  justify-content: center;
+  border: 1px solid #365a50;
+  border-radius: 50%;
+  background: #1a2824;
+}
+[data-app='food'] .app-connected-surface {
+  --connected-surface-color: #1d2f29;
+}
+
+[data-food-home='true'] {
+  --primary: #6fcf97;
+  --primary-foreground: #0c2218;
+}
+
+[data-food-home='true'] .food-home-nav {
+  min-height: 80px;
+  background: #16241f;
+  border-top: 1px solid #365a50;
+}
+
+[data-food-home='true'] .food-home-add {
+  background: #6fcf97;
+  box-shadow: 0 0 0 6px rgba(111, 207, 151, 0.14);
+}
+
 [data-app='habit'] {
   --primary: var(--habit-primary);
   --primary-foreground: #ffffff;

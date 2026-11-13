@@ -50,11 +50,32 @@ def fuzzy_score(query: str, name: str, aliases: str | None) -> float:
     )
 
 
-def hybrid_food_search(db: Session, query: str) -> list[tuple[str, str, float]]:
+NUTRITION_COLUMNS = ("calories_100g", "protein_100g", "carbs_100g", "fat_100g")
+
+
+def _search_result(row, score: float) -> dict[str, object]:
+    """A serialisable search hit, including the per-100 g snapshot the client stores."""
+    return {
+        "id": row.id,
+        "name": row.base_food_name,
+        "score": score,
+        **{
+            name: None if getattr(row, name) is None else float(getattr(row, name))
+            for name in NUTRITION_COLUMNS
+        },
+    }
+
+
+def hybrid_food_search(db: Session, query: str) -> list[dict[str, object]]:
     name_matches = catalog.c.base_food_name.icontains(query, autoescape=True)
     substring_score = case((name_matches, 1.0), else_=0.9).label("score")
     exact = db.execute(
-        select(catalog.c.id, catalog.c.base_food_name, substring_score)
+        select(
+            catalog.c.id,
+            catalog.c.base_food_name,
+            substring_score,
+            *(catalog.c[name] for name in NUTRITION_COLUMNS),
+        )
         .where(
             or_(
                 name_matches,
@@ -67,24 +88,45 @@ def hybrid_food_search(db: Session, query: str) -> list[tuple[str, str, float]]:
         )
         .limit(RESULT_LIMIT)
     ).all()
-    results = [(row.id, row.base_food_name, row.score) for row in exact]
-    if results:
-        return results
+    if exact:
+        return [_search_result(row, row.score) for row in exact]
 
     query_length = sum(len(word) for word in re.findall(r"\w+", query))
     if query_length < MIN_FUZZY_LENGTH:
         return []
 
-    def fuzzy_matches() -> Iterator[tuple[float, str, str, str]]:
+    def fuzzy_matches() -> Iterator[tuple]:
         rows = db.execute(
-            select(catalog.c.id, catalog.c.base_food_name, catalog.c.aliases)
+            select(
+                catalog.c.id,
+                catalog.c.base_food_name,
+                catalog.c.aliases,
+                *(catalog.c[name] for name in NUTRITION_COLUMNS),
+            )
             .execution_options(yield_per=500)
         )
         for row in rows:
             score = fuzzy_score(query, row.base_food_name, row.aliases)
             if score >= FUZZY_THRESHOLD:
-                yield (-score, row.base_food_name.lower(), row.base_food_name, row.id)
+                yield (
+                    -score,
+                    row.base_food_name.lower(),
+                    row.base_food_name,
+                    row.id,
+                    *(
+                        None if getattr(row, name) is None else float(getattr(row, name))
+                        for name in NUTRITION_COLUMNS
+                    ),
+                )
 
     # TODO: Put vector matches ahead of exact and fuzzy matches when embeddings are available.
     fuzzy = nsmallest(RESULT_LIMIT, fuzzy_matches())
-    return [(food_id, name, -negative_score) for negative_score, _, name, food_id in fuzzy]
+    return [
+        {
+            "id": food_id,
+            "name": name,
+            "score": -negative_score,
+            **dict(zip(NUTRITION_COLUMNS, nutrition)),
+        }
+        for negative_score, _, name, food_id, *nutrition in fuzzy
+    ]

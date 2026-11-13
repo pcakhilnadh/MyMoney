@@ -51,6 +51,7 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
   const [failedPicture, setFailedPicture] = useState<string | null>(null)
   const picture = user?.picture
   const isPersonal = pathname === '/personal'
+  const isFoodHome = pathname === '/food/home'
   const selectedApp = app === 'shared' ? null : app
   const comingSoon = selectedApp === 'habit'
   const appInfo = apps.find((app) => app.id === selectedApp) ?? apps[0]
@@ -71,6 +72,7 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
   return (
     <div
       data-app={selectedApp ?? 'money'}
+      data-food-home={isFoodHome || undefined}
       className="mx-auto min-h-screen max-w-md"
     >
       <div
@@ -195,7 +197,7 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
       ) : (
         <nav
           aria-label={`${appInfo.label} navigation`}
-          className="bottom-nav fixed inset-x-0 bottom-0 z-10 mx-auto grid w-full max-w-md grid-cols-5 items-center justify-items-center py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
+          className={`bottom-nav fixed inset-x-0 bottom-0 z-10 mx-auto grid w-full max-w-md grid-cols-5 items-center justify-items-center py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] ${isFoodHome ? 'food-home-nav' : ''}`}
         >
           {navigationItems.map(({ to, label, Icon }, index) => (
             <Fragment key={to}>
@@ -204,7 +206,7 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
                   to={addPath}
                   aria-label={selectedApp === 'food' ? 'Add meal' : 'Add expense'}
                   aria-current={pathname === addPath ? 'page' : undefined}
-                  className={`gloss flex size-12 shrink-0 items-center justify-center rounded-full text-primary-foreground shadow-lg transition-transform active:scale-95 ${pathname === addPath ? 'ring-2 ring-white/70' : ''}`}
+                  className={`${isFoodHome ? 'food-home-add size-14' : 'gloss size-12 shadow-lg'} flex shrink-0 items-center justify-center rounded-full text-primary-foreground transition-transform active:scale-95 ${pathname === addPath ? 'ring-2 ring-white/70' : ''}`}
                 >
                   <Plus size={23} strokeWidth={2.5} />
                 </Link>
@@ -212,12 +214,20 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
               <NavLink
                 to={to}
                 className={({ isActive }) =>
-                  `flex w-16 max-w-full flex-col items-center gap-0.5 rounded-2xl px-1 py-1.5 text-[11px] font-medium whitespace-nowrap text-primary transition-colors ${
-                    isActive ? 'bg-primary/20 ring-1 ring-primary/30' : ''
-                  }`
+                  isFoodHome
+                    ? `flex w-16 max-w-full flex-col items-center justify-center gap-1 py-1 text-[11px] whitespace-nowrap ${isActive ? 'font-semibold text-[#6fcf97]' : 'font-medium text-[#a9bfb5]'}`
+                    : `flex w-16 max-w-full flex-col items-center gap-0.5 rounded-2xl px-1 py-1.5 text-[11px] font-medium whitespace-nowrap text-primary transition-colors ${
+                        isActive ? 'bg-primary/20 ring-1 ring-primary/30' : ''
+                      }`
                 }
               >
-                <Icon size={21} className="text-primary" />
+                {isFoodHome ? (
+                  <span className={`flex h-7 w-12 items-center justify-center rounded-full ${pathname === to ? 'bg-[#173a2a]' : ''}`}>
+                    <Icon size={20} aria-hidden="true" />
+                  </span>
+                ) : (
+                  <Icon size={21} className="text-primary" />
+                )}
                 {label}
               </NavLink>
             </Fragment>
