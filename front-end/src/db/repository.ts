@@ -2,7 +2,7 @@ import type { EntityTable, Table } from 'dexie'
 import { requestSync } from '@/sync/bus'
 import type { Syncable } from './types'
 
-type NewRecord<T extends Syncable> = Omit<
+export type NewRecord<T extends Syncable> = Omit<
   T,
   'id' | 'version' | 'sync_state' | 'status' | 'created_at' | 'updated_at'
 >

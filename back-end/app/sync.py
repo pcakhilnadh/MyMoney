@@ -16,6 +16,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
+from app.account_defaults import clear_other_defaults, lock_account_defaults
 from app.category_rules import transfer_category_account_error
 from app.db import get_db
 from app.models import (
@@ -318,6 +319,11 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
             raise HTTPException(422, "Unknown account")
     elif name == "budgets" and not _owned_category_ref(db, rec.category_id, user):
         raise HTTPException(422, "Unknown category")
+    if name == "accounts" and (existing is None or rec.version > existing.version):
+        if rec.status != "active":
+            data["is_default"] = False
+        elif data["is_default"]:
+            clear_other_defaults(db, user.id, rec.id)
     if existing is None:
         extra = {"created_by": user.id} if name in ("transactions", "budgets") else {}
         row = model(id=rec.id, **{owner_col: user.id}, **extra, **data)
@@ -342,6 +348,8 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
 @router.post("/push")
 def push(body: PushIn, user: Profile = Depends(get_current_user), db: Session = Depends(get_db)):
     result: dict = {"accepted": [], "conflicts": []}
+    if body.accounts:
+        lock_account_defaults(db, user.id)
     # parents before children so foreign keys resolve
     for rec in body.categories:
         _upsert(db, user, "categories", rec, result)
@@ -357,7 +365,10 @@ def push(body: PushIn, user: Profile = Depends(get_current_user), db: Session = 
         "budgets",
         "due_payments",
     ):
-        for rec in getattr(body, name):
+        records = getattr(body, name)
+        if name == "accounts":
+            records = sorted(records, key=lambda rec: rec.status == "active" and rec.is_default)
+        for rec in records:
             if name in {"transactions", "budgets"} and rec.category_id in category_aliases:
                 rec = rec.model_copy(
                     update={"category_id": category_aliases[rec.category_id]}

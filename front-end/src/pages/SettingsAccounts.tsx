@@ -65,6 +65,8 @@ export default function SettingsAccounts() {
   const [opening, setOpening] = useState(0)
   const [limit, setLimit] = useState(0)
   const [dueDay, setDueDay] = useState('')
+  const [isDefault, setIsDefault] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [categoryTotalsVisible, setCategoryTotalsVisible] = useState<Record<string, boolean>>({})
   
@@ -79,6 +81,8 @@ export default function SettingsAccounts() {
     setOpening(0)
     setLimit(0)
     setDueDay('')
+    setIsDefault(false)
+    setSaveError('')
     setEditingId(null)
   }
 
@@ -92,10 +96,16 @@ export default function SettingsAccounts() {
       credit_limit: isCard && limit > 0 ? limit : null,
       payment_due_day:
         hasDueDay && Number.isInteger(day) && day >= 1 && day <= 31 ? day : null,
-      is_default: accounts.find((account) => account.id === editingId)?.is_default ?? false,
+      is_default: isDefault,
     }
-    if (editingId) await accountsRepo.update(editingId, values)
-    else await accountsRepo.create(values)
+    try {
+      if (editingId) await accountsRepo.update(editingId, values)
+      else await accountsRepo.create(values)
+    } catch (error) {
+      console.error('Unable to save account', error)
+      setSaveError('Unable to save account. Please try again.')
+      return
+    }
     resetForm()
     setShowForm(false)
   }
@@ -194,6 +204,17 @@ export default function SettingsAccounts() {
               For a balance someone owes you. Lending and collection transfers affect only the
               account the money leaves or returns to.
             </p>
+          )}
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={isDefault}
+              onChange={(event) => setIsDefault(event.target.checked)}
+            />
+            Set as default account
+          </label>
+          {saveError && (
+            <p role="alert" className="text-sm text-destructive">{saveError}</p>
           )}
           <Button className="w-full" disabled={!name.trim()} onClick={() => void save()}>
             {editingId ? 'Save Account' : 'Add Account'}

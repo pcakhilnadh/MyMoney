@@ -52,6 +52,8 @@ export default function AccountDetail() {
   const [opening, setOpening] = useState(0)
   const [limit, setLimit] = useState(0)
   const [dueDay, setDueDay] = useState('')
+  const [isDefault, setIsDefault] = useState(false)
+  const [saveError, setSaveError] = useState('')
   const totals = transactions.reduce(
     (sum, transaction) => {
       if (transaction.transaction_type === 'expense') sum.debit += transaction.amount_minor
@@ -120,6 +122,8 @@ export default function AccountDetail() {
     setOpening(account.opening_balance)
     setLimit(account.credit_limit ?? 0)
     setDueDay(account.payment_due_day == null ? '' : String(account.payment_due_day))
+    setIsDefault(account.is_default)
+    setSaveError('')
     setEditing(true)
   }
 
@@ -128,15 +132,21 @@ export default function AccountDetail() {
     const isCreditCard = type === 'credit_card'
     const hasDueDay = isCreditCard || type === 'loan'
     const day = Number(dueDay)
-    await accountsRepo.update(account.id, {
-      name: name.trim(),
-      account_type: type,
-      currency,
-      opening_balance: opening,
-      credit_limit: isCreditCard && limit > 0 ? limit : null,
-      payment_due_day: hasDueDay && Number.isInteger(day) && day >= 1 && day <= 31 ? day : null,
-      is_default: account.is_default,
-    })
+    try {
+      await accountsRepo.update(account.id, {
+        name: name.trim(),
+        account_type: type,
+        currency,
+        opening_balance: opening,
+        credit_limit: isCreditCard && limit > 0 ? limit : null,
+        payment_due_day: hasDueDay && Number.isInteger(day) && day >= 1 && day <= 31 ? day : null,
+        is_default: isDefault,
+      })
+    } catch (error) {
+      console.error('Unable to save account', error)
+      setSaveError('Unable to save account. Please try again.')
+      return
+    }
     setEditing(false)
   }
 
@@ -144,10 +154,6 @@ export default function AccountDetail() {
     if (!account) return
     if (!window.confirm(`Delete "${account.name}"? Its transactions will remain in your history.`))
       return
-    if (account.is_default) {
-      const replacement = (await accountsRepo.list()).find((item) => item.id !== account.id)
-      if (replacement) await accountsRepo.update(replacement.id, { is_default: true })
-    }
     await accountsRepo.remove(account.id)
     navigate('/money/settings/accounts', { replace: true })
   }
@@ -163,13 +169,6 @@ export default function AccountDetail() {
     )
       return
 
-    if (!activating && account.is_default) {
-      const replacement = (await accountsRepo.list()).find(
-        (item) => item.id !== account.id && item.status === 'active',
-      )
-      if (replacement) await accountsRepo.update(replacement.id, { is_default: true })
-    }
-
     await accountsRepo.update(account.id, {
       status: activating ? 'active' : 'archived',
       is_default: activating ? account.is_default : false,
@@ -184,7 +183,7 @@ export default function AccountDetail() {
       <div className="flex items-start justify-between gap-3">
         <PageHeader
           title={account.name}
-          subtitle={`${ACCOUNT_TYPE_LABELS[account.account_type] ?? 'Other'}${account.status === 'active' ? '' : ' · Inactive'}`}
+          subtitle={`${ACCOUNT_TYPE_LABELS[account.account_type] ?? 'Other'}${account.is_default ? ' · Default' : ''}${account.status === 'active' ? '' : ' · Inactive'}`}
         />
         <div className="flex shrink-0 items-center gap-1.5">
           <MetalActionButton label={`Edit ${account.name}`} onClick={startEditing}>
@@ -256,6 +255,21 @@ export default function AccountDetail() {
                 placeholder="1-31"
               />
             </label>
+          )}
+          <label className="flex items-center gap-2 text-sm">
+            <input
+              type="checkbox"
+              checked={isDefault}
+              disabled={account.status !== 'active'}
+              onChange={(event) => setIsDefault(event.target.checked)}
+            />
+            Set as default account
+          </label>
+          {account.status !== 'active' && (
+            <p className="text-sm text-muted-foreground">Only active accounts can be the default.</p>
+          )}
+          {saveError && (
+            <p role="alert" className="text-sm text-destructive">{saveError}</p>
           )}
           <Button className="w-full" disabled={!name.trim()} onClick={() => void saveAccount()}>
             Save Account

@@ -249,11 +249,11 @@ export default function AddExpense() {
   const transactionAccounts = activeAccounts.filter((account) =>
     canHaveDirectTransactions(account.account_type),
   )
-  // With a single eligible account there is nothing to choose, so it is picked for the user.
   const accountId =
     chosenAccountId ||
-    (transactionType !== 'transfer' && transactionAccounts.length === 1
-      ? transactionAccounts[0].id
+    (transactionType !== 'transfer'
+      ? transactionAccounts.find((account) => account.is_default)?.id ??
+        (transactionAccounts.length === 1 ? transactionAccounts[0].id : '')
       : '')
   const categoryType = categoryTypeForTransaction(transactionType)
   const visibleCategories =

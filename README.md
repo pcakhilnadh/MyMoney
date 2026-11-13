@@ -95,6 +95,10 @@ Choose a transaction type, then enter its required details. Categories can be se
 from the category dropdown; transfers default to Self Transfer when that category is visible.
 Expense transactions can be personal or shared with a group. Opening the form from a group
 preselects that group.
+In Settings → Payment Account, a new or edited active account can be marked as the default;
+choosing another replaces it. The default is preselected for expense, income and refund only
+when it is eligible for the account selector. Transfers do not use this default. Inactivating
+or deleting the default leaves no default until you choose another.
 
 The expense camera button captures or uploads up to three JPEG, PNG, or WebP images (3 MB total).
 Captured photos match the camera's mirror-preview setting and are sent in the same orientation.

@@ -51,6 +51,55 @@ def test_push_then_pull_roundtrip(client):
     assert len(c.get("/api/money/transactions", headers=H("alice")).json()) == 1
 
 
+def test_default_accounts_are_unique_and_sync_other_devices(client):
+    def push(user, accounts):
+        response = client.post("/api/sync/push", json={"accounts": accounts}, headers=H(user))
+        assert response.status_code == 200
+        return response.json()
+
+    push("alice", [{"id": ACC, "version": 1, "name": "First", "is_default": True}])
+    before = client.get("/api/sync/pull", headers=H("alice")).json()
+    push("bob", [{"id": ACC_TO, "version": 1, "name": "Other", "is_default": True}])
+    new_id = "aaaaaaaa-0000-0000-0000-000000000022"
+    push("alice", [{"id": new_id, "version": 1, "name": "Second", "is_default": True}])
+    changed = client.get("/api/sync/pull", params={"since": before["server_time"]}, headers=H("alice")).json()
+    accounts = {row["id"]: row for row in changed["accounts"]}
+    assert accounts[ACC]["is_default"] is False
+    assert accounts[ACC]["version"] == 2
+    assert accounts[new_id]["is_default"] is True
+    assert client.get("/api/sync/pull", headers=H("bob")).json()["accounts"][0]["is_default"] is True
+    conflict = push("alice", [{"id": ACC, "version": 1, "name": "Stale", "is_default": True}])
+    assert conflict["conflicts"] == [{"entity": "accounts", "id": ACC}]
+    push("alice", [{"id": new_id, "version": 2, "name": "Second", "status": "archived", "is_default": True}])
+    accounts = client.get("/api/sync/pull", headers=H("alice")).json()["accounts"]
+    assert not any(row["is_default"] for row in accounts)
+
+
+def test_account_api_default_replaces_existing_default(client):
+    first = client.post("/api/money/accounts", json={"name": "First", "is_default": True}, headers=H("alice"))
+    second = client.post("/api/money/accounts", json={"name": "Second", "is_default": True}, headers=H("alice"))
+    assert first.status_code == second.status_code == 201
+    rows = client.get("/api/money/accounts", headers=H("alice")).json()
+    assert {row["name"]: row["is_default"] for row in rows} == {"First": False, "Second": True}
+
+
+def test_sync_default_replacement_is_order_independent(client):
+    headers = H("alice")
+    response = client.post("/api/sync/push", json={"accounts": [
+        {"id": ACC, "version": 1, "name": "First", "is_default": True},
+        {"id": ACC_TO, "version": 1, "name": "Second"},
+    ]}, headers=headers)
+    assert response.status_code == 200
+    response = client.post("/api/sync/push", json={"accounts": [
+        {"id": ACC_TO, "version": 2, "name": "Second", "is_default": True},
+        {"id": ACC, "version": 2, "name": "First renamed", "is_default": False},
+    ]}, headers=headers)
+    assert response.status_code == 200
+    rows = client.get("/api/sync/pull", headers=headers).json()["accounts"]
+    assert {row["id"]: row["is_default"] for row in rows} == {ACC: False, ACC_TO: True}
+    assert next(row for row in rows if row["id"] == ACC)["name"] == "First renamed"
+
+
 def test_push_is_idempotent_and_versioned(client):
     c = client
     c.post("/api/sync/push", json=payload(), headers=H("alice"))

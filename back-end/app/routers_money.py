@@ -10,6 +10,7 @@ from app.access import active_group, require_admin, require_member
 from app.auth import GoogleIdentity, get_current_user, get_identity
 from app.category_rules import transfer_category_account_error
 from app.db import get_db
+from app.account_defaults import clear_other_defaults, lock_account_defaults
 from app.mailer import invite_email, send_email
 from app.models import (
     Account,
@@ -62,6 +63,9 @@ def create_account(
 ):
     data = body.model_dump()
     data["currency"] = user.preferred_currency
+    lock_account_defaults(db, user.id)
+    if data["is_default"]:
+        clear_other_defaults(db, user.id)
     acc = Account(user_id=user.id, **data)
     db.add(acc)
     db.commit()

@@ -1,6 +1,6 @@
 import Dexie from 'dexie'
 import { db } from './db'
-import { Repository } from './repository'
+import { Repository, type NewRecord } from './repository'
 import type {
   Account,
   Budget,
@@ -16,7 +16,66 @@ import {
   transferCategoryAccountError,
 } from '@/lib/transaction-categories'
 
-export const accountsRepo = new Repository<Account>(db.accounts)
+class AccountsRepository extends Repository<Account> {
+  private async clearOtherDefaults(id?: string): Promise<void> {
+    const accounts = await db.accounts.toArray()
+    const now = new Date().toISOString()
+    await db.accounts.bulkPut(
+      accounts
+        .filter((account) => account.is_default && account.id !== id)
+        .map((account) => ({
+          ...account,
+          is_default: false,
+          version: account.version + 1,
+          sync_state: 'pending' as const,
+          updated_at: now,
+        })),
+    )
+  }
+
+  async create(data: NewRecord<Account>): Promise<Account> {
+    const record = await db.transaction('rw', db.accounts, async () => {
+      if (data.is_default) await this.clearOtherDefaults()
+      return super.create(data)
+    })
+    requestSync()
+    return record
+  }
+
+  async update(
+    id: string,
+    changes: Partial<NewRecord<Account>> & { status?: 'active' | 'archived' },
+  ): Promise<Account> {
+    const record = await db.transaction('rw', db.accounts, async () => {
+      const current = await db.accounts.get(id)
+      if (!current || current.status === 'deleted') throw new Error('Account not found')
+      const status = changes.status ?? current.status
+      if (changes.is_default && status !== 'active') throw new Error('Only active accounts can be the default')
+      if (changes.is_default) await this.clearOtherDefaults(id)
+      return super.update(id, status === 'active' ? changes : { ...changes, is_default: false })
+    })
+    requestSync()
+    return record
+  }
+
+  async remove(id: string): Promise<void> {
+    await db.transaction('rw', db.accounts, async () => {
+      const current = await db.accounts.get(id)
+      if (!current || current.status === 'deleted') return
+      await db.accounts.put({
+        ...current,
+        is_default: false,
+        status: 'deleted',
+        version: current.version + 1,
+        sync_state: 'pending',
+        updated_at: new Date().toISOString(),
+      })
+    })
+    requestSync()
+  }
+}
+
+export const accountsRepo = new AccountsRepository(db.accounts)
 export const budgetsRepo = new Repository<Budget>(db.budgets)
 export const duePaymentsRepo = new Repository<DuePayment>(db.due_payments)
 

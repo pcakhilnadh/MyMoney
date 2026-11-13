@@ -2,7 +2,7 @@ import 'fake-indexeddb/auto'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setAccessToken } from '@/auth/api'
 import { db } from '@/db/db'
-import type { Budget, Category } from '@/db/types'
+import type { Account, Budget, Category } from '@/db/types'
 import { runSync } from './engine'
 
 const category: Category = {
@@ -65,6 +65,40 @@ describe('sync dependencies', () => {
         return new Response(JSON.stringify({ accepted: [], conflicts: [] }), {
           status: 200,
           headers: { 'Content-Type': 'application/json' },
+        })
+
+        it('pulls a changed default and clears the previous default on another device', async () => {
+          const oldAccount: Account = {
+            id: 'old', name: 'Old', account_type: 'bank', currency: 'INR',
+            opening_balance: 0, credit_limit: null, is_default: true,
+            version: 1, sync_state: 'synced', status: 'active',
+            created_at: '2026-10-23T00:00:00.000Z', updated_at: '2026-10-23T00:00:00.000Z',
+          }
+          const newAccount = { ...oldAccount, id: 'new', name: 'New', is_default: false }
+          await db.accounts.bulkAdd([oldAccount, newAccount])
+          vi.stubGlobal('localStorage', {
+            getItem: () => '2026-10-23T00:00:00.000Z',
+            setItem: () => undefined,
+            removeItem: () => undefined,
+          })
+          vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input) => {
+            const path = new URL(String(input)).pathname
+            const body = path === '/api/sync/pull'
+              ? {
+                  accounts: [
+                    { ...oldAccount, is_default: false, version: 2 },
+                    { ...newAccount, is_default: true, version: 2 },
+                  ],
+                  server_time: '2026-10-24T00:00:00.000Z',
+                }
+              : {}
+            return new Response(JSON.stringify(body), {
+              status: 200, headers: { 'Content-Type': 'application/json' },
+            })
+          }))
+          await runSync('token', 'user')
+          expect((await db.accounts.get('old'))?.is_default).toBe(false)
+          expect((await db.accounts.get('new'))?.is_default).toBe(true)
         })
       }
       if (path === '/api/sync/pull') {

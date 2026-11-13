@@ -55,6 +55,26 @@ it('removes food and habit stores when upgrading local databases', async () => {
 })
 
 describe('repository', () => {
+  it('atomically replaces and clears default accounts', async () => {
+    const data = {
+      name: 'First', account_type: 'bank' as const, currency: 'INR',
+      opening_balance: 0, credit_limit: null, is_default: true,
+    }
+    const first = await accountsRepo.create(data)
+    const second = await accountsRepo.create({ ...data, name: 'Second' })
+    expect((await accountsRepo.get(first.id))?.is_default).toBe(false)
+    expect((await accountsRepo.get(first.id))?.version).toBe(2)
+    expect((await accountsRepo.get(second.id))?.is_default).toBe(true)
+    await accountsRepo.update(first.id, { is_default: true })
+    expect((await accountsRepo.get(second.id))?.is_default).toBe(false)
+    await accountsRepo.update(first.id, { status: 'archived' })
+    expect((await accountsRepo.get(first.id))?.is_default).toBe(false)
+    await expect(accountsRepo.update(first.id, { is_default: true })).rejects.toThrow('Only active accounts')
+    await accountsRepo.update(second.id, { is_default: true })
+    await accountsRepo.remove(second.id)
+    expect((await db.accounts.get(second.id))?.is_default).toBe(false)
+  })
+
   it('creates pending records and bumps version on update', async () => {
     const account = await accountsRepo.create({
       name: 'Everyday',

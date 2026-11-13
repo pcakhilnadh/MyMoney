@@ -8,10 +8,12 @@ from sqlalchemy import (
     DateTime,
     ForeignKey,
     Integer,
+    Index,
     JSON,
     Numeric,
     String,
     Text,
+    text,
     UniqueConstraint,
 )
 from sqlalchemy.orm import Mapped, mapped_column, relationship
@@ -81,6 +83,15 @@ class AuthSession(Base):
 
 class Account(Base):
     __tablename__ = "accounts"
+    __table_args__ = (
+        Index(
+            "uq_accounts_user_default",
+            "user_id",
+            unique=True,
+            postgresql_where=text("is_default = true"),
+            sqlite_where=text("is_default = 1"),
+        ),
+    )
 
     id: Mapped[uuid.UUID] = _pk()
     user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), index=True)
