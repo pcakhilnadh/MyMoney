@@ -116,6 +116,7 @@ export const CATEGORY_KEYWORDS: Readonly<Record<string, readonly string[]>> = {
     'cab',
     'taxi',
     'uber',
+    'rapido',
     'ola',
     'auto',
     'rickshaw',
