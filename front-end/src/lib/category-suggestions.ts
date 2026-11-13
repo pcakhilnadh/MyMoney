@@ -35,6 +35,9 @@ export const CATEGORY_KEYWORDS: Readonly<Record<string, readonly string[]>> = {
     'takeaway',
     'dining',
     'drinks',
+    'kfc',
+    'dominos',
+    'pizza'
   ],
   Shopping: [
     'shopping',
@@ -53,6 +56,8 @@ export const CATEGORY_KEYWORDS: Readonly<Record<string, readonly string[]>> = {
     'store',
     'groceries',
     'grocery',
+    'zepto',
+    'blinkit'
   ],
   'Entertainment & Recreation': [
     'entertainment',
