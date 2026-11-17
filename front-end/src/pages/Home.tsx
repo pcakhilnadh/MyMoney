@@ -3,7 +3,11 @@ import { Link } from 'react-router-dom'
 import { CalendarDays, ChevronRight, PiggyBank, Sun } from 'lucide-react'
 import { BarChartCard } from '@/components/kit'
 import { DueAlerts } from '@/components/DueAlerts'
-import { transactionsRepo } from '@/db/repos'
+import { BudgetRing, BudgetRingLegend } from '@/components/BudgetRing'
+import { db } from '@/db/db'
+import { budgetsRepo, transactionsRepo } from '@/db/repos'
+import { computeBudgetRing } from '@/lib/budget-ring'
+import { findTotalBudget } from '@/lib/budget'
 import { formatCompactMinor } from '@/lib/money'
 import { currentDay, currentMonth, dayTotal, monthTotal, monthlySeries } from '@/lib/summary'
 import { useCurrency } from '@/money/CurrencyContext'
@@ -20,9 +24,21 @@ const spendingPeriod = () => {
 export default function Home() {
   const { currency } = useCurrency()
   const txs = useLiveQuery(() => transactionsRepo.list(), []) ?? []
+  const budgets = useLiveQuery(() => budgetsRepo.list(), []) ?? []
+  const cats = useLiveQuery(() => db.categories.toArray(), []) ?? []
   const period = spendingPeriod()
   const todayTotal = dayTotal(txs, period.today)
   const total = monthTotal(txs, period.month)
+  const now = new Date()
+  const ring = computeBudgetRing({
+    txs,
+    cats,
+    month: period.month,
+    today: period.today,
+    dayOfMonth: now.getDate(),
+    daysInMonth: new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(),
+    budget: findTotalBudget(budgets)?.amount_minor ?? null,
+  })
 
   return (
     <div className="space-y-5">
@@ -41,30 +57,34 @@ export default function Home() {
             <p className="text-xs font-medium text-white/65">{period.monthLabel}</p>
           </div>
 
-          <div className="mt-4 grid grid-cols-[minmax(0,1fr)_1px_minmax(0,1fr)] items-center">
-            <div className="min-w-0 pr-3">
-              <p className="flex items-center gap-1.5 text-xs font-medium text-white/70">
-                <Sun size={13} aria-hidden="true" />
-                Spent today
-              </p>
-              <p className="money mt-2 truncate text-[25px] leading-tight font-bold tracking-tight text-white">
-                {formatCompactMinor(todayTotal, currency)}
-              </p>
-            </div>
-            <span
-              aria-hidden="true"
-              className="h-11 w-px bg-gradient-to-b from-white/0 via-white/25 to-white/0"
-            />
-            <div className="min-w-0 pl-4">
-              <p className="flex items-center gap-1.5 text-xs font-medium text-white/70">
-                <CalendarDays size={13} aria-hidden="true" />
-                Spent this month
-              </p>
-              <p className="money mt-2 truncate text-[25px] leading-tight font-bold tracking-tight text-white">
-                {formatCompactMinor(total, currency)}
-              </p>
+          <div className="mt-3 grid grid-cols-[148px_minmax(0,1fr)] items-center gap-4">
+            <BudgetRing ring={ring} currency={currency} />
+            <div className="min-w-0 space-y-3">
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 text-[11px] font-medium text-white/70">
+                  <Sun size={12} aria-hidden="true" />
+                  Spent today
+                </p>
+                <p className="money mt-0.5 truncate text-xl leading-tight font-bold tracking-tight text-white">
+                  {formatCompactMinor(todayTotal, currency)}
+                </p>
+              </div>
+              <span
+                aria-hidden="true"
+                className="block h-px bg-gradient-to-r from-white/25 via-white/10 to-white/0"
+              />
+              <div className="min-w-0">
+                <p className="flex items-center gap-1.5 text-[11px] font-medium text-white/70">
+                  <CalendarDays size={12} aria-hidden="true" />
+                  Spent this month
+                </p>
+                <p className="money mt-0.5 truncate text-xl leading-tight font-bold tracking-tight text-white">
+                  {formatCompactMinor(total, currency)}
+                </p>
+              </div>
             </div>
           </div>
+          <BudgetRingLegend segments={ring.segments} currency={currency} />
         </div>
       </section>
 
