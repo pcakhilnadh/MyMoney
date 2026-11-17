@@ -1,7 +1,6 @@
 import { useState } from 'react'
 import { Link, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Check } from 'lucide-react'
 import {
   Bar,
   BarChart,
@@ -13,11 +12,12 @@ import {
   XAxis,
   YAxis,
 } from 'recharts'
-import { Button, Card, Input, PageHeader } from '@/components/kit'
+import { Button, Card, PageHeader } from '@/components/kit'
 import { TransactionList } from '@/components/TransactionList'
 import { budgetsRepo, categoriesRepo, transactionsRepo } from '@/db/repos'
-import { allocationError, categoryBudgets, findTotalBudget } from '@/lib/budget'
-import { formatMinor, toMinor } from '@/lib/money'
+import { AllocationInput } from '@/components/AllocationInput'
+import { allocationError, categoryBudgets, findTotalBudget, totalAllocated } from '@/lib/budget'
+import { formatMinor } from '@/lib/money'
 import { currentMonth } from '@/lib/summary'
 import { useCurrency } from '@/money/CurrencyContext'
 
@@ -41,7 +41,6 @@ export default function BudgetCategoryDetail() {
   const { categoryId = '' } = useParams()
   const [settingBudget, setSettingBudget] = useState(false)
   const [amount, setAmount] = useState(0)
-  const [amountInput, setAmountInput] = useState('')
   const [saveError, setSaveError] = useState<string | null>(null)
   const category = useLiveQuery(() => categoriesRepo.get(categoryId), [categoryId])
   const budgets = useLiveQuery(() => budgetsRepo.list(), [])
@@ -157,7 +156,6 @@ export default function BudgetCategoryDetail() {
         is_active: true,
       })
       setAmount(0)
-      setAmountInput('')
       setSettingBudget(false)
     } catch (error) {
       setSaveError(error instanceof Error ? error.message : 'Unable to save this budget.')
@@ -186,9 +184,7 @@ export default function BudgetCategoryDetail() {
               Remaining
             </p>
             <p className="money mt-1 truncate text-sm font-medium text-white/80">
-              {budget && remainder !== null
-                ? formatMinor(Math.max(remainder, 0), currency)
-                : '—'}
+              {budget && remainder !== null ? formatMinor(Math.max(remainder, 0), currency) : '—'}
             </p>
           </div>
           <div className="min-w-0">
@@ -210,28 +206,35 @@ export default function BudgetCategoryDetail() {
             </p>
           )}
           {budget ? null : settingBudget ? (
-            <div className="mt-2 flex w-fit items-center gap-2">
-              <Input
-                aria-label="Monthly limit"
-                inputMode="decimal"
-                value={amountInput}
-                onChange={(event) => {
-                  setAmountInput(event.target.value)
-                  setAmount(toMinor(event.target.value))
-                }}
-                placeholder="Amount"
-                className="field-compact h-9 w-28 px-2 py-0 text-xs"
+            <div className="mt-3 space-y-3">
+              <AllocationInput
+                value={amount}
+                onChange={setAmount}
+                total={totalBudget?.amount_minor ?? 0}
+                available={Math.max((totalBudget?.amount_minor ?? 0) - totalAllocated(budgets), 0)}
+                currency={currency}
               />
-              <Button
-                size="icon"
-                variant="outline"
-                className="size-9"
-                aria-label={`Save ${categoryName} budget`}
-                onClick={() => void saveBudget()}
-                disabled={amount <= 0 || allocationBlocker !== null}
-              >
-                <Check size={16} />
-              </Button>
+              <div className="flex gap-2">
+                <Button
+                  className="flex-1"
+                  aria-label={`Save ${categoryName} budget`}
+                  onClick={() => void saveBudget()}
+                  disabled={amount <= 0 || allocationBlocker !== null}
+                >
+                  Save budget
+                </Button>
+                <Button
+                  variant="outline"
+                  className="flex-1"
+                  onClick={() => {
+                    setSettingBudget(false)
+                    setAmount(0)
+                    setSaveError(null)
+                  }}
+                >
+                  Cancel
+                </Button>
+              </div>
             </div>
           ) : totalBudget ? (
             <div className="mt-2">

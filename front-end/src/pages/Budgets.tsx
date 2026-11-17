@@ -11,6 +11,7 @@ import {
   PageHeader,
   SectionTitle,
 } from '@/components/kit'
+import { AllocationInput } from '@/components/AllocationInput'
 import { db } from '@/db/db'
 import { budgetsRepo, categoriesRepo, transactionsRepo } from '@/db/repos'
 import type { Budget, Category } from '@/db/types'
@@ -174,7 +175,13 @@ export default function Budgets() {
       : 0
     return (
       <div className="space-y-3 border-t border-white/10 pt-4">
-        <CurrencyInput label="Monthly limit" value={inlineAmount} onChange={setInlineAmount} />
+        <AllocationInput
+          value={inlineAmount}
+          onChange={setInlineAmount}
+          total={totalBudget?.amount_minor ?? 0}
+          available={available}
+          currency={currency}
+        />
         <p className="text-xs text-muted-foreground">
           {formatMinor(available, currency)} of the monthly budget is available to allocate.
         </p>
@@ -275,9 +282,7 @@ export default function Budgets() {
           </div>
           <div className="flex items-center justify-between gap-3 text-xs">
             <span className="text-muted-foreground">
-              <span className="font-medium text-foreground">
-                {formatMinor(used, currency)}
-              </span>{' '}
+              <span className="font-medium text-foreground">{formatMinor(used, currency)}</span>{' '}
               spent
             </span>
             <span className="text-muted-foreground">{Math.round(progress)}% used</span>
@@ -489,9 +494,7 @@ export default function Budgets() {
                   )}
                 </div>
                 {formOpen && (
-                  <div className="px-4 pb-4">
-                    {renderAllocationForm({ category: item })}
-                  </div>
+                  <div className="px-4 pb-4">{renderAllocationForm({ category: item })}</div>
                 )}
               </MetalCard>
             )

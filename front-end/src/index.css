@@ -860,3 +860,44 @@ button.cyber-signout:hover:not(:disabled) {
   background-color: color-mix(in srgb, var(--habit-primary) 13%, transparent);
   color: var(--habit-primary);
 }
+
+/* Allocation slider: track gradient is supplied per instance through --track. */
+.allocation-slider {
+  appearance: none;
+  -webkit-appearance: none;
+  background: transparent;
+}
+.allocation-slider::-webkit-slider-runnable-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--track);
+}
+.allocation-slider::-moz-range-track {
+  height: 8px;
+  border-radius: 999px;
+  background: var(--track);
+}
+.allocation-slider::-webkit-slider-thumb {
+  -webkit-appearance: none;
+  appearance: none;
+  width: 22px;
+  height: 22px;
+  margin-top: -7px;
+  border-radius: 50%;
+  border: 0;
+  background: #fff;
+  box-shadow: 0 1px 6px rgb(0 0 0 / 0.45);
+}
+.allocation-slider::-moz-range-thumb {
+  width: 22px;
+  height: 22px;
+  border-radius: 50%;
+  border: 0;
+  background: #fff;
+  box-shadow: 0 1px 6px rgb(0 0 0 / 0.45);
+}
+.allocation-slider:focus-visible {
+  outline: 2px solid var(--primary);
+  outline-offset: 4px;
+  border-radius: 999px;
+}
