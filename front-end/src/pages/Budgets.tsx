@@ -4,7 +4,6 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router-dom'
 import {
   Button,
-  CategorySelector,
   CurrencyInput,
   MetalActionButton,
   MetalBadge,
@@ -14,7 +13,7 @@ import {
 } from '@/components/kit'
 import { db } from '@/db/db'
 import { budgetsRepo, categoriesRepo, transactionsRepo } from '@/db/repos'
-import type { Category } from '@/db/types'
+import type { Budget, Category } from '@/db/types'
 import { formatMinor } from '@/lib/money'
 import {
   TOTAL_BUDGET_NAME,
@@ -34,22 +33,15 @@ export default function Budgets() {
   const budgets = categoryBudgets(allBudgets)
   const txs = useLiveQuery(() => transactionsRepo.list(), []) ?? []
   const cats = useLiveQuery(() => db.categories.toArray(), []) ?? []
+  // The monthly-budget form replaces the list; category allocations are edited inline in the list.
   const [showForm, setShowForm] = useState(false)
-  const [formKind, setFormKind] = useState<'total' | 'category'>('category')
   const [amount, setAmount] = useState(0)
-  const [category, setCategory] = useState<string | null>(null)
-  const [editingId, setEditingId] = useState<string | null>(null)
+  // Which category card has its inline allocation form open: a budget id, or `new:<categoryId>`.
+  const [inlineKey, setInlineKey] = useState<string | null>(null)
+  const [inlineAmount, setInlineAmount] = useState(0)
   const month = currentMonth()
   const allocated = totalAllocated(allBudgets)
-  const formError = !showForm
-    ? null
-    : formKind === 'total'
-      ? amount > 0
-        ? totalBudgetError(allBudgets, amount)
-        : null
-      : amount > 0
-        ? allocationError(allBudgets, amount, editingId)
-        : null
+  const formError = showForm && amount > 0 ? totalBudgetError(allBudgets, amount) : null
   const monthlyTransactions = txs.filter(
     (transaction) =>
       (transaction.transaction_type === 'expense' || transaction.transaction_type === 'refund') &&
@@ -87,17 +79,17 @@ export default function Budgets() {
 
   function resetForm() {
     setAmount(0)
-    setCategory(null)
-    setEditingId(null)
-    setFormKind('category')
     setShowForm(false)
   }
 
+  function closeInline() {
+    setInlineKey(null)
+    setInlineAmount(0)
+  }
+
   function editTotal() {
-    setFormKind('total')
+    closeInline()
     setAmount(totalBudget?.amount_minor ?? 0)
-    setCategory(null)
-    setEditingId(totalBudget?.id ?? null)
     setShowForm(true)
   }
 
@@ -137,50 +129,83 @@ export default function Budgets() {
     }
   }
 
-  function addBudget(categoryName: string | null = null) {
+  function openNewAllocation(categoryId: string) {
     if (!totalBudget) return
-    setFormKind('category')
-    setAmount(0)
-    setCategory(categoryName)
-    setEditingId(null)
-    setShowForm(true)
+    setInlineKey(`new:${categoryId}`)
+    setInlineAmount(0)
   }
 
-  async function save() {
-    if (!category || amount <= 0 || allocationError(allBudgets, amount, editingId)) return
+  function openEditAllocation(budget: Budget) {
+    setInlineKey(budget.id)
+    setInlineAmount(budget.amount_minor)
+  }
 
-    const values = {
-      group_id: null,
-      category_id:
-        cats.find(
-          (c) =>
-            c.name === category &&
-            c.transaction_type === 'expense' &&
-            c.status === 'active' &&
-            !c.is_hidden,
-        )?.id ?? null,
-      name: category,
-      amount_minor: amount,
-      currency,
-      period: 'monthly' as const,
-      period_start: `${month}-01`,
-      period_end: null,
-      alert_threshold_percent: 80,
-      is_active: true,
+  /** Saves the open inline form. `category` is only needed when creating. */
+  async function saveAllocation(category?: Category) {
+    if (inlineAmount <= 0) return
+    const existingId = inlineKey && !inlineKey.startsWith('new:') ? inlineKey : null
+    if (allocationError(allBudgets, inlineAmount, existingId)) return
+
+    if (existingId) {
+      await budgetsRepo.update(existingId, { amount_minor: inlineAmount, currency })
+    } else if (category) {
+      await budgetsRepo.create({
+        group_id: null,
+        category_id: category.id,
+        name: category.name,
+        amount_minor: inlineAmount,
+        currency,
+        period: 'monthly',
+        period_start: `${month}-01`,
+        period_end: null,
+        alert_threshold_percent: 80,
+        is_active: true,
+      })
     }
-    if (editingId) await budgetsRepo.update(editingId, values)
-    else await budgetsRepo.create(values)
-    resetForm()
+    closeInline()
   }
 
-  function edit(id: string) {
-    const budget = budgets.find((item) => item.id === id)
-    if (!budget) return
-    setFormKind('category')
-    setEditingId(id)
-    setAmount(budget.amount_minor)
-    setCategory(cats.find((c) => c.id === budget.category_id && !c.is_hidden)?.name ?? null)
-    setShowForm(true)
+  /** The inline allocation form with a live check against the monthly budget. */
+  function renderAllocationForm(args: { category?: Category; budgetId?: string }) {
+    const { category, budgetId } = args
+    const error = inlineAmount > 0 ? allocationError(allBudgets, inlineAmount, budgetId) : null
+    const available = totalBudget
+      ? Math.max(totalBudget.amount_minor - totalAllocated(allBudgets, budgetId), 0)
+      : 0
+    return (
+      <div className="space-y-3 border-t border-white/10 pt-4">
+        <CurrencyInput label="Monthly limit" value={inlineAmount} onChange={setInlineAmount} />
+        <p className="text-xs text-muted-foreground">
+          {formatMinor(available, currency)} of the monthly budget is available to allocate.
+        </p>
+        {error && (
+          <p role="alert" className="text-sm text-destructive">
+            {error}
+          </p>
+        )}
+        <div className="flex gap-2">
+          <Button
+            className="flex-1"
+            disabled={inlineAmount <= 0 || error !== null}
+            onClick={() => void saveAllocation(category)}
+          >
+            {budgetId ? 'Save Budget' : 'Add Budget'}
+          </Button>
+          <Button variant="outline" className="flex-1" onClick={closeInline}>
+            Cancel
+          </Button>
+        </div>
+        {budgetId && (
+          <Button
+            variant="destructive"
+            className="w-full"
+            onClick={() => void deleteBudget(budgetId)}
+          >
+            Delete budget
+          </Button>
+        )}
+      </div>
+    )
   }
 
   async function deleteBudget(id: string) {
@@ -189,7 +214,7 @@ export default function Budgets() {
 
     try {
       await budgetsRepo.remove(id)
-      resetForm()
+      closeInline()
     } catch (error) {
       console.error(`Unable to delete budget "${budget.name}"`, error)
       window.alert(`Unable to delete the "${budget.name}" budget. Please try again.`)
@@ -284,7 +309,7 @@ export default function Budgets() {
             </div>
           )}
           <div className="flex shrink-0 items-center gap-1.5">
-            <MetalActionButton label={`Edit ${b.name}`} onClick={() => edit(b.id)}>
+            <MetalActionButton label={`Edit ${b.name}`} onClick={() => openEditAllocation(b)}>
               <Pencil size={15} />
             </MetalActionButton>
             {category && !category.is_system && (
@@ -299,7 +324,9 @@ export default function Budgets() {
           </div>
         </header>
 
-        {categoryPath ? (
+        {inlineKey === b.id ? (
+          renderAllocationForm({ budgetId: b.id })
+        ) : categoryPath ? (
           <Link
             to={categoryPath}
             aria-label={`View ${b.name} monthly spending`}
@@ -330,16 +357,10 @@ export default function Budgets() {
           <PageHeader title="Budgets" />
         )}
         {showForm ? (
-          <span className="text-sm font-medium text-muted-foreground">
-            {formKind === 'total'
-              ? 'Monthly budget'
-              : editingId
-                ? 'Edit budget'
-                : 'New budget'}
-          </span>
+          <span className="text-sm font-medium text-muted-foreground">Monthly budget</span>
         ) : null}
       </div>
-      {showForm && formKind === 'total' ? (
+      {showForm ? (
         <div className="surface space-y-3 rounded-card p-5">
           <SectionTitle>Monthly Budget</SectionTitle>
           <CurrencyInput label="Monthly budget" value={amount} onChange={setAmount} />
@@ -359,47 +380,6 @@ export default function Budgets() {
           <Button variant="outline" className="w-full" onClick={resetForm}>
             Cancel
           </Button>
-        </div>
-      ) : showForm ? (
-        <div className="surface space-y-3 rounded-card p-5">
-          {editingId && <SectionTitle>Edit Budget</SectionTitle>}
-          <CurrencyInput label="Monthly limit" value={amount} onChange={setAmount} />
-          <CategorySelector
-            value={category}
-            onChange={setCategory}
-            options={expenseCategories.map((item) => item.name)}
-          />
-          {totalBudget && (
-            <p className="text-xs text-muted-foreground">
-              {formatMinor(
-                Math.max(totalBudget.amount_minor - totalAllocated(allBudgets, editingId), 0),
-                currency,
-              )}{' '}
-              of the monthly budget is available to allocate.
-            </p>
-          )}
-          {formError && <p className="text-sm text-destructive">{formError}</p>}
-          <Button
-            className="w-full"
-            disabled={amount <= 0 || !category || formError !== null}
-            onClick={() => void save()}
-          >
-            {editingId ? 'Save Budget' : 'Add Budget'}
-          </Button>
-          {editingId && (
-            <>
-              <Button variant="outline" className="w-full" onClick={resetForm}>
-                Cancel
-              </Button>
-              <Button
-                variant="destructive"
-                className="w-full"
-                onClick={() => void deleteBudget(editingId)}
-              >
-                Delete budget
-              </Button>
-            </>
-          )}
         </div>
       ) : (
         <>
@@ -467,6 +447,8 @@ export default function Budgets() {
             )
             const canSetBudget = item.status === 'active' && !item.is_hidden && !!totalBudget
 
+            const formOpen = inlineKey === `new:${item.id}`
+
             return (
               <MetalCard key={item.id} className="p-0">
                 <div className="flex w-full items-center justify-between gap-3 p-4">
@@ -485,12 +467,12 @@ export default function Budgets() {
                       )}
                     </div>
                   </Link>
-                  {canSetBudget && (
+                  {canSetBudget && !formOpen && (
                     <Button
                       size="sm"
                       variant="outline"
                       className="ml-auto shrink-0 whitespace-nowrap"
-                      onClick={() => addBudget(item.name)}
+                      onClick={() => openNewAllocation(item.id)}
                       aria-label={`Set ${item.name} budget`}
                     >
                       Set budget
@@ -506,6 +488,11 @@ export default function Budgets() {
                     </MetalActionButton>
                   )}
                 </div>
+                {formOpen && (
+                  <div className="px-4 pb-4">
+                    {renderAllocationForm({ category: item })}
+                  </div>
+                )}
               </MetalCard>
             )
           })}

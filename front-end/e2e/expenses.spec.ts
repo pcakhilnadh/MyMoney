@@ -119,7 +119,13 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await page.getByRole('button', { name: 'Save monthly budget' }).click()
   await page.getByRole('button', { name: 'Set Food & Dining budget' }).click()
   await expect(page.getByPlaceholder('Name (optional)')).toHaveCount(0)
+  // The form is inline in the category card; it does not offer a category picker.
+  await expect(page.getByLabel('Category')).toHaveCount(0)
+  await page.getByPlaceholder('0').fill('6000')
+  await expect(page.getByRole('alert')).toContainText('exceed the monthly budget')
+  await expect(page.getByRole('button', { name: 'Add Budget' })).toBeDisabled()
   await page.getByPlaceholder('0').fill('1000')
+  await expect(page.getByRole('alert')).toHaveCount(0)
   await page.getByRole('button', { name: 'Add Budget' }).click()
   await expect(page.getByText('₹749.50')).toBeVisible()
   await expect(page.getByText('₹250.50 spent')).toBeVisible()
