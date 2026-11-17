@@ -3,6 +3,8 @@ import { Link } from 'react-router-dom'
 import { CalendarDays, ChevronRight, PiggyBank, Sun } from 'lucide-react'
 import { BarChartCard } from '@/components/kit'
 import { DueAlerts } from '@/components/DueAlerts'
+import { SpendPaceCard } from '@/components/SpendPaceCard'
+import { computeSpendPace } from '@/lib/spend-pace'
 import { BudgetRing, BudgetRingLegend } from '@/components/BudgetRing'
 import { db } from '@/db/db'
 import { budgetsRepo, transactionsRepo } from '@/db/repos'
@@ -30,14 +32,24 @@ export default function Home() {
   const todayTotal = dayTotal(txs, period.today)
   const total = monthTotal(txs, period.month)
   const now = new Date()
+  const dayOfMonth = now.getDate()
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const budgetMinor = findTotalBudget(budgets)?.amount_minor ?? null
+  const pace = computeSpendPace({
+    txs,
+    month: period.month,
+    dayOfMonth,
+    daysInMonth,
+    budget: budgetMinor,
+  })
   const ring = computeBudgetRing({
     txs,
     cats,
     month: period.month,
     today: period.today,
-    dayOfMonth: now.getDate(),
-    daysInMonth: new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate(),
-    budget: findTotalBudget(budgets)?.amount_minor ?? null,
+    dayOfMonth,
+    daysInMonth,
+    budget: budgetMinor,
   })
 
   return (
@@ -87,6 +99,15 @@ export default function Home() {
           <BudgetRingLegend segments={ring.segments} currency={currency} />
         </div>
       </section>
+
+      <SpendPaceCard
+        pace={pace}
+        budget={budgetMinor}
+        dayOfMonth={dayOfMonth}
+        daysInMonth={daysInMonth}
+        monthStart={new Date(now.getFullYear(), now.getMonth(), 1)}
+        currency={currency}
+      />
 
       <BarChartCard
         title="Last 6 months"
