@@ -112,16 +112,20 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
 
   await page.getByRole('link', { name: 'Settings' }).click()
   await page.getByRole('link', { name: 'Budgets' }).click()
+  // Categories cannot be allocated until a monthly budget is set.
+  await expect(page.getByRole('button', { name: 'Set Food & Dining budget' })).toHaveCount(0)
+  await page.getByRole('button', { name: 'Set monthly budget' }).click()
+  await page.getByPlaceholder('0').fill('5000')
+  await page.getByRole('button', { name: 'Save monthly budget' }).click()
   await page.getByRole('button', { name: 'Set Food & Dining budget' }).click()
   await expect(page.getByPlaceholder('Name (optional)')).toHaveCount(0)
   await page.getByPlaceholder('0').fill('1000')
   await page.getByRole('button', { name: 'Add Budget' }).click()
   await expect(page.getByText('₹749.50')).toBeVisible()
   await expect(page.getByText('₹250.50 spent')).toBeVisible()
-  await expect(page.getByText('₹1,000.00', { exact: true })).toBeVisible()
+  await expect(page.getByText('₹1,000.00', { exact: true }).first()).toBeVisible()
   await expect(page.getByRole('button', { name: 'Delete Food & Dining budget' })).toHaveCount(0)
   await expect(page.getByRole('button', { name: 'Delete category Food & Dining' })).toHaveCount(0)
-  await expect(page.getByText('Monthly budget')).toHaveCount(0)
   await expect(page.getByText('On track')).toHaveCount(0)
 
   await page.getByRole('button', { name: 'Edit Food & Dining' }).click()

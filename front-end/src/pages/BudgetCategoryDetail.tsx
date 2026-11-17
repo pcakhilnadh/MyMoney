@@ -16,6 +16,7 @@ import {
 import { Button, Card, Input, PageHeader } from '@/components/kit'
 import { TransactionList } from '@/components/TransactionList'
 import { budgetsRepo, categoriesRepo, transactionsRepo } from '@/db/repos'
+import { allocationError, categoryBudgets, findTotalBudget } from '@/lib/budget'
 import { formatMinor, toMinor } from '@/lib/money'
 import { currentMonth } from '@/lib/summary'
 import { useCurrency } from '@/money/CurrencyContext'
@@ -57,10 +58,12 @@ export default function BudgetCategoryDetail() {
       </div>
     )
 
-  const budget = budgets.find(
+  const totalBudget = findTotalBudget(budgets)
+  const budget = categoryBudgets(budgets).find(
     (item) =>
       item.category_id === categoryId || (!item.category_id && item.name === category?.name),
   )
+  const allocationBlocker = allocationError(budgets, amount > 0 ? amount : 0)
   const categoryName = category?.name ?? budget?.name
 
   if (!categoryName)
@@ -134,6 +137,11 @@ export default function BudgetCategoryDetail() {
 
   async function saveBudget() {
     if (!category || amount <= 0) return
+    const blocker = allocationError(budgets ?? [], amount)
+    if (blocker) {
+      setSaveError(blocker)
+      return
+    }
     setSaveError(null)
     try {
       await budgetsRepo.create({
@@ -220,17 +228,28 @@ export default function BudgetCategoryDetail() {
                 className="size-9"
                 aria-label={`Save ${categoryName} budget`}
                 onClick={() => void saveBudget()}
-                disabled={amount <= 0}
+                disabled={amount <= 0 || allocationBlocker !== null}
               >
                 <Check size={16} />
               </Button>
             </div>
-          ) : (
+          ) : totalBudget ? (
             <div className="mt-2">
               <Button size="sm" variant="outline" onClick={() => setSettingBudget(true)}>
                 Set budget
               </Button>
             </div>
+          ) : (
+            <p className="mt-2 text-xs text-muted-foreground">
+              Set a monthly budget on the{' '}
+              <Link to="/money/budgets" className="text-primary">
+                Budgets page
+              </Link>{' '}
+              before allocating to this category.
+            </p>
+          )}
+          {settingBudget && !budget && amount > 0 && allocationBlocker && (
+            <p className="mt-2 text-xs text-destructive">{allocationBlocker}</p>
           )}
         </div>
         {saveError && <p className="text-sm text-destructive">{saveError}</p>}

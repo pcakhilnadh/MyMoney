@@ -83,6 +83,13 @@ test('category types, hiding, and expense-only budgets', async ({ page }) => {
   await expect(page.getByText('₹123.45', { exact: true }).first()).toBeVisible()
   await expect(page.getByText('Remaining')).toBeVisible()
   await expect(page.getByText('—')).toBeVisible()
+  // No monthly budget yet, so this category cannot be allocated.
+  await expect(page.getByRole('button', { name: 'Set budget' })).toHaveCount(0)
+  await page.getByRole('link', { name: 'Budgets page' }).click()
+  await page.getByRole('button', { name: 'Set monthly budget' }).click()
+  await page.getByPlaceholder('0').fill('500')
+  await page.getByRole('button', { name: 'Save monthly budget' }).click()
+  await page.getByRole('link', { name: 'Open Test category budget details' }).click()
   await page.getByRole('button', { name: 'Set budget' }).click()
   const budgetAmount = page.getByLabel('Monthly limit')
   const saveBudget = page.getByRole('button', { name: 'Save Test category budget' })

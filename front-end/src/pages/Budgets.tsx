@@ -16,19 +16,40 @@ import { db } from '@/db/db'
 import { budgetsRepo, categoriesRepo, transactionsRepo } from '@/db/repos'
 import type { Category } from '@/db/types'
 import { formatMinor } from '@/lib/money'
+import {
+  TOTAL_BUDGET_NAME,
+  allocationError,
+  categoryBudgets,
+  findTotalBudget,
+  totalAllocated,
+  totalBudgetError,
+} from '@/lib/budget'
 import { currentMonth } from '@/lib/summary'
 import { useCurrency } from '@/money/CurrencyContext'
 
 export default function Budgets() {
   const { currency } = useCurrency()
-  const budgets = useLiveQuery(() => budgetsRepo.list(), []) ?? []
+  const allBudgets = useLiveQuery(() => budgetsRepo.list(), []) ?? []
+  const totalBudget = findTotalBudget(allBudgets)
+  const budgets = categoryBudgets(allBudgets)
   const txs = useLiveQuery(() => transactionsRepo.list(), []) ?? []
   const cats = useLiveQuery(() => db.categories.toArray(), []) ?? []
   const [showForm, setShowForm] = useState(false)
+  const [formKind, setFormKind] = useState<'total' | 'category'>('category')
   const [amount, setAmount] = useState(0)
   const [category, setCategory] = useState<string | null>(null)
   const [editingId, setEditingId] = useState<string | null>(null)
   const month = currentMonth()
+  const allocated = totalAllocated(allBudgets)
+  const formError = !showForm
+    ? null
+    : formKind === 'total'
+      ? amount > 0
+        ? totalBudgetError(allBudgets, amount)
+        : null
+      : amount > 0
+        ? allocationError(allBudgets, amount, editingId)
+        : null
   const monthlyTransactions = txs.filter(
     (transaction) =>
       (transaction.transaction_type === 'expense' || transaction.transaction_type === 'refund') &&
@@ -68,7 +89,35 @@ export default function Budgets() {
     setAmount(0)
     setCategory(null)
     setEditingId(null)
+    setFormKind('category')
     setShowForm(false)
+  }
+
+  function editTotal() {
+    setFormKind('total')
+    setAmount(totalBudget?.amount_minor ?? 0)
+    setCategory(null)
+    setEditingId(totalBudget?.id ?? null)
+    setShowForm(true)
+  }
+
+  async function saveTotal() {
+    if (totalBudgetError(allBudgets, amount)) return
+    const values = {
+      group_id: null,
+      category_id: null,
+      name: TOTAL_BUDGET_NAME,
+      amount_minor: amount,
+      currency,
+      period: 'monthly' as const,
+      period_start: `${month}-01`,
+      period_end: null,
+      alert_threshold_percent: 80,
+      is_active: true,
+    }
+    if (totalBudget) await budgetsRepo.update(totalBudget.id, values)
+    else await budgetsRepo.create(values)
+    resetForm()
   }
 
   async function deleteCategory(category: Category) {
@@ -89,6 +138,8 @@ export default function Budgets() {
   }
 
   function addBudget(categoryName: string | null = null) {
+    if (!totalBudget) return
+    setFormKind('category')
     setAmount(0)
     setCategory(categoryName)
     setEditingId(null)
@@ -96,7 +147,7 @@ export default function Budgets() {
   }
 
   async function save() {
-    if (!category || amount <= 0) return
+    if (!category || amount <= 0 || allocationError(allBudgets, amount, editingId)) return
 
     const values = {
       group_id: null,
@@ -125,6 +176,7 @@ export default function Budgets() {
   function edit(id: string) {
     const budget = budgets.find((item) => item.id === id)
     if (!budget) return
+    setFormKind('category')
     setEditingId(id)
     setAmount(budget.amount_minor)
     setCategory(cats.find((c) => c.id === budget.category_id && !c.is_hidden)?.name ?? null)
@@ -279,11 +331,36 @@ export default function Budgets() {
         )}
         {showForm ? (
           <span className="text-sm font-medium text-muted-foreground">
-            {editingId ? 'Edit budget' : 'New budget'}
+            {formKind === 'total'
+              ? 'Monthly budget'
+              : editingId
+                ? 'Edit budget'
+                : 'New budget'}
           </span>
         ) : null}
       </div>
-      {showForm ? (
+      {showForm && formKind === 'total' ? (
+        <div className="surface space-y-3 rounded-card p-5">
+          <SectionTitle>Monthly Budget</SectionTitle>
+          <CurrencyInput label="Monthly budget" value={amount} onChange={setAmount} />
+          {allocated > 0 && (
+            <p className="text-xs text-muted-foreground">
+              {formatMinor(allocated, currency)} is already allocated to categories.
+            </p>
+          )}
+          {formError && <p className="text-sm text-destructive">{formError}</p>}
+          <Button
+            className="w-full"
+            disabled={amount <= 0 || formError !== null}
+            onClick={() => void saveTotal()}
+          >
+            Save monthly budget
+          </Button>
+          <Button variant="outline" className="w-full" onClick={resetForm}>
+            Cancel
+          </Button>
+        </div>
+      ) : showForm ? (
         <div className="surface space-y-3 rounded-card p-5">
           {editingId && <SectionTitle>Edit Budget</SectionTitle>}
           <CurrencyInput label="Monthly limit" value={amount} onChange={setAmount} />
@@ -292,9 +369,19 @@ export default function Budgets() {
             onChange={setCategory}
             options={expenseCategories.map((item) => item.name)}
           />
+          {totalBudget && (
+            <p className="text-xs text-muted-foreground">
+              {formatMinor(
+                Math.max(totalBudget.amount_minor - totalAllocated(allBudgets, editingId), 0),
+                currency,
+              )}{' '}
+              of the monthly budget is available to allocate.
+            </p>
+          )}
+          {formError && <p className="text-sm text-destructive">{formError}</p>}
           <Button
             className="w-full"
-            disabled={amount <= 0 || !category}
+            disabled={amount <= 0 || !category || formError !== null}
             onClick={() => void save()}
           >
             {editingId ? 'Save Budget' : 'Add Budget'}
@@ -316,6 +403,56 @@ export default function Budgets() {
         </div>
       ) : (
         <>
+          <MetalCard className="space-y-4 p-4">
+            <div className="flex items-center justify-between gap-3">
+              <div className="min-w-0">
+                <p className="text-[9px] font-medium tracking-[0.16em] text-white/45 uppercase">
+                  Monthly budget
+                </p>
+                <p className="money mt-1 truncate text-lg font-semibold">
+                  {totalBudget ? formatMinor(totalBudget.amount_minor, currency) : 'Not set'}
+                </p>
+              </div>
+              <Button
+                size="sm"
+                variant="outline"
+                className="shrink-0 whitespace-nowrap"
+                onClick={editTotal}
+                aria-label={totalBudget ? 'Edit monthly budget' : 'Set monthly budget'}
+              >
+                {totalBudget ? 'Edit' : 'Set monthly budget'}
+              </Button>
+            </div>
+            {totalBudget ? (
+              <div className="grid grid-cols-3 gap-3 text-xs">
+                <div>
+                  <p className="text-muted-foreground">Spent</p>
+                  <p className="money font-medium">{formatMinor(spent(null), currency)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Allocated</p>
+                  <p className="money font-medium">{formatMinor(allocated, currency)}</p>
+                </div>
+                <div>
+                  <p className="text-muted-foreground">Unallocated</p>
+                  <p className="money font-medium">
+                    {formatMinor(Math.max(totalBudget.amount_minor - allocated, 0), currency)}
+                  </p>
+                </div>
+              </div>
+            ) : (
+              <p className="text-xs text-muted-foreground">
+                Set a monthly budget first, then allocate portions of it to categories.
+              </p>
+            )}
+            {totalBudget && allocated > totalBudget.amount_minor && (
+              <p className="text-xs text-destructive">
+                Allocations exceed the monthly budget by{' '}
+                {formatMinor(allocated - totalBudget.amount_minor, currency)}. Increase the monthly
+                budget.
+              </p>
+            )}
+          </MetalCard>
           {budgetCategories.map((item) => {
             const budget = budgets.find(
               (entry) =>
@@ -328,7 +465,7 @@ export default function Budgets() {
             const categoryTransactions = monthlyTransactions.filter(
               (transaction) => transaction.category_id === item.id,
             )
-            const canSetBudget = item.status === 'active' && !item.is_hidden
+            const canSetBudget = item.status === 'active' && !item.is_hidden && !!totalBudget
 
             return (
               <MetalCard key={item.id} className="p-0">
