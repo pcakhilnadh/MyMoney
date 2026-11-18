@@ -1,4 +1,5 @@
 import { useRef, useState } from 'react'
+import { useDialog } from '@/components/DialogProvider'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import {
   Button,
@@ -21,6 +22,7 @@ import { useCurrency } from '@/money/CurrencyContext'
 const TABS = ['Expenses', 'Balances', 'Members'] as const
 
 export default function GroupDetail() {
+  const { confirm } = useDialog()
   const { currency } = useCurrency()
   const navigate = useNavigate()
   const { groupId = '' } = useParams()
@@ -42,22 +44,21 @@ export default function GroupDetail() {
   const label = (uid: string) => (uid === me?.id ? 'You' : memberLabel(byUser.get(uid)))
   const myNet = me ? (balances.data?.net[me.id] ?? 0) : 0
   const myRole = members.data?.find((m) => m.user_id === me?.id)?.role
-  const removeGroup = useAction<{ id: string }>(
-    (b) => `/money/groups/${b.id}`,
-    [],
-    'DELETE',
-  )
+  const removeGroup = useAction<{ id: string }>((b) => `/money/groups/${b.id}`, [], 'DELETE')
   const leaveGroup = useAction<{ id: string }>(
     (b) => `/money/groups/${b.id}/members/me`,
-    [['members', groupId], ['balances', groupId], ['gtx', groupId]],
+    [
+      ['members', groupId],
+      ['balances', groupId],
+      ['gtx', groupId],
+    ],
     'DELETE',
   )
 
   const [email, setEmail] = useState('')
-  const invite = useAction<{ email: string }>(
-    `/money/groups/${groupId}/members`,
-    [['members', groupId]],
-  )
+  const invite = useAction<{ email: string }>(`/money/groups/${groupId}/members`, [
+    ['members', groupId],
+  ])
   const [settleTo, setSettleTo] = useState('')
   const [amount, setAmount] = useState(0)
   const settle = useAction<{ receiver_user_id: string; amount_minor: number; group_id: string }>(
@@ -120,20 +121,32 @@ export default function GroupDetail() {
           variant="outline"
           className="w-full text-destructive"
           disabled={removeGroup.isPending || deleteStarting}
-          onClick={() => {
-            if (window.confirm(`Delete "${group?.name}"? This removes it for all members.`))
-              void deleteGroup()
+          onClick={async () => {
+            const confirmed = await confirm({
+              title: `Delete ${group?.name}?`,
+              message: 'This removes the group for all members.',
+              confirmLabel: 'Delete group',
+              tone: 'destructive',
+            })
+            if (confirmed) void deleteGroup()
           }}
         >
           Delete Group
         </Button>
       )}
-      {deleteError && <p role="alert" className="text-sm text-destructive">{deleteError}</p>}
+      {deleteError && (
+        <p role="alert" className="text-sm text-destructive">
+          {deleteError}
+        </p>
+      )}
       <Card className="grid grid-cols-2 gap-2 text-center">
         <div>
           <div className="text-sm text-muted-foreground">Total expenses</div>
           <div className="text-xl font-bold">
-            {formatMinor((txs.data ?? []).reduce((n, t) => n + t.amount_minor, 0), currency)}
+            {formatMinor(
+              (txs.data ?? []).reduce((n, t) => n + t.amount_minor, 0),
+              currency,
+            )}
           </div>
         </div>
         <div>
@@ -236,8 +249,14 @@ export default function GroupDetail() {
                 variant="outline"
                 className="w-full text-destructive"
                 disabled={leaveGroup.isPending}
-                onClick={() => {
-                  if (window.confirm(`Leave "${group?.name}"? You will no longer see this group.`))
+                onClick={async () => {
+                  const confirmed = await confirm({
+                    title: `Leave ${group?.name}?`,
+                    message: 'You will no longer see this group.',
+                    confirmLabel: 'Leave group',
+                    tone: 'destructive',
+                  })
+                  if (confirmed)
                     leaveGroup.mutate(
                       { id: groupId },
                       {

@@ -1,5 +1,7 @@
 import { useState } from 'react'
+import { Eye, EyeOff } from 'lucide-react'
 import { Link, useParams } from 'react-router-dom'
+import { useDialog } from '@/components/DialogProvider'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Bar,
@@ -17,6 +19,7 @@ import { TransactionList } from '@/components/TransactionList'
 import { budgetsRepo, categoriesRepo, transactionsRepo } from '@/db/repos'
 import { AllocationInput } from '@/components/AllocationInput'
 import { allocationError, categoryBudgets, findTotalBudget, totalAllocated } from '@/lib/budget'
+import { hideCategory, showCategory } from '@/lib/hide-category'
 import { formatMinor } from '@/lib/money'
 import { currentMonth } from '@/lib/summary'
 import { useCurrency } from '@/money/CurrencyContext'
@@ -38,6 +41,7 @@ const MONTH_LABELS = [
 
 export default function BudgetCategoryDetail() {
   const { currency } = useCurrency()
+  const { confirm } = useDialog()
   const { categoryId = '' } = useParams()
   const [settingBudget, setSettingBudget] = useState(false)
   const [amount, setAmount] = useState(0)
@@ -164,10 +168,40 @@ export default function BudgetCategoryDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to="/money/budgets" className="text-sm text-primary">
-        ← Budgets
-      </Link>
-      <PageHeader title={categoryName} subtitle="Category Breakdown" />
+      <div className="flex items-center justify-between gap-3">
+        <Link to="/money/budgets" className="text-sm text-primary">
+          ← Budgets
+        </Link>
+        {category && (
+          <Button
+            size="sm"
+            variant="outline"
+            aria-label={`${category.is_hidden ? 'Show' : 'Hide'} ${category.name}`}
+            onClick={async () => {
+              if (category.is_hidden) return void showCategory(category)
+              if (
+                budget &&
+                !(await confirm({
+                  title: `Hide ${category.name}?`,
+                  message: `This also clears its ${formatMinor(budget.amount_minor, currency)} allocation. You can unhide it later and allocate again.`,
+                  confirmLabel: 'Hide category',
+                }))
+              )
+                return
+              await hideCategory(category, budgets)
+            }}
+          >
+            {category.is_hidden ? <EyeOff size={14} /> : <Eye size={14} />}
+            {category.is_hidden ? 'Hidden · Show' : 'Hide'}
+          </Button>
+        )}
+      </div>
+      <PageHeader
+        title={categoryName}
+        subtitle={
+          category?.is_hidden ? 'Hidden from budgets and new transactions' : 'Category Breakdown'
+        }
+      />
 
       <Card className="space-y-4">
         <div className="grid grid-cols-3 gap-3">

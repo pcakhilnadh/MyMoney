@@ -256,8 +256,8 @@ export default function AddExpense() {
   const accountId =
     chosenAccountId ||
     (transactionType !== 'transfer'
-      ? transactionAccounts.find((account) => account.is_default)?.id ??
-        (transactionAccounts.length === 1 ? transactionAccounts[0].id : '')
+      ? (transactionAccounts.find((account) => account.is_default)?.id ??
+        (transactionAccounts.length === 1 ? transactionAccounts[0].id : ''))
       : '')
   const categoryType = categoryTypeForTransaction(transactionType)
   const visibleCategories =
@@ -306,18 +306,23 @@ export default function AddExpense() {
   ].filter((item): item is string => !!item)
 
   async function analyseBill(images: Blob[], signal: AbortSignal) {
-    const encoded = await Promise.all(images.map((image) => new Promise<{ mime_type: string; data: string }>((resolve, reject) => {
-      const reader = new FileReader()
-      reader.onerror = () => reject(new Error('Could not read the bill photo.'))
-      reader.onload = () => {
-        if (typeof reader.result !== 'string') {
-          reject(new Error('Could not read the bill photo.'))
-          return
-        }
-        resolve({ mime_type: image.type, data: reader.result.split(',')[1] })
-      }
-      reader.readAsDataURL(image)
-    })))
+    const encoded = await Promise.all(
+      images.map(
+        (image) =>
+          new Promise<{ mime_type: string; data: string }>((resolve, reject) => {
+            const reader = new FileReader()
+            reader.onerror = () => reject(new Error('Could not read the bill photo.'))
+            reader.onload = () => {
+              if (typeof reader.result !== 'string') {
+                reject(new Error('Could not read the bill photo.'))
+                return
+              }
+              resolve({ mime_type: image.type, data: reader.result.split(',')[1] })
+            }
+            reader.readAsDataURL(image)
+          }),
+      ),
+    )
     signal.throwIfAborted()
     const result = await api<{
       is_bill: boolean
@@ -329,7 +334,10 @@ export default function AddExpense() {
       category: string | null
     }>('/money/ai/expense', token ?? '', {
       method: 'POST',
-      body: JSON.stringify({ images: encoded, categories: visibleCategories.map((item) => item.name) }),
+      body: JSON.stringify({
+        images: encoded,
+        categories: visibleCategories.map((item) => item.name),
+      }),
       signal,
     })
     signal.throwIfAborted()
@@ -428,7 +436,10 @@ export default function AddExpense() {
     if (transactionType === 'transfer') return
     if (categorySource === 'manual') return
     if (category && categorySource !== 'suggested') return
-    const suggestion = suggestCategory(title, visibleCategories.map((item) => item.name))
+    const suggestion = suggestCategory(
+      title,
+      visibleCategories.map((item) => item.name),
+    )
     if (suggestion) {
       setCategory(suggestion)
       setCategorySource('suggested')
@@ -660,12 +671,7 @@ export default function AddExpense() {
       {transactionType === 'expense' && (
         <div className="space-y-1.5">
           <span className="label">Transaction context</span>
-          <SegmentedControl
-            options={[...CONTEXTS]}
-            value={context}
-            onChange={setContext}
-            variant="neutral"
-          />
+          <SegmentedControl options={[...CONTEXTS]} value={context} onChange={setContext} />
         </div>
       )}
       {context === 'Personal' ? (

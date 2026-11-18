@@ -1,7 +1,8 @@
 import { useLiveQuery } from 'dexie-react-hooks'
-import { Link } from 'react-router-dom'
-import { CalendarDays, ChevronRight, PiggyBank, Sun } from 'lucide-react'
+import { CalendarDays, Sun } from 'lucide-react'
 import { BarChartCard } from '@/components/kit'
+import { BudgetsCard } from '@/components/BudgetsCard'
+import { topBudgetRows } from '@/lib/budget-overview'
 import { DueAlerts } from '@/components/DueAlerts'
 import { SpendPaceCard } from '@/components/SpendPaceCard'
 import { computeSpendPace } from '@/lib/spend-pace'
@@ -51,6 +52,8 @@ export default function Home() {
     daysInMonth,
     budget: budgetMinor,
   })
+
+  const budgetRows = topBudgetRows({ txs, cats, budgets, month: period.month })
 
   return (
     <div className="space-y-5">
@@ -109,20 +112,12 @@ export default function Home() {
         currency={currency}
       />
 
+      <BudgetsCard rows={budgetRows} currency={currency} />
+
       <BarChartCard
         title="Last 6 months"
         data={monthlySeries(txs, period.month).map((p) => ({ ...p, value: p.value / 100 }))}
       />
-      <Link
-        to="/money/budgets"
-        className="surface flex items-center gap-3 rounded-2xl px-4 py-3.5 font-medium"
-      >
-        <span className="flex size-9 items-center justify-center rounded-xl bg-secondary text-primary">
-          <PiggyBank size={18} />
-        </span>
-        <span className="flex-1">View budgets</span>
-        <ChevronRight size={18} className="text-muted-foreground" />
-      </Link>
       <DueAlerts />
     </div>
   )

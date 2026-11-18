@@ -298,7 +298,7 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await expect(page).toHaveURL(/\/habits\/today$/)
   await appSelector.getByRole('button', { name: 'My Money' }).click()
   await expect(page).toHaveURL(/\/money\/home/)
-  await page.getByRole('link', { name: 'View budgets' }).click()
+  await page.getByRole('link', { name: 'View all' }).click()
   await expect(page).toHaveURL(/\/money\/budgets/)
   await expect(page.getByRole('heading', { name: 'Budgets' })).toBeVisible()
   await page.goto('/money/home')

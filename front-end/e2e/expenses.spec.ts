@@ -117,6 +117,7 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await page.getByRole('button', { name: 'Set monthly budget' }).click()
   await page.getByPlaceholder('0').fill('5000')
   await page.getByRole('button', { name: 'Save monthly budget' }).click()
+  await page.getByRole('tab', { name: 'Allocate' }).click()
   await page.getByRole('button', { name: 'Set Food & Dining budget' }).click()
   await expect(page.getByPlaceholder('Name (optional)')).toHaveCount(0)
   // The form is inline in the category card; it does not offer a category picker.
@@ -140,12 +141,8 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await expect(page.getByText('₹1,749.50')).toBeVisible()
 
   await page.getByRole('button', { name: 'Edit Food & Dining' }).click()
-  page.once('dialog', async (dialog) => {
-    expect(dialog.type()).toBe('confirm')
-    expect(dialog.message()).toContain('Food & Dining')
-    await dialog.accept()
-  })
   await page.getByRole('button', { name: 'Delete budget' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Clear allocation' }).click()
   await expect(page.getByText('₹1,749.50')).not.toBeVisible()
 
   await page.getByRole('link', { name: 'Settings' }).click()
@@ -160,12 +157,8 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
 
   await page.getByRole('link', { name: 'Ledger' }).click()
   await page.getByRole('button', { name: /Expense: Lunch/ }).click()
-  page.once('dialog', async (dialog) => {
-    expect(dialog.type()).toBe('confirm')
-    expect(dialog.message()).toContain('Lunch')
-    await dialog.accept()
-  })
   await page.getByRole('button', { name: 'Delete transaction' }).click()
+  await page.getByRole('alertdialog').getByRole('button', { name: 'Delete transaction' }).click()
   await expect(page.getByText(/No transactions in/)).toBeVisible()
 })
 

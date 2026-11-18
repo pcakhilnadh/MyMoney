@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, Pencil, Trash2 } from 'lucide-react'
+import { ArrowLeft, ChevronDown, Eraser, Eye, EyeOff, Pencil, Trash2 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router-dom'
 import {
@@ -10,8 +10,11 @@ import {
   MetalCard,
   PageHeader,
   SectionTitle,
+  SegmentedControl,
 } from '@/components/kit'
 import { AllocationInput } from '@/components/AllocationInput'
+import { useDialog } from '@/components/DialogProvider'
+import { BudgetOverview, type AllocationRow } from '@/components/BudgetOverview'
 import { db } from '@/db/db'
 import { budgetsRepo, categoriesRepo, transactionsRepo } from '@/db/repos'
 import type { Budget, Category } from '@/db/types'
@@ -24,18 +27,31 @@ import {
   totalAllocated,
   totalBudgetError,
 } from '@/lib/budget'
+import { findCategoryBudget, hideCategory, showCategory } from '@/lib/hide-category'
 import { currentMonth } from '@/lib/summary'
 import { useCurrency } from '@/money/CurrencyContext'
 
+type BudgetView = 'budget' | 'allocate'
+const VIEW_KEY = 'budgets-view'
+
 export default function Budgets() {
   const { currency } = useCurrency()
+  const { confirm, notify } = useDialog()
   const allBudgets = useLiveQuery(() => budgetsRepo.list(), []) ?? []
   const totalBudget = findTotalBudget(allBudgets)
   const budgets = categoryBudgets(allBudgets)
   const txs = useLiveQuery(() => transactionsRepo.list(), []) ?? []
   const cats = useLiveQuery(() => db.categories.toArray(), []) ?? []
   // The monthly-budget form replaces the list; category allocations are edited inline in the list.
+  const [view, setView] = useState<BudgetView>(() => {
+    try {
+      return sessionStorage.getItem(VIEW_KEY) === 'allocate' ? 'allocate' : 'budget'
+    } catch {
+      return 'budget'
+    }
+  })
   const [showForm, setShowForm] = useState(false)
+  const [hiddenOpen, setHiddenOpen] = useState(false)
   const [amount, setAmount] = useState(0)
   // Which category card has its inline allocation form open: a budget id, or `new:<categoryId>`.
   const [inlineKey, setInlineKey] = useState<string | null>(null)
@@ -48,19 +64,11 @@ export default function Budgets() {
       (transaction.transaction_type === 'expense' || transaction.transaction_type === 'refund') &&
       transaction.transaction_date.startsWith(month),
   )
-  const monthlyCategoryIds = new Set(
-    monthlyTransactions.flatMap((transaction) =>
-      transaction.category_id ? [transaction.category_id] : [],
-    ),
-  )
-  const expenseCategories = cats
-    .filter(
-      (item) =>
-        item.transaction_type === 'expense' &&
-        item.status !== 'deleted' &&
-        ((!item.is_hidden && item.status === 'active') || monthlyCategoryIds.has(item.id)),
-    )
+  const activeExpenseCategories = cats
+    .filter((item) => item.transaction_type === 'expense' && item.status === 'active')
     .sort((a, b) => a.name.localeCompare(b.name))
+  const expenseCategories = activeExpenseCategories.filter((item) => !item.is_hidden)
+  const hiddenCategories = activeExpenseCategories.filter((item) => item.is_hidden)
   const matchedBudgetIds = new Set<string>()
 
   const spent = (categoryId: string | null) =>
@@ -77,6 +85,26 @@ export default function Budgets() {
   const budgetCategories = [...expenseCategories].sort(
     (a, b) => spent(b.id) - spent(a.id) || a.name.localeCompare(b.name),
   )
+
+  const allocationRows: AllocationRow[] = budgets.map((b) => {
+    const category = cats.find((item) => item.id === b.category_id)
+    return {
+      id: b.id,
+      name: category?.name ?? b.name,
+      amount: b.amount_minor,
+      categoryId: category?.id ?? null,
+    }
+  })
+
+  function changeView(next: BudgetView) {
+    closeInline()
+    setView(next)
+    try {
+      sessionStorage.setItem(VIEW_KEY, next)
+    } catch {
+      // The tab simply isn't remembered.
+    }
+  }
 
   function resetForm() {
     setAmount(0)
@@ -113,20 +141,55 @@ export default function Budgets() {
     resetForm()
   }
 
-  async function deleteCategory(category: Category) {
+  /** Hidden categories drop out of allocation (and everywhere new transactions are added). */
+  async function toggleHidden(category: Category) {
+    if (category.is_hidden) {
+      void showCategory(category)
+      return
+    }
+    const budget = findCategoryBudget(allBudgets, category)
     if (
-      !window.confirm(
-        `Delete the "${category.name}" category, all its transactions, and its budgets?`,
-      )
+      budget &&
+      !(await confirm({
+        title: `Hide ${category.name}?`,
+        message: `This also clears its ${formatMinor(budget.amount_minor, currency)} allocation. You can unhide it later and allocate again.`,
+        confirmLabel: 'Hide category',
+      }))
     ) {
       return
     }
+    closeInline()
+    await hideCategory(category, allBudgets)
+  }
+
+  function renderHideButton(category: Category) {
+    return (
+      <MetalActionButton
+        label={`${category.is_hidden ? 'Show' : 'Hide'} ${category.name}`}
+        onClick={() => void toggleHidden(category)}
+      >
+        {category.is_hidden ? <EyeOff size={15} /> : <Eye size={15} />}
+      </MetalActionButton>
+    )
+  }
+
+  async function deleteCategory(category: Category) {
+    const confirmed = await confirm({
+      title: `Delete ${category.name}?`,
+      message: 'This also deletes all of its transactions and budgets. It cannot be undone.',
+      confirmLabel: 'Delete category',
+      tone: 'destructive',
+    })
+    if (!confirmed) return
 
     try {
       await categoriesRepo.removeWithTransactions(category.id)
     } catch (error) {
       console.error(`Unable to delete category "${category.name}"`, error)
-      window.alert(`Unable to delete "${category.name}". Please try again.`)
+      await notify({
+        title: 'Could not delete category',
+        message: `Unable to delete "${category.name}". Please try again.`,
+      })
     }
   }
 
@@ -217,14 +280,24 @@ export default function Budgets() {
 
   async function deleteBudget(id: string) {
     const budget = budgets.find((item) => item.id === id)
-    if (!budget || !window.confirm(`Delete the "${budget.name}" budget?`)) return
+    if (!budget) return
+    const confirmed = await confirm({
+      title: `Clear ${budget.name} allocation?`,
+      message: `Its ${formatMinor(budget.amount_minor, currency)} goes back to the unallocated pool.`,
+      confirmLabel: 'Clear allocation',
+      tone: 'destructive',
+    })
+    if (!confirmed) return
 
     try {
       await budgetsRepo.remove(id)
       closeInline()
     } catch (error) {
       console.error(`Unable to delete budget "${budget.name}"`, error)
-      window.alert(`Unable to delete the "${budget.name}" budget. Please try again.`)
+      await notify({
+        title: 'Could not clear allocation',
+        message: `Unable to clear the "${budget.name}" allocation. Please try again.`,
+      })
     }
   }
 
@@ -317,6 +390,13 @@ export default function Budgets() {
             <MetalActionButton label={`Edit ${b.name}`} onClick={() => openEditAllocation(b)}>
               <Pencil size={15} />
             </MetalActionButton>
+            <MetalActionButton
+              label={`Clear ${b.name} allocation`}
+              onClick={() => void deleteBudget(b.id)}
+            >
+              <Eraser size={15} />
+            </MetalActionButton>
+            {category && renderHideButton(category)}
             {category && !category.is_system && (
               <MetalActionButton
                 label={`Delete category ${category.name}`}
@@ -388,122 +468,161 @@ export default function Budgets() {
         </div>
       ) : (
         <>
-          <MetalCard className="space-y-4 p-4">
-            <div className="flex items-center justify-between gap-3">
-              <div className="min-w-0">
-                <p className="text-[9px] font-medium tracking-[0.16em] text-white/45 uppercase">
-                  Monthly budget
+          <SegmentedControl
+            label="Budget view"
+            mode="tabs"
+            value={view}
+            onChange={changeView}
+            options={[
+              { value: 'budget', label: 'Budget' },
+              { value: 'allocate', label: 'Allocate' },
+            ]}
+          />
+          {view === 'budget' && (
+            <BudgetOverview
+              total={totalBudget?.amount_minor ?? null}
+              allocated={allocated}
+              spent={spent(null)}
+              rows={allocationRows}
+              currency={currency}
+              onEdit={editTotal}
+              onAllocate={() => changeView('allocate')}
+            />
+          )}
+          {view === 'allocate' && !totalBudget && (
+            <p className="py-6 text-center text-sm text-muted-foreground">
+              Set a monthly budget on the Budget tab before allocating it to categories.
+            </p>
+          )}
+          {view === 'allocate' && totalBudget && (
+            <MetalCard className="space-y-2 p-4">
+              <div className="flex items-baseline justify-between gap-3">
+                <p className="text-[10px] font-semibold tracking-[0.18em] text-white/50 uppercase">
+                  {allocated > totalBudget.amount_minor ? 'Over-allocated by' : 'Left to allocate'}
                 </p>
-                <p className="money mt-1 truncate text-lg font-semibold">
-                  {totalBudget ? formatMinor(totalBudget.amount_minor, currency) : 'Not set'}
+                <p className="money text-lg font-bold">
+                  {formatMinor(Math.abs(totalBudget.amount_minor - allocated), currency)}
                 </p>
               </div>
-              <Button
-                size="sm"
-                variant="outline"
-                className="shrink-0 whitespace-nowrap"
-                onClick={editTotal}
-                aria-label={totalBudget ? 'Edit monthly budget' : 'Set monthly budget'}
-              >
-                {totalBudget ? 'Edit' : 'Set monthly budget'}
-              </Button>
-            </div>
-            {totalBudget ? (
-              <div className="grid grid-cols-3 gap-3 text-xs">
-                <div>
-                  <p className="text-muted-foreground">Spent</p>
-                  <p className="money font-medium">{formatMinor(spent(null), currency)}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Allocated</p>
-                  <p className="money font-medium">{formatMinor(allocated, currency)}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Unallocated</p>
-                  <p className="money font-medium">
-                    {formatMinor(Math.max(totalBudget.amount_minor - allocated, 0), currency)}
-                  </p>
-                </div>
+              <div className="h-2 overflow-hidden rounded-full bg-[#0a0e1a] shadow-[inset_1px_1px_3px_rgba(0,0,0,0.7)]">
+                <div
+                  className="h-full rounded-full bg-gradient-to-r from-[#94b0ff]/60 to-[#94b0ff] transition-[width] duration-500"
+                  style={{
+                    width: `${Math.min((allocated / totalBudget.amount_minor) * 100, 100)}%`,
+                  }}
+                />
               </div>
-            ) : (
-              <p className="text-xs text-muted-foreground">
-                Set a monthly budget first, then allocate portions of it to categories.
-              </p>
-            )}
-            {totalBudget && allocated > totalBudget.amount_minor && (
-              <p className="text-xs text-destructive">
-                Allocations exceed the monthly budget by{' '}
-                {formatMinor(allocated - totalBudget.amount_minor, currency)}. Increase the monthly
-                budget.
-              </p>
-            )}
-          </MetalCard>
-          {budgetCategories.map((item) => {
-            const budget = budgets.find(
-              (entry) =>
-                entry.category_id === item.id || (!entry.category_id && entry.name === item.name),
-            )
-            if (budget) {
-              matchedBudgetIds.add(budget.id)
-              return renderBudgetCard(budget)
-            }
-            const categoryTransactions = monthlyTransactions.filter(
-              (transaction) => transaction.category_id === item.id,
-            )
-            const canSetBudget = item.status === 'active' && !item.is_hidden && !!totalBudget
+            </MetalCard>
+          )}
+          {view === 'allocate' &&
+            budgetCategories.map((item) => {
+              const budget = budgets.find(
+                (entry) =>
+                  entry.category_id === item.id || (!entry.category_id && entry.name === item.name),
+              )
+              if (budget) {
+                matchedBudgetIds.add(budget.id)
+                return renderBudgetCard(budget)
+              }
+              const categoryTransactions = monthlyTransactions.filter(
+                (transaction) => transaction.category_id === item.id,
+              )
+              const canSetBudget = item.status === 'active' && !item.is_hidden && !!totalBudget
 
-            const formOpen = inlineKey === `new:${item.id}`
+              const formOpen = inlineKey === `new:${item.id}`
 
-            return (
-              <MetalCard key={item.id} className="p-0">
-                <div className="flex w-full items-center justify-between gap-3 p-4">
-                  <Link
-                    to={`/money/budgets/categories/${item.id}`}
-                    aria-label={`Open ${item.name} budget details`}
-                    className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                  >
-                    <MetalBadge label={item.name} />
-                    <div className="min-w-0">
-                      <h2 className="truncate font-semibold">{item.name}</h2>
-                      {categoryTransactions.length > 0 && (
-                        <p className="money mt-1 text-xs text-muted-foreground">
-                          {formatMinor(spent(item.id), currency)} spent this month
-                        </p>
-                      )}
-                    </div>
-                  </Link>
-                  {canSetBudget && !formOpen && (
-                    <Button
-                      size="sm"
-                      variant="outline"
-                      className="ml-auto shrink-0 whitespace-nowrap"
-                      onClick={() => openNewAllocation(item.id)}
-                      aria-label={`Set ${item.name} budget`}
+              return (
+                <MetalCard key={item.id} className="p-0">
+                  <div className="flex w-full items-center justify-between gap-3 p-4">
+                    <Link
+                      to={`/money/budgets/categories/${item.id}`}
+                      aria-label={`Open ${item.name} budget details`}
+                      className="flex min-w-0 flex-1 items-center gap-3 rounded-lg focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                     >
-                      Set budget
-                    </Button>
+                      <MetalBadge label={item.name} />
+                      <div className="min-w-0">
+                        <h2 className="truncate font-semibold">{item.name}</h2>
+                        {categoryTransactions.length > 0 && (
+                          <p className="money mt-1 text-xs text-muted-foreground">
+                            {formatMinor(spent(item.id), currency)} spent this month
+                          </p>
+                        )}
+                      </div>
+                    </Link>
+                    {canSetBudget && !formOpen && (
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        className="ml-auto shrink-0 whitespace-nowrap"
+                        onClick={() => openNewAllocation(item.id)}
+                        aria-label={`Set ${item.name} budget`}
+                      >
+                        Set budget
+                      </Button>
+                    )}
+                    {renderHideButton(item)}
+                    {!item.is_system && (
+                      <MetalActionButton
+                        label={`Delete category ${item.name}`}
+                        onClick={() => void deleteCategory(item)}
+                        destructive
+                      >
+                        <Trash2 size={15} />
+                      </MetalActionButton>
+                    )}
+                  </div>
+                  {formOpen && (
+                    <div className="px-4 pb-4">{renderAllocationForm({ category: item })}</div>
                   )}
-                  {!item.is_system && (
-                    <MetalActionButton
-                      label={`Delete category ${item.name}`}
-                      onClick={() => void deleteCategory(item)}
-                      destructive
-                    >
-                      <Trash2 size={15} />
-                    </MetalActionButton>
-                  )}
-                </div>
-                {formOpen && (
-                  <div className="px-4 pb-4">{renderAllocationForm({ category: item })}</div>
-                )}
-              </MetalCard>
-            )
-          })}
-          {budgets.filter((item) => !matchedBudgetIds.has(item.id)).map(renderBudgetCard)}
-          {expenseCategories.length === 0 && budgets.length === 0 && (
+                </MetalCard>
+              )
+            })}
+          {view === 'allocate' &&
+            budgets.filter((item) => !matchedBudgetIds.has(item.id)).map(renderBudgetCard)}
+          {view === 'allocate' && expenseCategories.length === 0 && budgets.length === 0 && (
             <p className="py-8 text-center text-sm text-muted-foreground">
               No expense categories yet
             </p>
+          )}
+          {view === 'allocate' && hiddenCategories.length > 0 && (
+            <MetalCard className="p-0">
+              <button
+                type="button"
+                aria-expanded={hiddenOpen}
+                onClick={() => setHiddenOpen((open) => !open)}
+                className="flex w-full items-center justify-between gap-3 p-4 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+              >
+                <span className="text-[11px] font-semibold tracking-[0.18em] text-white/60 uppercase">
+                  Hidden · {hiddenCategories.length}
+                </span>
+                <ChevronDown
+                  size={18}
+                  aria-hidden="true"
+                  className={`text-muted-foreground transition-transform duration-200 ${hiddenOpen ? 'rotate-180' : ''}`}
+                />
+              </button>
+              {hiddenOpen && (
+                <ul className="divide-y divide-white/8 border-t border-white/8">
+                  {hiddenCategories.map((item) => (
+                    <li key={item.id} className="flex items-center gap-3 px-4 py-3">
+                      <MetalBadge label={item.name} />
+                      <span className="min-w-0 flex-1 truncate font-semibold text-white/70">
+                        {item.name}
+                      </span>
+                      <Button
+                        size="sm"
+                        variant="outline"
+                        aria-label={`Show ${item.name}`}
+                        onClick={() => void showCategory(item)}
+                      >
+                        <EyeOff size={14} aria-hidden="true" />
+                        Unhide
+                      </Button>
+                    </li>
+                  ))}
+                </ul>
+              )}
+            </MetalCard>
           )}
         </>
       )}

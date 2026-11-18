@@ -16,6 +16,7 @@ import {
 export { Button } from '@/components/ui/button'
 export { MetalActionButton, MetalBadge, MetalCard } from './MetalCard'
 export { AccountCard } from './AccountCard'
+export { SegmentedControl } from '../SegmentedControl'
 export { CategoryCombobox } from './CategoryCombobox'
 
 export function RequiredMark() {
@@ -63,13 +64,7 @@ export function Field({
   )
 }
 
-export function AddIconButton({
-  label,
-  onClick,
-}: {
-  label: string
-  onClick: () => void
-}) {
+export function AddIconButton({ label, onClick }: { label: string; onClick: () => void }) {
   return (
     <button
       type="button"
@@ -176,9 +171,7 @@ export function AutocompleteInput({
     } else if (event.key === 'ArrowUp' && filteredSuggestions.length > 0) {
       event.preventDefault()
       setOpen(true)
-      setActiveIndex((current) =>
-        current <= 0 ? filteredSuggestions.length - 1 : current - 1,
-      )
+      setActiveIndex((current) => (current <= 0 ? filteredSuggestions.length - 1 : current - 1))
     } else if (event.key === 'Enter' && open && activeIndex >= 0) {
       event.preventDefault()
       onChange(filteredSuggestions[activeIndex])
@@ -195,7 +188,10 @@ export function AutocompleteInput({
     <div
       className="relative"
       onBlur={(event) => {
-        if (!(event.relatedTarget instanceof Node) || !event.currentTarget.contains(event.relatedTarget)) {
+        if (
+          !(event.relatedTarget instanceof Node) ||
+          !event.currentTarget.contains(event.relatedTarget)
+        ) {
           setOpen(false)
           setActiveIndex(-1)
         }
@@ -208,7 +204,9 @@ export function AutocompleteInput({
           aria-autocomplete="list"
           aria-controls={open ? listId : undefined}
           aria-expanded={open}
-          aria-activedescendant={open && activeIndex >= 0 ? `${listId}-option-${activeIndex}` : undefined}
+          aria-activedescendant={
+            open && activeIndex >= 0 ? `${listId}-option-${activeIndex}` : undefined
+          }
           placeholder={placeholder}
           role="combobox"
           value={value}
@@ -291,41 +289,6 @@ export function SectionTitle({ children }: { children: ReactNode }) {
   return <h2 className="label px-1">{children}</h2>
 }
 
-export function SegmentedControl<T extends string>({
-  options,
-  value,
-  onChange,
-  variant = 'primary',
-}: {
-  options: T[]
-  value: T
-  onChange: (v: T) => void
-  variant?: 'primary' | 'neutral'
-}) {
-  return (
-    <div className="surface flex rounded-2xl p-1">
-      {options.map((o) => (
-        <button
-          key={o}
-          type="button"
-          aria-pressed={o === value}
-          onClick={() => onChange(o)}
-          className={cn(
-            'flex-1 rounded-xl py-2 text-sm font-medium transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary',
-            o === value
-              ? variant === 'neutral'
-                ? 'bg-secondary font-semibold text-primary shadow-sm ring-1 ring-primary/40'
-                : 'gloss text-primary-foreground'
-              : 'text-muted-foreground hover:text-foreground',
-          )}
-        >
-          {o}
-        </button>
-      ))}
-    </div>
-  )
-}
-
 /** Controlled amount input. `value` is stored in minor currency units. */
 export function CurrencyInput({
   value,
@@ -354,43 +317,43 @@ export function CurrencyInput({
 
   return (
     <div className="space-y-1.5">
-    <label className="block space-y-1.5">
-      <span className="label">
-        {label}
-        {required && <RequiredMark />}
-      </span>
-      <div
-        className={cn(
-          'field flex items-center gap-2 !py-3 focus-within:!border-primary',
-          error && '!border-destructive',
-        )}
-      >
-        <span className="text-2xl font-semibold text-muted-foreground">
-          {currencySymbol(currency)}
+      <label className="block space-y-1.5">
+        <span className="label">
+          {label}
+          {required && <RequiredMark />}
         </span>
-        <input
-          inputMode="decimal"
-          aria-required={required || undefined}
-          aria-invalid={error ? true : undefined}
-          className="money w-full bg-transparent text-3xl font-bold outline-none placeholder:text-[#3d3d4a]"
-          value={rawValue}
-          placeholder="0"
-          onBlur={onBlur}
-          onChange={(e) => {
-            const next = normalizeMoneyInput(e.target.value)
-            const minor = toMinor(next)
-            setRawValue(next)
-            lastReportedValue.current = minor
-            onChange(minor)
-          }}
-        />
-      </div>
-    </label>
-    {error && (
-      <p role="alert" className="text-sm text-destructive">
-        {error}
-      </p>
-    )}
+        <div
+          className={cn(
+            'field flex items-center gap-2 !py-3 focus-within:!border-primary',
+            error && '!border-destructive',
+          )}
+        >
+          <span className="text-2xl font-semibold text-muted-foreground">
+            {currencySymbol(currency)}
+          </span>
+          <input
+            inputMode="decimal"
+            aria-required={required || undefined}
+            aria-invalid={error ? true : undefined}
+            className="money w-full bg-transparent text-3xl font-bold outline-none placeholder:text-[#3d3d4a]"
+            value={rawValue}
+            placeholder="0"
+            onBlur={onBlur}
+            onChange={(e) => {
+              const next = normalizeMoneyInput(e.target.value)
+              const minor = toMinor(next)
+              setRawValue(next)
+              lastReportedValue.current = minor
+              onChange(minor)
+            }}
+          />
+        </div>
+      </label>
+      {error && (
+        <p role="alert" className="text-sm text-destructive">
+          {error}
+        </p>
+      )}
     </div>
   )
 }

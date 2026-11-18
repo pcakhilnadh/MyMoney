@@ -5,6 +5,7 @@ import './index.css'
 import App from './App'
 import { AuthProvider } from './auth/AuthContext'
 import { SyncProvider } from './sync/SyncProvider'
+import { DialogProvider } from './components/DialogProvider'
 
 const queryClient = new QueryClient()
 
@@ -17,7 +18,9 @@ createRoot(document.getElementById('root')!).render(
     <QueryClientProvider client={queryClient}>
       <AuthProvider>
         <SyncProvider>
-          <App />
+          <DialogProvider>
+            <App />
+          </DialogProvider>
         </SyncProvider>
       </AuthProvider>
     </QueryClientProvider>

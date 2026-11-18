@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useState } from 'react'
+import { useDialog } from '@/components/DialogProvider'
 import { Heart, RefreshCw, Utensils, WalletCards, X } from 'lucide-react'
 import { ApiError, revokeAuthSession, type AuthSession } from '@/auth/api'
 import { useAuth } from '@/auth/AuthContext'
@@ -20,13 +21,13 @@ const greeting = () => {
 }
 
 export default function Personal() {
+  const { confirm, notify } = useDialog()
   const { user, token, signOut } = useAuth()
   const sync = useSync()
   const st = STATE[sync.state]
   const welcome = greeting()
   const firstName = user?.name?.trim().split(/\s+/)[0]
-  const syncNeedsAttention =
-    sync.state !== 'idle' || sync.pending > 0 || !sync.lastSyncedAt
+  const syncNeedsAttention = sync.state !== 'idle' || sync.pending > 0 || !sync.lastSyncedAt
   const syncLabel =
     sync.state === 'idle' && sync.pending > 0
       ? 'Changes waiting'
@@ -37,16 +38,19 @@ export default function Personal() {
   const [sessionsError, setSessionsError] = useState<string | null>(null)
   const [revokingId, setRevokingId] = useState<string | null>(null)
 
-  const loadSessions = useCallback(async (sub?: string) => {
-    if (!token) return
-    try {
-      if (sub) setSessions(cachedAuthSessions(sub))
-      setSessionsError(null)
-    } catch (error) {
-      console.error('Unable to load active sessions', error)
-      setSessionsError('Unable to load sessions. Please try again.')
-    }
-  }, [token])
+  const loadSessions = useCallback(
+    async (sub?: string) => {
+      if (!token) return
+      try {
+        if (sub) setSessions(cachedAuthSessions(sub))
+        setSessionsError(null)
+      } catch (error) {
+        console.error('Unable to load active sessions', error)
+        setSessionsError('Unable to load sessions. Please try again.')
+      }
+    },
+    [token],
+  )
 
   useEffect(() => {
     if (!token || !user?.sub) return
@@ -63,9 +67,13 @@ export default function Personal() {
       .filter(Boolean)
       .join(' · ')
     const label = description || 'Unknown device or browser'
-    if (!window.confirm(`End this session${session.is_current ? ' (this device)' : ''}? ${label}`)) {
-      return
-    }
+    const confirmed = await confirm({
+      title: session.is_current ? 'End session on this device?' : 'End this session?',
+      message: session.is_current ? `${label}. You will be signed out.` : label,
+      confirmLabel: 'End session',
+      tone: 'destructive',
+    })
+    if (!confirmed) return
     if (!token) return
     setRevokingId(session.id)
     try {
@@ -77,11 +85,13 @@ export default function Personal() {
       await loadSessions(user?.sub)
     } catch (error) {
       console.error('Unable to end session', error)
-      window.alert(
-        error instanceof ApiError && error.status === 404
-          ? 'That session is already ended.'
-          : 'Unable to end this session. Please try again.',
-      )
+      await notify({
+        title: 'Could not end session',
+        message:
+          error instanceof ApiError && error.status === 404
+            ? 'That session is already ended.'
+            : 'Unable to end this session. Please try again.',
+      })
       await loadSessions(user?.sub)
     } finally {
       setRevokingId(null)
@@ -105,9 +115,7 @@ export default function Personal() {
               {welcome.emoji}
             </span>
           </p>
-          <h1 className="cyber-greeting__name">
-            {firstName ? `${firstName}!` : 'Welcome back!'}
-          </h1>
+          <h1 className="cyber-greeting__name">{firstName ? `${firstName}!` : 'Welcome back!'}</h1>
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/70">
             Your personal hub to track <span className="personal-theme-money">money</span>,{' '}
             <span className="personal-theme-food">food</span>, and{' '}
@@ -208,11 +216,7 @@ export default function Personal() {
             <p className="text-sm text-muted-foreground">No active sessions found.</p>
           )}
           {sessions.map((session) => {
-            const details = [
-              session.device,
-              session.browser,
-              session.location,
-            ].filter(Boolean)
+            const details = [session.device, session.browser, session.location].filter(Boolean)
             return (
               <div
                 key={session.id}
@@ -254,11 +258,7 @@ export default function Personal() {
       </section>
 
       <div className="personal-fixed-action">
-        <Button
-          variant="outline"
-          className="cyber-signout w-full"
-          onClick={() => void signOut()}
-        >
+        <Button variant="outline" className="cyber-signout w-full" onClick={() => void signOut()}>
           Sign out
         </Button>
       </div>

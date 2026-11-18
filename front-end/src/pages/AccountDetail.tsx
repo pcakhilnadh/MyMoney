@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { useDialog } from '@/components/DialogProvider'
 import { Link, useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Archive, ArrowLeft, Pencil, RotateCcw, Trash2 } from 'lucide-react'
@@ -35,6 +36,7 @@ const ACCOUNT_TYPE_LABELS: Record<string, string> = {
 }
 
 export default function AccountDetail() {
+  const { confirm } = useDialog()
   const { currency } = useCurrency()
   const { accountId = '' } = useParams()
   const navigate = useNavigate()
@@ -152,8 +154,13 @@ export default function AccountDetail() {
 
   async function deleteAccount() {
     if (!account) return
-    if (!window.confirm(`Delete "${account.name}"? Its transactions will remain in your history.`))
-      return
+    const confirmed = await confirm({
+      title: `Delete ${account.name}?`,
+      message: 'Its transactions will remain in your history.',
+      confirmLabel: 'Delete account',
+      tone: 'destructive',
+    })
+    if (!confirmed) return
     await accountsRepo.remove(account.id)
     navigate('/money/settings/accounts', { replace: true })
   }
@@ -163,9 +170,12 @@ export default function AccountDetail() {
     const activating = account.status !== 'active'
     if (
       !activating &&
-      !window.confirm(
-        `Make "${account.name}" inactive? It will no longer appear in transaction account selectors, but its history will remain.`,
-      )
+      !(await confirm({
+        title: `Make ${account.name} inactive?`,
+        message:
+          'It will no longer appear in transaction account selectors, but its history will remain.',
+        confirmLabel: 'Make inactive',
+      }))
     )
       return
 
@@ -266,10 +276,14 @@ export default function AccountDetail() {
             Set as default account
           </label>
           {account.status !== 'active' && (
-            <p className="text-sm text-muted-foreground">Only active accounts can be the default.</p>
+            <p className="text-sm text-muted-foreground">
+              Only active accounts can be the default.
+            </p>
           )}
           {saveError && (
-            <p role="alert" className="text-sm text-destructive">{saveError}</p>
+            <p role="alert" className="text-sm text-destructive">
+              {saveError}
+            </p>
           )}
           <Button className="w-full" disabled={!name.trim()} onClick={() => void saveAccount()}>
             Save Account

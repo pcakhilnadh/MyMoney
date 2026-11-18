@@ -1,7 +1,15 @@
 import { useState } from 'react'
+import { useDialog } from '@/components/DialogProvider'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { ArrowLeft, Eye, EyeOff, Trash2 } from 'lucide-react'
-import { AddIconButton, Button, Input, ListItem, PageHeader, SegmentedControl } from '@/components/kit'
+import {
+  AddIconButton,
+  Button,
+  Input,
+  ListItem,
+  PageHeader,
+  SegmentedControl,
+} from '@/components/kit'
 import { categoriesRepo } from '@/db/repos'
 import type { CategoryType } from '@/db/types'
 
@@ -12,6 +20,7 @@ const CATEGORY_TYPES: { value: CategoryType; label: string }[] = [
 ]
 
 export default function SettingsCategories() {
+  const { confirm, notify } = useDialog()
   const categories = useLiveQuery(() => categoriesRepo.list(), []) ?? []
   const [showForm, setShowForm] = useState(false)
   const [name, setName] = useState('')
@@ -31,19 +40,22 @@ export default function SettingsCategories() {
   }
 
   async function deleteCategory(id: string, categoryName: string) {
-    if (
-      !window.confirm(
-        `Delete the "${categoryName}" category, all its transactions, and its budgets?`,
-      )
-    ) {
-      return
-    }
+    const confirmed = await confirm({
+      title: `Delete ${categoryName}?`,
+      message: 'This also deletes all of its transactions and budgets. It cannot be undone.',
+      confirmLabel: 'Delete category',
+      tone: 'destructive',
+    })
+    if (!confirmed) return
 
     try {
       await categoriesRepo.removeWithTransactions(id)
     } catch (error) {
       console.error(`Unable to delete category "${categoryName}"`, error)
-      window.alert(`Unable to delete "${categoryName}". Please try again.`)
+      await notify({
+        title: 'Could not delete category',
+        message: `Unable to delete "${categoryName}". Please try again.`,
+      })
     }
   }
 
@@ -75,10 +87,7 @@ export default function SettingsCategories() {
         {showForm ? (
           <span className="text-sm font-medium text-muted-foreground">New category</span>
         ) : (
-          <AddIconButton
-            label="Add category"
-            onClick={() => setShowForm(true)}
-          />
+          <AddIconButton label="Add category" onClick={() => setShowForm(true)} />
         )}
       </div>
       <SegmentedControl

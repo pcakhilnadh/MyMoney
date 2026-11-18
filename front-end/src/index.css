@@ -901,3 +901,28 @@ button.cyber-signout:hover:not(:disabled) {
   outline-offset: 4px;
   border-radius: 999px;
 }
+
+/* Confirm / notice popup entrance */
+@keyframes dialog-fade {
+  from {
+    opacity: 0;
+  }
+}
+@keyframes dialog-rise {
+  from {
+    opacity: 0;
+    transform: translateY(16px) scale(0.96);
+  }
+}
+.dialog-backdrop {
+  animation: dialog-fade 0.18s ease-out;
+}
+.dialog-panel {
+  animation: dialog-rise 0.26s cubic-bezier(0.34, 1.4, 0.64, 1);
+}
+@media (prefers-reduced-motion: reduce) {
+  .dialog-backdrop,
+  .dialog-panel {
+    animation: none;
+  }
+}

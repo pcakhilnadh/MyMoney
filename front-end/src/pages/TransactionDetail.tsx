@@ -1,4 +1,5 @@
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useDialog } from '@/components/DialogProvider'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
 import type { ReactNode } from 'react'
@@ -70,6 +71,7 @@ const TRANSACTION_TYPE_OPTIONS: { value: TransactionType; label: string }[] = [
 ]
 
 export default function TransactionDetail() {
+  const { confirm } = useDialog()
   const { currency } = useCurrency()
   const { transactionId = '' } = useParams()
   const navigate = useNavigate()
@@ -306,7 +308,13 @@ export default function TransactionDetail() {
   }
 
   async function deleteTransaction() {
-    if (!window.confirm(`Delete "${selectedTransaction.title}"?`)) return
+    const confirmed = await confirm({
+      title: `Delete ${selectedTransaction.title}?`,
+      message: 'This transaction will be removed from your history.',
+      confirmLabel: 'Delete transaction',
+      tone: 'destructive',
+    })
+    if (!confirmed) return
     setDeleting(true)
     setDeleteError(null)
     try {
