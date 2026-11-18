@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { BellRing } from 'lucide-react'
 import { Button, CurrencyInput } from '@/components/kit'
 import { accountsRepo, duePaymentsRepo, transactionsRepo } from '@/db/repos'
 import { dueAlerts, isoDate, type DueAlert } from '@/lib/accounts'
@@ -13,9 +12,7 @@ function AlertRow({ alert }: { alert: DueAlert }) {
   const [amount, setAmount] = useState(alert.amount)
   const [interest, setInterest] = useState(0)
   const isLoan = alert.account.account_type !== 'credit_card'
-  const when =
-    alert.daysLeft === 0 ? 'today' : alert.daysLeft === 1 ? 'tomorrow' : `in ${alert.daysLeft} days`
-
+  const today = alert.daysLeft <= 0
   async function markPaid() {
     await duePaymentsRepo.create({
       account_id: alert.account.id,
@@ -27,16 +24,55 @@ function AlertRow({ alert }: { alert: DueAlert }) {
   }
 
   return (
-    <div className="space-y-3 rounded-2xl bg-secondary/60 p-3">
-      <div className="flex items-center gap-3">
-        <div className="min-w-0 flex-1">
-          <div className="truncate font-medium">{alert.account.name}</div>
-          <div className="text-xs text-muted-foreground">Due {when}</div>
+    <article
+      aria-label={`${alert.account.name} payment due`}
+      className="overflow-hidden rounded-[28px] border border-white/10 bg-gradient-to-br from-[#1a1f3a] via-[#0f1628] to-[#0a0e1a] shadow-[inset_0_1px_0_rgba(75,139,255,0.15),0_14px_28px_-14px_rgba(0,0,0,0.8)]"
+    >
+      <div className="flex items-center gap-4 px-5 py-4">
+        <div className="w-14 shrink-0 text-center leading-none">
+          <div
+            className={`font-extrabold text-[#f5ae4b] ${today ? 'text-xl' : 'text-4xl'}`}
+            aria-hidden="true"
+          >
+            {today ? 'Today' : alert.daysLeft}
+          </div>
+          {!today && (
+            <div className="mt-1.5 text-xs text-white/45" aria-hidden="true">
+              {alert.daysLeft === 1 ? 'day' : 'days'}
+            </div>
+          )}
+          <span className="sr-only">
+            Due {today ? 'today' : `in ${alert.daysLeft} ${alert.daysLeft === 1 ? 'day' : 'days'}`}
+          </span>
         </div>
-        <div className="money font-semibold">{formatMinor(alert.amount, currency)}</div>
+
+        <span
+          aria-hidden="true"
+          className="h-12 shrink-0 self-center border-l-2 border-dashed border-white/15"
+        />
+
+        <div className="min-w-0 flex-1">
+          <h3 className="line-clamp-2 text-base leading-tight font-semibold">
+            {alert.account.name}
+          </h3>
+          <p className="money mt-1 text-sm text-[#94b0ff]/80">
+            {formatMinor(alert.amount, currency)} due
+          </p>
+        </div>
+
+        {!open && (
+          <button
+            type="button"
+            onClick={() => setOpen(true)}
+            className="shrink-0 rounded-full bg-[#7a93ff] px-5 py-3 text-sm font-bold text-[#0a0e1a] shadow-[3px_3px_8px_rgba(0,0,0,0.5),inset_0_1px_0_rgba(255,255,255,0.35)] transition-[transform,box-shadow,filter] duration-150 hover:brightness-110 active:scale-95 active:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.35)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-white/70"
+          >
+            Mark paid
+          </button>
+        )}
       </div>
-      {open ? (
-        <div className="space-y-2">
+
+      {open && (
+        <div className="space-y-2 border-t border-dashed border-white/15 px-5 py-4">
           <CurrencyInput label="Amount paid" value={amount} onChange={setAmount} />
           {isLoan && (
             <CurrencyInput
@@ -54,12 +90,8 @@ function AlertRow({ alert }: { alert: DueAlert }) {
             </Button>
           </div>
         </div>
-      ) : (
-        <Button variant="outline" className="w-full" onClick={() => setOpen(true)}>
-          Mark as paid
-        </Button>
       )}
-    </div>
+    </article>
   )
 }
 
@@ -72,11 +104,7 @@ export function DueAlerts() {
   if (alerts.length === 0) return null
 
   return (
-    <section aria-label="Payment alerts" className="surface space-y-3 rounded-2xl p-4">
-      <h2 className="flex items-center gap-2 font-semibold">
-        <BellRing size={18} className="text-primary" />
-        Payment alerts
-      </h2>
+    <section aria-label="Payment alerts" className="space-y-3">
       {alerts.map((alert) => (
         <AlertRow key={`${alert.account.id}:${alert.dueDate}`} alert={alert} />
       ))}
