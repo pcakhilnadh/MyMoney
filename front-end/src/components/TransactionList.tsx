@@ -4,7 +4,7 @@ import type { Transaction } from '@/db/types'
 import { formatCompactMinor, formatMinor } from '@/lib/money'
 import { useCurrency } from '@/money/CurrencyContext'
 
-const TYPE_STYLE = {
+export const TYPE_STYLE = {
   expense: {
     label: 'Expense',
     Icon: ArrowUpRight,

@@ -4,6 +4,7 @@ import { BarChartCard } from '@/components/kit'
 import { BudgetsCard } from '@/components/BudgetsCard'
 import { topBudgetRows } from '@/lib/budget-overview'
 import { DueAlerts } from '@/components/DueAlerts'
+import { RecentLedger } from '@/components/RecentLedger'
 import { SpendPaceCard } from '@/components/SpendPaceCard'
 import { computeSpendPace } from '@/lib/spend-pace'
 import { BudgetRing, BudgetRingLegend } from '@/components/BudgetRing'
@@ -119,6 +120,7 @@ export default function Home() {
         data={monthlySeries(txs, period.month).map((p) => ({ ...p, value: p.value / 100 }))}
       />
       <DueAlerts />
+      <RecentLedger />
     </div>
   )
 }
