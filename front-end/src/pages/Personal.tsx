@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useState } from 'react'
+import { PlateIcon } from '@/components/PlateIcon'
 import { useDialog } from '@/components/DialogProvider'
-import { Heart, RefreshCw, Utensils, WalletCards, X } from 'lucide-react'
+import { RefreshCw, Utensils, WalletCards, X } from 'lucide-react'
 import { ApiError, revokeAuthSession, type AuthSession } from '@/auth/api'
 import { useAuth } from '@/auth/AuthContext'
 import { Button, Card, SectionTitle } from '@/components/kit'
@@ -129,7 +130,7 @@ export default function Personal() {
               <Utensils size={14} aria-hidden="true" /> Food
             </span>
             <span className="cyber-feature" role="listitem">
-              <Heart size={14} aria-hidden="true" /> Habits
+              <PlateIcon size={14} aria-hidden="true" /> Habits
             </span>
           </div>
         </div>

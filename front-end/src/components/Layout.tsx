@@ -4,7 +4,6 @@ import {
   BookOpen,
   CalendarCheck,
   ChartNoAxesColumnIncreasing,
-  Heart,
   House,
   Plus,
   Receipt,
@@ -17,6 +16,7 @@ import {
 } from 'lucide-react'
 import { useAuth } from '@/auth/AuthContext'
 import { Button } from '@/components/kit'
+import { PlateIcon } from '@/components/PlateIcon'
 import { useSync } from '@/sync/SyncProvider'
 
 const tabs = [
@@ -36,7 +36,7 @@ const foodTabs = [
 const allApps = [
   { id: 'money', label: 'My Money', Icon: WalletCards },
   { id: 'food', label: 'MyFood', Icon: Utensils },
-  { id: 'habit', label: 'MyHabbit', Icon: Heart },
+  { id: 'habit', label: 'MyPlate', Icon: PlateIcon },
 ] as const
 
 // MyFood is hidden from the top tabs for now. Remove this filter to bring it back.

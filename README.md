@@ -1,6 +1,6 @@
 # MyTracker
 
-An installable personal tracker for money and food, with MyHabbit screens ready to be rebuilt.
+An installable personal tracker for money and food, with MyPlate screens ready to be rebuilt.
 For a previously signed-in account, cached local data opens immediately, including offline. Changes are queued locally and sync to the server when the connection returns.
 
 - **Front-end:** React + TypeScript + Vite, Tailwind CSS 4, shadcn/ui, TanStack Query, Dexie (IndexedDB), vite-plugin-pwa

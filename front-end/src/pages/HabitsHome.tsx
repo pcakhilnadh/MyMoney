@@ -1,4 +1,4 @@
-import { Heart } from 'lucide-react'
+import { PlateIcon } from '@/components/PlateIcon'
 
 export default function HabitsHome() {
   return (
@@ -7,7 +7,7 @@ export default function HabitsHome() {
       className="flex min-h-[55vh] flex-col items-center justify-center text-center"
     >
       <div className="mb-5 flex size-16 items-center justify-center rounded-2xl border border-primary/20 bg-primary/10 text-primary">
-        <Heart size={30} aria-hidden="true" />
+        <PlateIcon size={30} aria-hidden="true" />
       </div>
       <h1 id="coming-soon-title" className="text-2xl font-bold">
         Today
