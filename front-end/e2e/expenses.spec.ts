@@ -1,5 +1,5 @@
 import { expect, test } from '@playwright/test'
-import { chooseCategory, chooseOption, fakeSignIn } from './helpers'
+import { chooseCategory, chooseOption, fakeSignIn, expandAccountGroups } from './helpers'
 
 test('add, list, budget, delete — works offline', async ({ page, context }) => {
   await page.route('**/auth/refresh', (route) => route.abort())
@@ -147,6 +147,7 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
 
   await page.getByRole('link', { name: 'Settings' }).click()
   await page.getByRole('link', { name: 'Payment Account' }).click()
+  await expandAccountGroups(page)
   await page.getByRole('heading', { name: 'Everyday' }).click()
   await expect(page.getByText('Lunch', { exact: true })).toBeVisible()
   await expect(page.getByRole('button', { name: /Expense: Lunch/ })).toBeVisible()
@@ -303,6 +304,7 @@ test('capture income and transfers from the add-transaction flow', async ({ page
 
   await page.getByRole('link', { name: 'Settings' }).click()
   await page.getByRole('link', { name: 'Payment Account' }).click()
+  await expandAccountGroups(page)
   await page.getByRole('heading', { name: 'Checking' }).click()
   await expect(page.getByText('Current balance')).toBeVisible()
   await expect(page.getByText('₹1,890.00')).toBeVisible()

@@ -15,7 +15,6 @@ import {
 
 export { Button } from '@/components/ui/button'
 export { MetalActionButton, MetalBadge, MetalCard } from './MetalCard'
-export { AccountCard } from './AccountCard'
 export { SegmentedControl } from '../SegmentedControl'
 export { CategoryCombobox } from './CategoryCombobox'
 

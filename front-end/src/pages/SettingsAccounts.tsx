@@ -1,16 +1,16 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowLeft, Eye, EyeOff } from 'lucide-react'
+import { ArrowLeft, ChevronDown, ChevronsUpDown, Eye, EyeOff, Search } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Button,
   CurrencyInput,
   Input,
-  AccountCard,
+  MetalCard,
   AddIconButton,
   PageHeader,
   Select,
 } from '@/components/kit'
+import { AccountRow } from '@/components/AccountRow'
 import { accountsRepo, transactionsRepo } from '@/db/repos'
 import type { AccountType } from '@/db/types'
 import { summarizeAccount } from '@/lib/accounts'
@@ -69,8 +69,9 @@ export default function SettingsAccounts() {
   const [saveError, setSaveError] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [categoryTotalsVisible, setCategoryTotalsVisible] = useState<Record<string, boolean>>({})
-  // Per-account reveal state. A group's eye sets it for every account in that group.
-  const [accountVisible, setAccountVisible] = useState<Record<string, boolean>>({})
+  // Groups the user has opened or closed; untouched groups follow the default below.
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const [query, setQuery] = useState('')
 
   const isCard = type === 'credit_card'
   const hasDueDay = isCard || type === 'loan'
@@ -114,6 +115,31 @@ export default function SettingsAccounts() {
   const activeGroups = ACCOUNT_GROUPS.filter((group) =>
     accounts.some((account) => group.types.includes(account.account_type)),
   )
+  const needle = query.trim().toLowerCase()
+  const searching = needle.length > 0
+  const visibleGroups = activeGroups
+    .map((group, index) => ({
+      group,
+      index,
+      groupAccounts: accounts.filter(
+        (account) =>
+          group.types.includes(account.account_type) &&
+          (!searching || account.name.toLowerCase().includes(needle)),
+      ),
+    }))
+    .filter(({ groupAccounts }) => groupAccounts.length > 0)
+
+  // Every group starts collapsed so the page opens as a short overview.
+  const isCollapsed = (label: string) => collapsed[label] ?? true
+
+  const allOpen =
+    activeGroups.length > 0 && activeGroups.every((group) => !isCollapsed(group.label))
+  const showSearch = accounts.length > 6
+  const showGroupToggle = activeGroups.length > 1
+
+  function setAllCollapsed(value: boolean) {
+    setCollapsed(Object.fromEntries(activeGroups.map((group) => [group.label, value])))
+  }
 
   return (
     <div className="space-y-4">
@@ -131,7 +157,14 @@ export default function SettingsAccounts() {
             Back
           </button>
         ) : (
-          <PageHeader title="Payment Accounts" />
+          <PageHeader
+            title="Payment Accounts"
+            subtitle={
+              accounts.length > 0
+                ? `${accounts.length} account${accounts.length === 1 ? '' : 's'}`
+                : undefined
+            }
+          />
         )}
         {!showForm && (
           <AddIconButton
@@ -235,40 +268,85 @@ export default function SettingsAccounts() {
               No payment accounts yet. Tap + to add one.
             </p>
           )}
-          {activeGroups.map((group) => {
-            const groupAccounts = accounts.filter((account) =>
-              group.types.includes(account.account_type),
-            )
+          {(showSearch || showGroupToggle) && (
+            <div className="flex items-center gap-2">
+              {showSearch && (
+                <label className="field flex min-w-0 flex-1 items-center gap-2 !py-2">
+                  <Search size={16} aria-hidden="true" className="shrink-0 text-muted-foreground" />
+                  <input
+                    type="search"
+                    value={query}
+                    onChange={(event) => setQuery(event.target.value)}
+                    placeholder="Search accounts"
+                    aria-label="Search accounts"
+                    className="w-full min-w-0 bg-transparent text-sm outline-none"
+                  />
+                </label>
+              )}
+              {showGroupToggle && (
+                <button
+                  type="button"
+                  onClick={() => setAllCollapsed(allOpen)}
+                  disabled={searching}
+                  aria-label={allOpen ? 'Collapse all groups' : 'Expand all groups'}
+                  className="ml-auto flex shrink-0 items-center gap-1.5 rounded-xl bg-gradient-to-br from-[#2a3260] to-[#1a2147] px-3 py-2 text-xs font-semibold text-white/85 shadow-[3px_3px_8px_rgba(0,0,0,0.5),-1px_-1px_4px_rgba(148,176,255,0.1),inset_0_1px_0_rgba(255,255,255,0.1)] transition-[transform,box-shadow,opacity] duration-150 hover:text-white active:scale-95 active:shadow-[inset_2px_2px_5px_rgba(0,0,0,0.55)] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary disabled:opacity-40"
+                >
+                  <ChevronsUpDown
+                    size={15}
+                    aria-hidden="true"
+                    className={`transition-transform duration-300 ${allOpen ? 'rotate-180' : ''}`}
+                  />
+                  <span>{allOpen ? 'Collapse all' : 'Expand all'}</span>
+                </button>
+              )}
+            </div>
+          )}
+          {searching && visibleGroups.length === 0 && (
+            <p className="py-8 text-center text-sm text-muted-foreground">
+              No accounts match “{query.trim()}”.
+            </p>
+          )}
+          {visibleGroups.map(({ group, groupAccounts, index }) => {
+            // Credit cards total what can still be spent (available credit), not what is owed.
+            const isCreditGroup = group.types.includes('credit_card')
             const groupTotal = groupAccounts.reduce((sum, account) => {
               const summary = summarizeAccount(account, txs)
-              return sum + summary.balance
+              return sum + (isCreditGroup ? (summary.available ?? 0) : summary.balance)
             }, 0)
             const isVisible = categoryTotalsVisible[group.label] === true
-
-            function toggleGroup() {
-              const next = !isVisible
-              setCategoryTotalsVisible((prev) => ({ ...prev, [group.label]: next }))
-              setAccountVisible((prev) => ({
-                ...prev,
-                ...Object.fromEntries(groupAccounts.map((account) => [account.id, next])),
-              }))
-            }
+            const open = searching || !isCollapsed(group.label)
+            const panelId = `accounts-${index}`
 
             return (
-              <section key={group.label} className="space-y-2">
-                <div className="flex items-center justify-between gap-3 px-1">
-                  <h2 className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] text-white/60 uppercase">
-                    {group.label}
-                    <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] leading-none font-bold tracking-normal text-white/70">
-                      {groupAccounts.length}
-                    </span>
-                  </h2>
+              <MetalCard key={group.label} className="p-0">
+                <div className="flex items-center gap-2 px-3 py-2.5">
                   <button
                     type="button"
-                    onClick={toggleGroup}
+                    aria-expanded={open}
+                    aria-controls={panelId}
+                    onClick={() => setCollapsed((prev) => ({ ...prev, [group.label]: open }))}
+                    className="flex min-w-0 flex-1 items-center gap-2 rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                  >
+                    <ChevronDown
+                      size={16}
+                      aria-hidden="true"
+                      className={`shrink-0 text-white/50 transition-transform duration-200 ${open ? '' : '-rotate-90'}`}
+                    />
+                    <h2 className="truncate text-[11px] font-semibold tracking-[0.18em] text-white/70 uppercase">
+                      {group.label}
+                    </h2>
+                    <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] leading-none font-bold text-white/70">
+                      {groupAccounts.length}
+                    </span>
+                  </button>
+                  <button
+                    type="button"
+                    onClick={() =>
+                      setCategoryTotalsVisible((prev) => ({ ...prev, [group.label]: !isVisible }))
+                    }
                     aria-pressed={isVisible}
                     aria-label={`${isVisible ? 'Hide' : 'Show'} ${group.label} total and balances`}
-                    className="flex items-center gap-1.5 rounded-full bg-[#0a0e1a]/70 px-3 py-1.5 text-xs font-semibold text-blue-300 shadow-[inset_1px_1px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.04)] transition-[transform,color] duration-150 hover:text-blue-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+                    className="flex shrink-0 items-center gap-1.5 rounded-full bg-[#0a0e1a]/70 px-3 py-1.5 text-xs font-semibold text-blue-300 shadow-[inset_1px_1px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.04)] transition-[transform,color] duration-150 hover:text-blue-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
                     {isVisible ? <Eye size={14} /> : <EyeOff size={14} />}
                     <span className="money">
@@ -276,33 +354,33 @@ export default function SettingsAccounts() {
                     </span>
                   </button>
                 </div>
-                <div className="space-y-2">
-                  {groupAccounts.map((account) => {
-                    const summary = summarizeAccount(account, txs)
-                    const card = account.account_type === 'credit_card'
-
-                    return (
-                      <Link
-                        key={account.id}
-                        to={`/money/accounts/${account.id}`}
-                        className="block rounded-[20px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
-                      >
-                        <AccountCard
-                          account={account}
-                          balance={summary.balance}
-                          available={card ? summary.available : undefined}
-                          isDefault={account.is_default}
-                          variant="list"
-                          visible={accountVisible[account.id] === true}
-                          onVisibleChange={(next) =>
-                            setAccountVisible((prev) => ({ ...prev, [account.id]: next }))
-                          }
-                        />
-                      </Link>
-                    )
-                  })}
+                <div
+                  id={panelId}
+                  className={`grid transition-[grid-template-rows,visibility] duration-200 ${
+                    open ? 'grid-rows-[1fr]' : 'invisible grid-rows-[0fr]'
+                  }`}
+                >
+                  <div className="overflow-hidden">
+                    <div className="divide-y divide-white/8 border-t border-white/8">
+                      {groupAccounts.map((account) => {
+                        const summary = summarizeAccount(account, txs)
+                        return (
+                          <AccountRow
+                            key={account.id}
+                            account={account}
+                            balance={summary.balance}
+                            available={
+                              account.account_type === 'credit_card' ? summary.available : undefined
+                            }
+                            isDefault={account.is_default}
+                            visible={isVisible}
+                          />
+                        )
+                      })}
+                    </div>
+                  </div>
                 </div>
-              </section>
+              </MetalCard>
             )
           })}
         </>

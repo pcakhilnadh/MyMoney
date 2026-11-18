@@ -112,3 +112,9 @@ export async function chooseCategory(page: Page, name: string, label = 'Category
   await page.getByRole('combobox', { name: label, exact: true }).click()
   await page.getByRole('option', { name, exact: true }).click()
 }
+
+/** Payment account groups start collapsed; open every group so its accounts can be reached. */
+export async function expandAccountGroups(page: Page) {
+  const collapsed = page.locator('button[aria-expanded="false"][aria-controls^="accounts-"]')
+  while ((await collapsed.count()) > 0) await collapsed.first().click()
+}
