@@ -69,7 +69,9 @@ export default function SettingsAccounts() {
   const [saveError, setSaveError] = useState('')
   const [editingId, setEditingId] = useState<string | null>(null)
   const [categoryTotalsVisible, setCategoryTotalsVisible] = useState<Record<string, boolean>>({})
-  
+  // Per-account reveal state. A group's eye sets it for every account in that group.
+  const [accountVisible, setAccountVisible] = useState<Record<string, boolean>>({})
+
   const isCard = type === 'credit_card'
   const hasDueDay = isCard || type === 'loan'
   const isLiability = type === 'loan' || type === 'liability'
@@ -94,8 +96,7 @@ export default function SettingsAccounts() {
       currency,
       opening_balance: opening,
       credit_limit: isCard && limit > 0 ? limit : null,
-      payment_due_day:
-        hasDueDay && Number.isInteger(day) && day >= 1 && day <= 31 ? day : null,
+      payment_due_day: hasDueDay && Number.isInteger(day) && day >= 1 && day <= 31 ? day : null,
       is_default: isDefault,
     }
     try {
@@ -195,8 +196,8 @@ export default function SettingsAccounts() {
           )}
           {isLiability && !isCard && (
             <p className="text-sm text-muted-foreground">
-              For a balance you owe. Borrowing and repayment transfers affect only the account
-              where you receive or pay the money.
+              For a balance you owe. Borrowing and repayment transfers affect only the account where
+              you receive or pay the money.
             </p>
           )}
           {isAsset && (
@@ -214,7 +215,9 @@ export default function SettingsAccounts() {
             Set as default account
           </label>
           {saveError && (
-            <p role="alert" className="text-sm text-destructive">{saveError}</p>
+            <p role="alert" className="text-sm text-destructive">
+              {saveError}
+            </p>
           )}
           <Button className="w-full" disabled={!name.trim()} onClick={() => void save()}>
             {editingId ? 'Save Account' : 'Add Account'}
@@ -242,31 +245,35 @@ export default function SettingsAccounts() {
             }, 0)
             const isVisible = categoryTotalsVisible[group.label] === true
 
+            function toggleGroup() {
+              const next = !isVisible
+              setCategoryTotalsVisible((prev) => ({ ...prev, [group.label]: next }))
+              setAccountVisible((prev) => ({
+                ...prev,
+                ...Object.fromEntries(groupAccounts.map((account) => [account.id, next])),
+              }))
+            }
+
             return (
-              <section key={group.label} className="space-y-3">
-                <div className="flex items-center justify-between px-1">
-                  <h2 className="label">{group.label}</h2>
+              <section key={group.label} className="space-y-2">
+                <div className="flex items-center justify-between gap-3 px-1">
+                  <h2 className="flex items-center gap-2 text-[11px] font-semibold tracking-[0.18em] text-white/60 uppercase">
+                    {group.label}
+                    <span className="rounded-full bg-white/10 px-1.5 py-0.5 text-[10px] leading-none font-bold tracking-normal text-white/70">
+                      {groupAccounts.length}
+                    </span>
+                  </h2>
                   <button
                     type="button"
-                    onClick={() =>
-                      setCategoryTotalsVisible((prev) => ({
-                        ...prev,
-                        [group.label]: prev[group.label] !== true,
-                      }))
-                    }
-                    className="flex items-center gap-1.5 text-xs font-medium text-blue-400 hover:text-blue-300 transition"
+                    onClick={toggleGroup}
+                    aria-pressed={isVisible}
+                    aria-label={`${isVisible ? 'Hide' : 'Show'} ${group.label} total and balances`}
+                    className="flex items-center gap-1.5 rounded-full bg-[#0a0e1a]/70 px-3 py-1.5 text-xs font-semibold text-blue-300 shadow-[inset_1px_1px_4px_rgba(0,0,0,0.55),inset_-1px_-1px_2px_rgba(255,255,255,0.04)] transition-[transform,color] duration-150 hover:text-blue-200 active:scale-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                   >
-                    {isVisible ? (
-                      <>
-                        <Eye size={14} />
-                        {formatMinor(groupTotal, currency)}
-                      </>
-                    ) : (
-                      <>
-                        <EyeOff size={14} />
-                        ●●●●●
-                      </>
-                    )}
+                    {isVisible ? <Eye size={14} /> : <EyeOff size={14} />}
+                    <span className="money">
+                      {isVisible ? formatMinor(groupTotal, currency) : '●●●●●'}
+                    </span>
                   </button>
                 </div>
                 <div className="space-y-2">
@@ -278,7 +285,7 @@ export default function SettingsAccounts() {
                       <Link
                         key={account.id}
                         to={`/money/accounts/${account.id}`}
-                        className="block"
+                        className="block rounded-[20px] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
                       >
                         <AccountCard
                           account={account}
@@ -286,6 +293,10 @@ export default function SettingsAccounts() {
                           available={card ? summary.available : undefined}
                           isDefault={account.is_default}
                           variant="list"
+                          visible={accountVisible[account.id] === true}
+                          onVisibleChange={(next) =>
+                            setAccountVisible((prev) => ({ ...prev, [account.id]: next }))
+                          }
                         />
                       </Link>
                     )
