@@ -33,11 +33,14 @@ const foodTabs = [
   { to: '/food/profile', label: 'Profile', Icon: User },
 ]
 
-const apps = [
+const allApps = [
   { id: 'money', label: 'My Money', Icon: WalletCards },
   { id: 'food', label: 'MyFood', Icon: Utensils },
   { id: 'habit', label: 'MyHabbit', Icon: Heart },
 ] as const
+
+// MyFood is hidden from the top tabs for now. Remove this filter to bring it back.
+const apps: readonly (typeof allApps)[number][] = allApps.filter((app) => app.id !== 'food')
 
 const habitTabs = [
   { label: 'Today', Icon: CalendarCheck },
@@ -78,7 +81,8 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
       <div
         role="group"
         aria-label="App selector"
-        className="grid h-16 grid-cols-[repeat(3,minmax(0,1fr))_2.5rem] items-center"
+        className="grid h-16 items-center"
+        style={{ gridTemplateColumns: `repeat(${apps.length}, minmax(0, 1fr)) 2.5rem` }}
       >
         {apps.map(({ id, label, Icon }) => {
           const selected = selectedApp === id
