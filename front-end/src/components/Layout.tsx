@@ -60,6 +60,8 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
   const comingSoon = selectedApp === 'habit'
   const { has } = useEntitlements()
   const apps = visibleApps.filter((a) => has(a.id === 'habit' ? 'plate' : a.id))
+  // With one app available, the profile button shares the app tab's surface (until Personal is open).
+  const singleApp = apps.length === 1
   const appInfo = apps.find((app) => app.id === selectedApp) ?? apps[0] ?? visibleApps[0]
   const navigationItems = selectedApp === 'food' ? foodTabs : tabs
   const addPath = selectedApp === 'food' ? '/food/add' : '/money/expenses/new'
@@ -127,7 +129,9 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
           className={`flex items-center justify-center text-muted-foreground transition-colors ${
             isPersonal
             ? 'personal-selector-tab-active h-16 w-full bg-card hover:bg-card'
-            : 'h-16 w-full rounded-xl'
+            : singleApp && selectedApp
+              ? 'app-connected-surface app-selector-tab-active h-16 w-full'
+              : 'h-16 w-full rounded-xl'
           }`}
         >
           {picture && picture !== failedPicture ? (
