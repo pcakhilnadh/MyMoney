@@ -1,5 +1,5 @@
-import { useState } from 'react'
-import { X } from 'lucide-react'
+import type { ReactNode } from 'react'
+import { Share, X } from 'lucide-react'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext'
 import AddExpense from './pages/AddExpense'
@@ -35,10 +35,28 @@ import HabitsHome from './pages/HabitsHome'
 import { CurrencyProvider } from './money/CurrencyContext'
 import { useInstall } from './pwa/useInstall'
 
+const INSTALL_STEPS: Record<'ios' | 'safari-mac' | 'firefox-android', ReactNode> = {
+  ios: (
+    <>
+      Tap <Share className="inline size-3.5 align-[-2px]" aria-label="Share" /> Share, then{' '}
+      <b>Add to Home Screen</b>.
+    </>
+  ),
+  'safari-mac': (
+    <>
+      In Safari, choose <b>File → Add to Dock</b>.
+    </>
+  ),
+  'firefox-android': (
+    <>
+      Open the Firefox menu <b>⋮</b>, then tap <b>Install</b> or <b>Add to Home screen</b>.
+    </>
+  ),
+}
+
 function InstallPrompt() {
-  const { canPrompt, installed, install } = useInstall()
-  const [dismissed, setDismissed] = useState(false)
-  if (!canPrompt || installed || dismissed) return null
+  const { method, dismissed, dismiss, install } = useInstall()
+  if (!method || dismissed) return null
 
   return (
     <aside
@@ -46,31 +64,37 @@ function InstallPrompt() {
       aria-label="Install MyTracker"
       className="fixed inset-x-0 bottom-24 z-50 mx-auto max-w-md px-4"
     >
-      <div className="surface flex items-center justify-between gap-3 rounded-xl px-4 py-3">
-        <div>
+      <div className="surface flex items-center gap-3 rounded-xl py-3 pr-2 pl-4">
+        <div className="min-w-0 flex-1">
           <p className="text-sm font-semibold">Install MyTracker</p>
-          <p className="text-xs text-muted-foreground">Quick access, including offline.</p>
+          <p className="text-xs text-muted-foreground">
+            {method === 'prompt' ? 'Quick access, including offline.' : INSTALL_STEPS[method]}
+          </p>
         </div>
-        <button
-          type="button"
-          aria-label="Install MyTracker as an app"
-          onClick={() =>
-            void install().catch((error: unknown) => {
-              console.error('Unable to open the app install prompt', error)
-            })
-          }
-          className="shrink-0 rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
-        >
-          Install
-        </button>
-        <button
-          type="button"
-          aria-label="Dismiss install prompt"
-          onClick={() => setDismissed(true)}
-          className="shrink-0 rounded-lg p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
-        >
-          <X className="size-4" />
-        </button>
+        <div className="flex shrink-0 items-center gap-1">
+          {method === 'prompt' && (
+            <button
+              type="button"
+              aria-label="Install MyTracker as an app"
+              onClick={() =>
+                void install().catch((error: unknown) => {
+                  console.error('Unable to open the app install prompt', error)
+                })
+              }
+              className="rounded-lg bg-primary px-3 py-2 text-sm font-semibold text-primary-foreground"
+            >
+              Install
+            </button>
+          )}
+          <button
+            type="button"
+            aria-label="Dismiss install prompt"
+            onClick={dismiss}
+            className="rounded-lg p-2 text-muted-foreground hover:bg-muted/50 hover:text-foreground"
+          >
+            <X className="size-4" />
+          </button>
+        </div>
       </div>
     </aside>
   )
