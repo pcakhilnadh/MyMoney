@@ -53,7 +53,7 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
   const navigate = useNavigate()
   const [failedPicture, setFailedPicture] = useState<string | null>(null)
   const picture = user?.picture
-  const isPersonal = pathname === '/personal'
+  const isPersonal = pathname === '/personal' || pathname.startsWith('/personal/')
   const isFoodHome = pathname === '/food/home'
   const selectedApp = app === 'shared' ? null : app
   const comingSoon = selectedApp === 'habit'
@@ -180,7 +180,7 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
       >
         <Outlet />
       </main>
-      {pathname === '/personal' ? null : comingSoon ? (
+      {isPersonal ? null : comingSoon ? (
         <nav
           aria-label={`${appInfo.label} navigation`}
           className="bottom-nav fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"

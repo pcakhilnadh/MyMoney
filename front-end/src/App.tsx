@@ -14,6 +14,7 @@ import Login from './pages/Login'
 import Transactions from './pages/Transactions'
 import TransactionDetail from './pages/TransactionDetail'
 import Personal from './pages/Personal'
+import Feedback from './pages/Feedback'
 import Welcome, { BreathingScreen } from './pages/Welcome'
 import Settings from './pages/Settings'
 import CurrencySettings from './pages/CurrencySettings'
@@ -139,6 +140,7 @@ export default function App() {
           </Route>
           <Route element={<Layout app="shared" />}>
             <Route path="/personal" element={<Personal />} />
+            <Route path="/personal/feedback" element={<Feedback />} />
           </Route>
         </Route>
         </Routes>

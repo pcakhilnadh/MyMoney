@@ -354,3 +354,27 @@ class Budget(Base):
     version: Mapped[int] = mapped_column(Integer, default=1)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
+
+
+class FeedbackKind(StrEnum):
+    FEEDBACK = "feedback"
+    TESTIMONY = "testimony"
+    FEATURE_REQUEST = "feature_request"
+
+
+class Feedback(Base):
+    """A public message in the shared feedback / testimony / feature-request conversation."""
+
+    __tablename__ = "feedback_messages"
+    __table_args__ = (
+        CheckConstraint("length(body) <= 500", name="ck_feedback_body_len"),
+        Index("ix_feedback_messages_created_at", "created_at"),
+    )
+
+    id: Mapped[uuid.UUID] = _pk()
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), index=True)
+    # Only the first name is stored; the full name is never exposed to other users.
+    first_name: Mapped[str] = mapped_column(String(60))
+    kind: Mapped[str] = mapped_column(String(20))
+    body: Mapped[str] = mapped_column(String(500))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
