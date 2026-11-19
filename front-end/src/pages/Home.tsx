@@ -56,6 +56,9 @@ export default function Home() {
     budget: budgetMinor,
   })
 
+  // Pace needs a budget to compare against and something spent this month.
+  const hasTxThisMonth = txs.some((t) => t.transaction_date.startsWith(period.month))
+
   const budgetRows = topBudgetRows({ txs, cats, budgets, month: period.month, limit: 5 })
 
   return (
@@ -115,14 +118,16 @@ export default function Home() {
         </div>
       </section>
 
-      <SpendPaceCard
-        pace={pace}
-        budget={budgetMinor}
-        dayOfMonth={dayOfMonth}
-        daysInMonth={daysInMonth}
-        monthStart={new Date(now.getFullYear(), now.getMonth(), 1)}
-        currency={currency}
-      />
+      {budgetMinor !== null && hasTxThisMonth && (
+        <SpendPaceCard
+          pace={pace}
+          budget={budgetMinor}
+          dayOfMonth={dayOfMonth}
+          daysInMonth={daysInMonth}
+          monthStart={new Date(now.getFullYear(), now.getMonth(), 1)}
+          currency={currency}
+        />
+      )}
 
       <BudgetsCard rows={budgetRows} currency={currency} />
 
