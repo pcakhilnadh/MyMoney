@@ -1,5 +1,6 @@
 import { useLiveQuery } from 'dexie-react-hooks'
 import { CalendarDays, Sun } from 'lucide-react'
+import { useNavigate } from 'react-router-dom'
 import { BarChartCard } from '@/components/kit'
 import { BudgetsCard } from '@/components/BudgetsCard'
 import { topBudgetRows } from '@/lib/budget-overview'
@@ -27,6 +28,7 @@ const spendingPeriod = () => {
 
 export default function Home() {
   const { currency } = useCurrency()
+  const navigate = useNavigate()
   const txs = useLiveQuery(() => transactionsRepo.list(), []) ?? []
   const budgets = useLiveQuery(() => budgetsRepo.list(), []) ?? []
   const cats = useLiveQuery(() => db.categories.toArray(), []) ?? []
@@ -54,13 +56,22 @@ export default function Home() {
     budget: budgetMinor,
   })
 
-  const budgetRows = topBudgetRows({ txs, cats, budgets, month: period.month })
+  const budgetRows = topBudgetRows({ txs, cats, budgets, month: period.month, limit: 5 })
 
   return (
     <div className="space-y-5">
       <section
-        className="hero spending-overview rounded-[26px] px-5 py-4"
+        className="hero spending-overview cursor-pointer rounded-[26px] px-5 py-4 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
         aria-labelledby="spending-overview-title"
+        role="link"
+        tabIndex={0}
+        onClick={() => navigate('/money/budgets?view=allocate')}
+        onKeyDown={(e) => {
+          if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+            e.preventDefault()
+            navigate('/money/budgets?view=allocate')
+          }
+        }}
       >
         <div className="relative z-10">
           <div className="flex items-center justify-between gap-3">

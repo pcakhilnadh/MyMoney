@@ -18,7 +18,7 @@ export function topBudgetRows(input: {
   month: string
   limit?: number
 }): CategoryBudgetRow[] {
-  const { txs, cats, budgets, month, limit = 4 } = input
+  const { txs, cats, budgets, month, limit = 5 } = input
   const names = new Map(cats.map((c) => [c.id, c.name]))
   const spent = new Map<string | null, number>()
   for (const t of txs) {
@@ -30,8 +30,11 @@ export function topBudgetRows(input: {
   }
   const limits = new Map(categoryBudgets(budgets).map((b) => [b.category_id, b.amount_minor]))
 
+  // Budgeted categories show even before anything is spent in them.
+  for (const key of limits.keys()) if (!spent.has(key)) spent.set(key, 0)
+
   return [...spent]
-    .filter(([, value]) => value > 0)
+    .filter(([key, value]) => value > 0 || limits.has(key))
     .sort((a, b) => b[1] - a[1])
     .slice(0, limit)
     .map(([categoryId, value]) => {

@@ -61,12 +61,8 @@ export function RecentLedger() {
                 <button
                   type="button"
                   aria-label={`${kind.label}: ${transaction.title}, ${formatMinor(transaction.amount_minor, currency)}`}
-                  onClick={() =>
-                    navigate(`/money/transactions/${transaction.id}`, {
-                      state: { from: pathname },
-                    })
-                  }
-                  className="flex w-full min-w-0 items-center gap-3 px-4 py-2 text-left transition-colors hover:bg-white/5 active:bg-white/10 focus-visible:bg-white/5 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
+                  onClick={() => navigate('/money/transactions', { state: { from: pathname } })}
+                  className="flex w-full min-w-0 items-center gap-3 px-4 py-2 text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
                 >
                   <span
                     aria-hidden="true"

@@ -1,4 +1,5 @@
-import { Link } from 'react-router-dom'
+import type { MouseEvent } from 'react'
+import { Link, useNavigate } from 'react-router-dom'
 import { Card } from '@/components/kit'
 import type { CurrencyCode } from '@/lib/currency'
 import { formatCompactMinor } from '@/lib/money'
@@ -31,13 +32,29 @@ export function BudgetsCard({
   const budgeted = rows.filter((r) => r.ratio !== null)
   const unbudgeted = rows.find((r) => r.ratio === null)
 
+  const navigate = useNavigate()
+  const stop = (e: MouseEvent) => e.stopPropagation()
+
   return (
+    <div
+      role="link"
+      tabIndex={0}
+      aria-label="Open budget breakdown"
+      className="cursor-pointer rounded-card focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-primary"
+      onClick={() => navigate('/money/budgets?view=budget')}
+      onKeyDown={(e) => {
+        if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
+          e.preventDefault()
+          navigate('/money/budgets?view=budget')
+        }
+      }}
+    >
     <Card className="space-y-2.5 !px-4 !py-3">
       <div className="flex items-center justify-between gap-3">
         <h2 className="text-[11px] font-semibold uppercase tracking-[0.18em] text-muted-foreground">
           Budgets
         </h2>
-        <Link to="/money/budgets" className="text-xs font-semibold text-primary">
+        <Link to="/money/budgets?view=budget" onClick={stop} className="text-xs font-semibold text-primary">
           View all
         </Link>
       </div>
@@ -102,7 +119,8 @@ export function BudgetsCard({
             <span className="money">{money(unbudgeted.spent, currency)}</span> · no budget
           </p>
           <Link
-            to="/money/budgets"
+            to="/money/budgets?view=budget"
+            onClick={stop}
             className="shrink-0 rounded-xl bg-white/10 px-3 py-1.5 text-xs font-semibold"
           >
             Set budget
@@ -110,5 +128,6 @@ export function BudgetsCard({
         </div>
       )}
     </Card>
+    </div>
   )
 }

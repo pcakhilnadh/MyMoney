@@ -45,6 +45,8 @@ export default function Budgets() {
   // The monthly-budget form replaces the list; category allocations are edited inline in the list.
   const [view, setView] = useState<BudgetView>(() => {
     try {
+      const requested = new URLSearchParams(window.location.search).get('view')
+      if (requested === 'allocate' || requested === 'budget') return requested
       return sessionStorage.getItem(VIEW_KEY) === 'allocate' ? 'allocate' : 'budget'
     } catch {
       return 'budget'
