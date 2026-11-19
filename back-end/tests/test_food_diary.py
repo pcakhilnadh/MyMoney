@@ -8,6 +8,9 @@ from sqlalchemy import create_engine, insert, text
 from app.food_search import catalog
 from tests.conftest import H
 from tests.test_food_catalog import create_writable_catalog
+import pytest
+
+pytestmark = pytest.mark.usefixtures("food_access")
 
 
 def test_meal_log_migration_generates_reversible_postgresql_sql():

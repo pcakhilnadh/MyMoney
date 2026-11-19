@@ -11,6 +11,9 @@ test.use({
 test('search results stay hidden until a search happens, then show equal-width tags', async ({ page }) => {
   await page.route('**/auth/refresh', (route) => route.abort())
   await page.route('**/auth/login', (route) => route.abort())
+  await page.route('**/auth/me', (route) =>
+    route.fulfill({ json: { role: 'owner', entitlements: ['money', 'food', 'plate'] } }),
+  )
   let releaseSearch: (() => void) | undefined
   const searchGate = new Promise<void>((resolve) => { releaseSearch = resolve })
   await page.route('**/food/catalog?*', async (route) => {
@@ -72,6 +75,9 @@ test('intelligent per-unit steppers and conversions', async ({ page }) => {
   await page.setViewportSize({ width: 390, height: 780 })
   await page.route('**/auth/refresh', (route) => route.abort())
   await page.route('**/auth/login', (route) => route.abort())
+  await page.route('**/auth/me', (route) =>
+    route.fulfill({ json: { role: 'owner', entitlements: ['money', 'food', 'plate'] } }),
+  )
   await page.route('**/food/catalog?*', (route) => route.fulfill({
     json: [{ id: 'egg', name: 'Egg' }, { id: 'milk', name: 'Milk' }],
   }))
@@ -207,6 +213,9 @@ test('intelligent per-unit steppers and conversions', async ({ page }) => {
 test('save meal persists the selected portion and opens the diary', async ({ page }) => {
   await page.route('**/auth/refresh', (route) => route.abort())
   await page.route('**/auth/login', (route) => route.abort())
+  await page.route('**/auth/me', (route) =>
+    route.fulfill({ json: { role: 'owner', entitlements: ['money', 'food', 'plate'] } }),
+  )
   await page.route('**/food/catalog?*', (route) => route.fulfill({
     json: [{
       id: 'egg', name: 'Egg', calories_100g: 150, protein_100g: 12,
@@ -269,6 +278,9 @@ test('save meal persists the selected portion and opens the diary', async ({ pag
 test('count portions require their total weight before saving', async ({ page }) => {
   await page.route('**/auth/refresh', (route) => route.abort())
   await page.route('**/auth/login', (route) => route.abort())
+  await page.route('**/auth/me', (route) =>
+    route.fulfill({ json: { role: 'owner', entitlements: ['money', 'food', 'plate'] } }),
+  )
   await page.route('**/food/catalog?*', (route) => route.fulfill({
     json: [{ id: 'egg', name: 'Egg', calories_100g: 150 }],
   }))
@@ -299,6 +311,9 @@ test.describe('food scanner', () => {
   test.beforeEach(async ({ page }) => {
     await page.route('**/auth/refresh', (route) => route.abort())
     await page.route('**/auth/login', (route) => route.abort())
+    await page.route('**/auth/me', (route) =>
+      route.fulfill({ json: { role: 'owner', entitlements: ['money', 'food', 'plate'] } }),
+    )
     await fakeSignIn(page)
     await page.addInitScript(() => {
       const original = HTMLCanvasElement.prototype.toBlob
@@ -578,6 +593,9 @@ test.describe('food scanner', () => {
 test('food search reports empty and failed searches', async ({ page }) => {
   await page.route('**/auth/refresh', (route) => route.abort())
   await page.route('**/auth/login', (route) => route.abort())
+  await page.route('**/auth/me', (route) =>
+    route.fulfill({ json: { role: 'owner', entitlements: ['money', 'food', 'plate'] } }),
+  )
   await page.route('**/food/catalog?*', (route) => route.fulfill({ status: 500 }))
   await fakeSignIn(page)
   await page.goto('/food/add')

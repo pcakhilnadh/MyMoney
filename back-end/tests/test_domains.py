@@ -1,3 +1,4 @@
+import pytest
 from tests.conftest import H
 
 
@@ -20,6 +21,7 @@ def test_money_routes_are_namespaced_and_api_auth_paths_remain(client):
     assert client.get("/api/accounts", headers=H("alice")).status_code == 404
 
 
+@pytest.mark.usefixtures("food_access")
 def test_food_entry_routes_exist_and_habit_routes_are_removed(client):
     assert client.get("/api/food/entries", headers=H("alice")).status_code == 200
     for path in (

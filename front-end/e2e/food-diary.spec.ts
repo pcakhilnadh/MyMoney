@@ -15,7 +15,7 @@ test('food home, goal, diary and insights use logged data', async ({ page }) => 
     route.fulfill({ json: { access_token: 'test-token', token_type: 'bearer', user } }),
   )
   await page.route('**/auth/login', (route) => route.abort())
-  await page.route('**/auth/me', (route) => route.fulfill({ json: {} }))
+  await page.route('**/auth/me', (route) => route.fulfill({ json: { role: 'owner', entitlements: ['money', 'food', 'plate'] } }))
   await page.route('**/sync/push', (route) =>
     route.fulfill({ json: { accepted: [], conflicts: [] } }),
   )

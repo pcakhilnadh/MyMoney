@@ -15,6 +15,8 @@ import Transactions from './pages/Transactions'
 import TransactionDetail from './pages/TransactionDetail'
 import Personal from './pages/Personal'
 import Feedback from './pages/Feedback'
+import OwnerDashboard from './pages/OwnerDashboard'
+import { RequireFeature, RequireOwner } from './account/entitlements'
 import Welcome, { BreathingScreen } from './pages/Welcome'
 import Settings from './pages/Settings'
 import CurrencySettings from './pages/CurrencySettings'
@@ -124,7 +126,15 @@ export default function App() {
             <Route path="/money/groups" element={<Groups />} />
             <Route path="/money/groups/:groupId" element={<GroupDetail />} />
           </Route>
-          <Route element={<FoodDataProvider><Layout app="food" /></FoodDataProvider>}>
+          <Route
+            element={
+              <RequireFeature feature="food">
+                <FoodDataProvider>
+                  <Layout app="food" />
+                </FoodDataProvider>
+              </RequireFeature>
+            }
+          >
             <Route path="/food" element={<Navigate to="/food/home" replace />} />
             <Route path="/food/home" element={<FoodHome />} />
             <Route path="/food/diary" element={<FoodDiary />} />
@@ -133,7 +143,13 @@ export default function App() {
             <Route path="/food/profile" element={<FoodProfile />} />
             <Route path="/food/*" element={<Navigate to="/food/home" replace />} />
           </Route>
-          <Route element={<Layout app="habit" />}>
+          <Route
+            element={
+              <RequireFeature feature="plate">
+                <Layout app="habit" />
+              </RequireFeature>
+            }
+          >
             <Route path="/habits" element={<Navigate to="/habits/today" replace />} />
             <Route path="/habits/today" element={<HabitsHome />} />
             <Route path="/habits/*" element={<Navigate to="/habits/today" replace />} />
@@ -141,6 +157,14 @@ export default function App() {
           <Route element={<Layout app="shared" />}>
             <Route path="/personal" element={<Personal />} />
             <Route path="/personal/feedback" element={<Feedback />} />
+            <Route
+              path="/personal/dashboard"
+              element={
+                <RequireOwner>
+                  <OwnerDashboard />
+                </RequireOwner>
+              }
+            />
           </Route>
         </Route>
         </Routes>

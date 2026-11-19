@@ -10,12 +10,13 @@ from sqlalchemy import insert, select
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
+from app.entitlements import require_feature
 from app.db import get_db
 from app.food_search import catalog, hybrid_food_search
 from app.models import FoodGoal, Profile, UserMealLog
 from app.ai.expense import Image, _validate_images
 
-router = APIRouter(prefix="/food", tags=["food"], dependencies=[Depends(get_current_user)])
+router = APIRouter(prefix="/food", tags=["food"], dependencies=[Depends(get_current_user), Depends(require_feature("food"))])
 
 
 NutritionValue = Annotated[float, Field(ge=0, allow_inf_nan=False)]

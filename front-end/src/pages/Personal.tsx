@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { PlateIcon } from '@/components/PlateIcon'
 import { useDialog } from '@/components/DialogProvider'
 import { Link } from 'react-router-dom'
-import { BadgeCheck, MessageSquareText, RefreshCw, Utensils, WalletCards, X } from 'lucide-react'
+import { BadgeCheck, LayoutDashboard, MessageSquareText, RefreshCw, Utensils, WalletCards, X } from 'lucide-react'
 import { ApiError, revokeAuthSession, type AuthSession } from '@/auth/api'
 import { useAuth } from '@/auth/AuthContext'
 import { PLAN_LABEL, ROLE_LABEL } from '@/account/membership'
@@ -234,6 +234,21 @@ export default function Personal() {
           </Button>
         </Card>
       </section>
+
+      {me?.role === 'owner' && (
+        <Link
+          to="/personal/dashboard"
+          className="cyber-panel surface flex items-center gap-3 rounded-card px-4 py-3"
+        >
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
+            <LayoutDashboard size={18} aria-hidden="true" />
+          </span>
+          <span className="min-w-0 flex-1">
+            <span className="block font-semibold">Owner dashboard</span>
+            <span className="block text-xs text-muted-foreground">Manage members and access</span>
+          </span>
+        </Link>
+      )}
 
       <Link
         to="/personal/feedback"

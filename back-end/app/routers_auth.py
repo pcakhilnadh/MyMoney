@@ -24,6 +24,8 @@ from app.config import settings
 from app.db import get_db
 from app.models import AuthSession, Profile
 
+from app.entitlements import entitlements_for
+
 router = APIRouter(prefix="/auth", tags=["auth"])
 
 
@@ -170,11 +172,14 @@ def revoke_session(
 
 
 @router.get("/me")
-def me(user: Profile = Depends(get_current_user)) -> dict[str, str]:
+def me(
+    user: Profile = Depends(get_current_user), db: Session = Depends(get_db)
+) -> dict[str, str | list[str]]:
     return {
         "id": str(user.id),
         "email": user.email,
         "preferred_currency": user.preferred_currency,
         "plan": user.plan.value,
         "role": user.role.value,
+        "entitlements": entitlements_for(db, user.role),
     }

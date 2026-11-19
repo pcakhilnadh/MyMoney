@@ -5,6 +5,7 @@ from fastapi import APIRouter, Depends
 from pydantic import BaseModel, Field, field_validator
 from sqlalchemy.orm import Session
 
+from app.entitlements import require_feature
 from app.ai.diagnostics import FoodFormatError
 from app.ai.expense import Image, _validate_images, run_analysis
 from app.ai.prompts import food_prompt
@@ -14,7 +15,7 @@ from app.db import get_db
 from app.models import Profile
 from app.routers_food import FoodCategory, FoodType
 
-router = APIRouter(prefix="/food/ai", tags=["food AI"])
+router = APIRouter(prefix="/food/ai", tags=["food AI"], dependencies=[Depends(require_feature("food"))])
 
 
 class FoodAnalysisRequest(BaseModel):

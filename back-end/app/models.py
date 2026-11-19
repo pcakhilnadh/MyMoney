@@ -37,7 +37,10 @@ class Plan(StrEnum):
 
 
 class AppRole(StrEnum):
+    """Ranked owner > admin > member."""
+
     MEMBER = "member"
+    ADMIN = "admin"
     OWNER = "owner"
 
 
@@ -378,3 +381,12 @@ class Feedback(Base):
     kind: Mapped[str] = mapped_column(String(20))
     body: Mapped[str] = mapped_column(String(500))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class RoleEntitlement(Base):
+    """A feature (app area) a role may use. Owners always have every feature."""
+
+    __tablename__ = "role_entitlements"
+
+    role: Mapped[str] = mapped_column(String(20), primary_key=True)
+    feature: Mapped[str] = mapped_column(String(30), primary_key=True)

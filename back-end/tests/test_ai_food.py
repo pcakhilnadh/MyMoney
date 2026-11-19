@@ -14,6 +14,8 @@ from app.models import AICallLog
 from tests.conftest import H
 from tests.test_food_catalog import create_writable_catalog
 
+pytestmark = pytest.mark.usefixtures("food_access")
+
 
 buffer = io.BytesIO()
 PILImage.new("RGB", (16, 16), "white").save(buffer, format="PNG")

@@ -15,6 +15,9 @@ test('scrolling to the bottom keeps navigation clearance on the app surface', as
   await page.setViewportSize({ width: 390, height: 600 })
   await page.route('**/auth/refresh', (route) => route.abort())
   await page.route('**/auth/login', (route) => route.abort())
+  await page.route('**/auth/me', (route) =>
+    route.fulfill({ json: { role: 'owner', entitlements: ['money', 'food', 'plate'] } }),
+  )
   await fakeSignIn(page)
 
   for (const path of ['/money/home', '/food/home', '/habits/today']) {
@@ -52,6 +55,9 @@ test('scrolling to the bottom keeps navigation clearance on the app surface', as
 test('money and food navigation share item and icon alignment', async ({ page }) => {
   await page.route('**/auth/refresh', (route) => route.abort())
   await page.route('**/auth/login', (route) => route.abort())
+  await page.route('**/auth/me', (route) =>
+    route.fulfill({ json: { role: 'owner', entitlements: ['money', 'food', 'plate'] } }),
+  )
   await fakeSignIn(page)
 
   for (const width of [320, 390, 768]) {
@@ -115,6 +121,9 @@ test('money and food navigation share item and icon alignment', async ({ page })
 test('signed-in shell shows tabs and settings', async ({ page }) => {
   await page.route('**/auth/refresh', (route) => route.abort())
   await page.route('**/auth/login', (route) => route.abort())
+  await page.route('**/auth/me', (route) =>
+    route.fulfill({ json: { role: 'owner', entitlements: ['money', 'food', 'plate'] } }),
+  )
   await fakeSignIn(page)
   await page.goto('/')
   await expect(page).toHaveURL(/\/money\/home/)
@@ -388,6 +397,9 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
 test('legacy /home URL redirects to the MyMoney route', async ({ page }) => {
   await page.route('**/auth/refresh', (route) => route.abort())
   await page.route('**/auth/login', (route) => route.abort())
+  await page.route('**/auth/me', (route) =>
+    route.fulfill({ json: { role: 'owner', entitlements: ['money', 'food', 'plate'] } }),
+  )
   await fakeSignIn(page)
   await page.goto('/home')
   await expect(page).toHaveURL(/\/money\/home/)
@@ -404,6 +416,9 @@ test('legacy /home URL redirects to the MyMoney route', async ({ page }) => {
 test('personal top navigation uses the Google avatar when available', async ({ page }) => {
   await page.route('**/auth/refresh', (route) => route.abort())
   await page.route('**/auth/login', (route) => route.abort())
+  await page.route('**/auth/me', (route) =>
+    route.fulfill({ json: { role: 'owner', entitlements: ['money', 'food', 'plate'] } }),
+  )
   const picture = 'data:image/gif;base64,R0lGODlhAQABAAD/ACwAAAAAAQABAAACADs='
   await fakeSignIn(page, {
     sub: 'avatar-user',

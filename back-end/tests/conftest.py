@@ -37,3 +37,11 @@ def client(monkeypatch):
 
 def H(user: str) -> dict[str, str]:
     return {"Authorization": f"Bearer {user}"}
+
+
+@pytest.fixture
+def food_access(monkeypatch):
+    """Let plain members use the food app, for tests that are not about entitlements."""
+    from app import entitlements
+
+    monkeypatch.setitem(entitlements.DEFAULT_ENTITLEMENTS, "member", entitlements.FEATURES)

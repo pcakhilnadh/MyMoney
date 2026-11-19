@@ -7,6 +7,9 @@ from app.models import Profile
 from app.food_search import catalog, fuzzy_score
 from app.routers_food import FoodCategory, FoodType
 from tests.conftest import H
+import pytest
+
+pytestmark = pytest.mark.usefixtures("food_access")
 
 
 def create_writable_catalog(client):

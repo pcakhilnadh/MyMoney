@@ -1,3 +1,4 @@
+import pytest
 from uuid import UUID
 
 from app.models import Category
@@ -332,6 +333,7 @@ def test_merchants_are_shared_and_duplicate_names_resolve_to_one_record(client):
     assert pulled[0]["id"] == MERCHANT
 
 
+@pytest.mark.usefixtures("food_access")
 def test_meal_logs_sync_with_nutrition_snapshots_and_stay_private(client):
     meal_id = "aaaaaaaa-0000-0000-0000-000000000020"
     meal = {

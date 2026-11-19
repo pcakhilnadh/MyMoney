@@ -14,6 +14,7 @@ import {
   Users,
   WalletCards,
 } from 'lucide-react'
+import { useEntitlements } from '@/account/entitlements'
 import { useAuth } from '@/auth/AuthContext'
 import { Button } from '@/components/kit'
 import { PlateIcon } from '@/components/PlateIcon'
@@ -40,7 +41,7 @@ const allApps = [
 ] as const
 
 // MyFood is hidden from the top tabs for now. Remove this filter to bring it back.
-const apps: readonly (typeof allApps)[number][] = allApps.filter((app) => app.id !== 'food')
+const visibleApps: readonly (typeof allApps)[number][] = allApps.filter((app) => app.id !== 'food')
 
 const habitTabs = [
   { label: 'Today', Icon: CalendarCheck },
@@ -57,7 +58,9 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
   const isFoodHome = pathname === '/food/home'
   const selectedApp = app === 'shared' ? null : app
   const comingSoon = selectedApp === 'habit'
-  const appInfo = apps.find((app) => app.id === selectedApp) ?? apps[0]
+  const { has } = useEntitlements()
+  const apps = visibleApps.filter((a) => has(a.id === 'habit' ? 'plate' : a.id))
+  const appInfo = apps.find((app) => app.id === selectedApp) ?? apps[0] ?? visibleApps[0]
   const navigationItems = selectedApp === 'food' ? foodTabs : tabs
   const addPath = selectedApp === 'food' ? '/food/add' : '/money/expenses/new'
   const isOffline = sync.state === 'offline' || !navigator.onLine

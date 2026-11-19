@@ -13,6 +13,19 @@ export async function fakeSignIn(
 ) {
   const token = `h.${b64({ ...who, exp: Math.floor(Date.now() / 1000) + 3600 })}.s`
   await page.addInitScript((t) => localStorage.setItem('exptracker.idtoken', t), token)
+  await grantFullAccess(page, who.sub)
+}
+
+/** Remember owner access for a user so every app opens even without reaching /auth/me. */
+export async function grantFullAccess(page: Page, sub: string) {
+  await page.addInitScript(
+    (s) =>
+      localStorage.setItem(
+        `mytracker.access.${s}`,
+        JSON.stringify({ role: 'owner', entitlements: ['money', 'food', 'plate'] }),
+      ),
+    sub,
+  )
 }
 
 export async function chooseOption(page: Page, label: string, option: string) {
