@@ -3,6 +3,7 @@ import { useLiveQuery } from 'dexie-react-hooks'
 import { useAuth } from '@/auth/AuthContext'
 import { api } from '@/auth/api'
 import { db } from '@/db/db'
+import type { Me } from '@/account/membership'
 import type { Balances, GroupTx, Member } from './types'
 
 const useToken = () => useAuth().token ?? ''
@@ -26,7 +27,7 @@ export const useBalances = (id: string) =>
   useApi<Balances>(['balances', id], `/money/groups/${id}/balances`)
 export const useGroupTxs = (id: string) =>
   useApi<GroupTx[]>(['gtx', id], `/money/transactions?group_id=${id}`)
-export const useMe = () => useApi<{ id: string; email: string }>(['me'], '/auth/me')
+export const useMe = () => useApi<Me>(['me'], '/auth/me')
 
 /** POST/DELETE helper that invalidates the given query keys on success. */
 export function useAction<TBody, TOut = unknown>(

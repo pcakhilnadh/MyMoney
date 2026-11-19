@@ -1,10 +1,12 @@
 import { useCallback, useEffect, useState } from 'react'
 import { PlateIcon } from '@/components/PlateIcon'
 import { useDialog } from '@/components/DialogProvider'
-import { RefreshCw, Utensils, WalletCards, X } from 'lucide-react'
+import { BadgeCheck, RefreshCw, Utensils, WalletCards, X } from 'lucide-react'
 import { ApiError, revokeAuthSession, type AuthSession } from '@/auth/api'
 import { useAuth } from '@/auth/AuthContext'
+import { PLAN_LABEL, ROLE_LABEL } from '@/account/membership'
 import { Button, Card, SectionTitle } from '@/components/kit'
+import { useMe } from '@/groups/hooks'
 import { cachedAuthSessions, useSync } from '@/sync/SyncProvider'
 
 const STATE = {
@@ -25,6 +27,7 @@ export default function Personal() {
   const { confirm, notify } = useDialog()
   const { user, token, signOut } = useAuth()
   const sync = useSync()
+  const me = useMe().data
   const st = STATE[sync.state]
   const welcome = greeting()
   const firstName = user?.name?.trim().split(/\s+/)[0]
@@ -134,6 +137,31 @@ export default function Personal() {
             </span>
           </div>
         </div>
+      </section>
+
+      <section className="space-y-2.5">
+        <div className="px-1">
+          <SectionTitle>Membership</SectionTitle>
+        </div>
+        <Card className="cyber-panel flex items-center gap-3">
+          <span className="flex size-9 shrink-0 items-center justify-center rounded-xl bg-secondary text-primary">
+            <BadgeCheck size={18} aria-hidden="true" />
+          </span>
+          <dl className="grid flex-1 grid-cols-2 gap-3">
+            <div>
+              <dt className="text-xs text-muted-foreground">Plan</dt>
+              <dd data-testid="membership-plan" className="font-semibold">
+                {me ? PLAN_LABEL[me.plan] : '—'}
+              </dd>
+            </div>
+            <div>
+              <dt className="text-xs text-muted-foreground">Role</dt>
+              <dd data-testid="membership-role" className="font-semibold">
+                {me ? ROLE_LABEL[me.role] : '—'}
+              </dd>
+            </div>
+          </dl>
+        </Card>
       </section>
 
       <section className="space-y-2.5">

@@ -1,4 +1,5 @@
 import uuid
+from enum import StrEnum
 from datetime import date, datetime, timezone
 
 from sqlalchemy import (
@@ -6,6 +7,7 @@ from sqlalchemy import (
     CheckConstraint,
     Date,
     DateTime,
+    Enum,
     ForeignKey,
     Integer,
     Index,
@@ -29,6 +31,21 @@ def _pk() -> Mapped[uuid.UUID]:
     return mapped_column(primary_key=True, default=uuid.uuid4)
 
 
+class Plan(StrEnum):
+    FREE = "free"
+    PRO = "pro"
+
+
+class AppRole(StrEnum):
+    MEMBER = "member"
+    OWNER = "owner"
+
+
+def _str_enum(enum_cls: type[StrEnum], name: str) -> Enum:
+    # Persist the lowercase values ("free"), not the member names ("FREE").
+    return Enum(enum_cls, name=name, values_callable=lambda e: [m.value for m in e])
+
+
 class Profile(Base):
     """User identity and preferences. Name and avatar are never stored here."""
 
@@ -38,6 +55,12 @@ class Profile(Base):
     google_sub: Mapped[str] = mapped_column(String, unique=True, index=True)
     email: Mapped[str] = mapped_column(String, unique=True, index=True)
     preferred_currency: Mapped[str] = mapped_column(String(3), default="INR", server_default="INR")
+    plan: Mapped[Plan] = mapped_column(
+        _str_enum(Plan, "profile_plan"), default=Plan.FREE, server_default=Plan.FREE.value
+    )
+    role: Mapped[AppRole] = mapped_column(
+        _str_enum(AppRole, "profile_role"), default=AppRole.MEMBER, server_default=AppRole.MEMBER.value
+    )
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
 

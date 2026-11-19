@@ -1,7 +1,7 @@
 from fastapi.testclient import TestClient
 from app.auth import _token_hash
 from app.main import app
-from app.models import AuthSession, Profile
+from app.models import AppRole, AuthSession, Plan, Profile
 
 
 def test_requires_token(client):
@@ -159,3 +159,12 @@ def test_concurrent_first_requests_do_not_500(client, monkeypatch):
 
     monkeypatch.setattr(Session, "scalar", flaky)
     assert c.get("/api/auth/me", headers={"Authorization": "Bearer dana"}).status_code == 200
+
+
+def test_new_profile_defaults_to_free_plan_and_member_role(client):
+    me = client.get("/api/auth/me", headers={"Authorization": "Bearer alice"}).json()
+    assert me["plan"] == "free"
+    assert me["role"] == "member"
+    with client.session_factory() as s:
+        profile = s.query(Profile).one()
+        assert profile.plan == Plan.FREE and profile.role == AppRole.MEMBER

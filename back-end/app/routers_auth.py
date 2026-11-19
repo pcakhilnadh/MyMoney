@@ -175,4 +175,6 @@ def me(user: Profile = Depends(get_current_user)) -> dict[str, str]:
         "id": str(user.id),
         "email": user.email,
         "preferred_currency": user.preferred_currency,
+        "plan": user.plan.value,
+        "role": user.role.value,
     }
