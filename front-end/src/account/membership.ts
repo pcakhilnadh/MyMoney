@@ -1,7 +1,7 @@
 export type Plan = 'free' | 'pro'
 /** Ranked owner > admin > member. */
 export type AppRole = 'member' | 'admin' | 'owner'
-/** App areas a role can be entitled to. `plate` is MyPlate (the habits app). */
+/** App areas a role can be entitled to. `plate` is MyPlate (meal planning). */
 export type Feature = 'money' | 'food' | 'plate'
 
 export interface Me {

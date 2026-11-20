@@ -20,7 +20,7 @@ test('scrolling to the bottom keeps navigation clearance on the app surface', as
   )
   await fakeSignIn(page)
 
-  for (const path of ['/money/home', '/food/home', '/habits/today']) {
+  for (const path of ['/money/home', '/food/home', '/plate/today']) {
     await page.goto(path)
     const main = page.locator('main')
     await expect(main).toHaveClass(/app-connected-surface/)
@@ -209,14 +209,8 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
     'rgb(75, 139, 255)',
   )
   await page.getByRole('link', { name: 'Ledger' }).click()
-  await expect(page.getByRole('link', { name: 'Ledger' })).toHaveAttribute(
-    'aria-current',
-    'page',
-  )
-  await expect(page.getByRole('link', { name: 'Ledger' })).toHaveCSS(
-    'color',
-    'rgb(75, 139, 255)',
-  )
+  await expect(page.getByRole('link', { name: 'Ledger' })).toHaveAttribute('aria-current', 'page')
+  await expect(page.getByRole('link', { name: 'Ledger' })).toHaveCSS('color', 'rgb(75, 139, 255)')
   await page.goto('/money/transactions')
   await appSelector.getByRole('button', { name: 'MyFood' }).click()
   await expect(page).toHaveURL(/\/food\/home$/)
@@ -269,17 +263,17 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await expect(page.getByRole('heading', { name: 'Diary' })).toBeVisible()
   await expect(page.getByText('Coming Soon')).toBeVisible()
   await appSelector.getByRole('button', { name: 'MyPlate' }).click()
-  await expect(page).toHaveURL(/\/habits\/today$/)
-  await expect(page.getByRole('heading', { name: 'Today' })).toBeVisible()
+  await expect(page).toHaveURL(/\/plate\/today$/)
+  await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible()
   expect(await getAppTabBounds()).toEqual(initialAppTabBounds)
-  const habitAppTab = appSelector.getByRole('button', { name: 'MyPlate' })
-  await expect(habitAppTab).toHaveClass(/app-connected-surface/)
-  await expect(habitAppTab).toHaveCSS('border-radius', '0px')
-  await expect(habitAppTab).toHaveCSS('background-image', 'none')
+  const plateAppTab = appSelector.getByRole('button', { name: 'MyPlate' })
+  await expect(plateAppTab).toHaveClass(/app-connected-surface/)
+  await expect(plateAppTab).toHaveCSS('border-radius', '0px')
+  await expect(plateAppTab).toHaveCSS('background-image', 'none')
   await expect(page.locator('main')).toHaveClass(/app-connected-surface/)
   await expect(page.locator('main')).toHaveCSS('background-image', 'none')
   await page.mouse.move(0, 0)
-  await expect(habitAppTab).toHaveCSS(
+  await expect(plateAppTab).toHaveCSS(
     'background-color',
     await page.locator('main').evaluate((element) => getComputedStyle(element).backgroundColor),
   )
@@ -295,16 +289,16 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
     'color',
     'rgb(237, 41, 57)',
   )
-  await expect(page.locator('[data-app="habit"]')).toHaveCSS('background-image', /50vh/)
+  await expect(page.locator('[data-app="plate"]')).toHaveCSS('background-image', /50vh/)
   await expect(
     page.getByRole('navigation', { name: 'MyPlate navigation' }).locator('svg').first(),
   ).toHaveCSS('color', 'rgb(237, 41, 57)')
-  const habitNavigation = page.getByRole('navigation', { name: 'MyPlate navigation' })
-  await expect(habitNavigation.getByRole('button')).toHaveCount(1)
-  await expect(habitNavigation.getByText('Today')).toBeDisabled()
-  await expect(page.locator('[data-app="habit"]')).toHaveCSS('--primary', '#ed2939')
-  await page.goto('/habits')
-  await expect(page).toHaveURL(/\/habits\/today$/)
+  const plateNavigation = page.getByRole('navigation', { name: 'MyPlate navigation' })
+  await expect(plateNavigation.getByRole('link')).toHaveText(['Today', 'Plan', 'Cart', 'Kitchens'])
+  await expect(plateNavigation.getByRole('button', { name: 'Create' })).toBeVisible()
+  await expect(page.locator('[data-app="plate"]')).toHaveCSS('--primary', '#ed2939')
+  await page.goto('/plate')
+  await expect(page).toHaveURL(/\/plate\/today$/)
   await appSelector.getByRole('button', { name: 'My Money' }).click()
   await expect(page).toHaveURL(/\/money\/home/)
   await page.getByRole('link', { name: 'View all' }).click()
@@ -350,26 +344,20 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await expect(page.locator('.bottom-nav')).toHaveCount(0)
   await expect(page.getByText(/Good (morning|afternoon|evening)/)).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Test!' })).toBeVisible()
-  await expect(page.locator('.cyber-greeting__eyebrow')).toHaveCSS(
-    'color',
-    'rgb(75, 139, 255)',
-  )
+  await expect(page.locator('.cyber-greeting__eyebrow')).toHaveCSS('color', 'rgb(75, 139, 255)')
   await expect(page.locator('.personal-theme-money')).toHaveCSS('color', 'rgb(75, 139, 255)')
   await expect(page.locator('.personal-theme-food')).toHaveCSS('color', 'rgb(57, 201, 138)')
-  await expect(page.locator('.personal-theme-habit')).toHaveCSS('color', 'rgb(237, 41, 57)')
+  await expect(page.locator('.personal-theme-plate')).toHaveCSS('color', 'rgb(237, 41, 57)')
   await expect(page.locator('.cyber-greeting__pulse')).toHaveCSS(
     'background-color',
     'rgb(237, 41, 57)',
   )
   await expect(page.getByTestId('personal-greeting-emoji')).toHaveText(/🌅|☀️|🌙/)
   await expect(page.getByText('me@gmail.com')).toHaveCount(0)
-  await expect(page.getByText(/track money, food, and habits/i)).toBeVisible()
+  await expect(page.getByText(/track money, food, and meals/i)).toBeVisible()
   await expect(page.getByTestId('sync-state')).toBeVisible()
   await expect(page.getByRole('heading', { name: 'Active sessions' })).toBeVisible()
-  await expect(page.locator('.cyber-session-count')).toHaveCSS(
-    'color',
-    'rgb(142, 142, 160)',
-  )
+  await expect(page.locator('.cyber-session-count')).toHaveCSS('color', 'rgb(142, 142, 160)')
   await expect(page.locator('.cyber-signout')).toHaveCSS('color', 'rgb(237, 41, 57)')
   await expect(page.locator('.personal-fixed-action')).toHaveCSS('position', 'fixed')
   await expect(page.getByRole('button', { name: 'Sign out' })).toBeVisible()

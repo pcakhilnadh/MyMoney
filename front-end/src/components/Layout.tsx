@@ -2,13 +2,16 @@ import { Fragment, useState } from 'react'
 import { Link, NavLink, Outlet, useLocation, useNavigate } from 'react-router-dom'
 import {
   BookOpen,
-  CalendarCheck,
+  CalendarDays,
   ChartNoAxesColumnIncreasing,
+  ChefHat,
   House,
   Plus,
   Receipt,
   RefreshCw,
   Settings as SettingsIcon,
+  ShoppingCart,
+  Sun,
   Utensils,
   User,
   Users,
@@ -18,6 +21,7 @@ import { useEntitlements } from '@/account/entitlements'
 import { useAuth } from '@/auth/AuthContext'
 import { Button } from '@/components/kit'
 import { PlateIcon } from '@/components/PlateIcon'
+import { PlateAddButton } from '@/plate/PlateProvider'
 import { useSync } from '@/sync/SyncProvider'
 
 const tabs = [
@@ -37,17 +41,21 @@ const foodTabs = [
 const allApps = [
   { id: 'money', label: 'My Money', Icon: WalletCards },
   { id: 'food', label: 'MyFood', Icon: Utensils },
-  { id: 'habit', label: 'MyPlate', Icon: PlateIcon },
+  { id: 'plate', label: 'MyPlate', Icon: PlateIcon },
 ] as const
 
 // MyFood is hidden from the top tabs for now. Remove this filter to bring it back.
 const visibleApps: readonly (typeof allApps)[number][] = allApps.filter((app) => app.id !== 'food')
 
-const habitTabs = [
-  { label: 'Today', Icon: CalendarCheck },
+// Today stays first: it's what MyPlate opens on. Ideas lives in the Plan header.
+const plateTabs = [
+  { to: '/plate/today', label: 'Today', Icon: Sun },
+  { to: '/plate/plan', label: 'Plan', Icon: CalendarDays },
+  { to: '/plate/cart', label: 'Cart', Icon: ShoppingCart },
+  { to: '/plate/kitchens', label: 'Kitchens', Icon: ChefHat },
 ]
 
-export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'shared' }) {
+export default function Layout({ app }: { app: 'money' | 'food' | 'plate' | 'shared' }) {
   const { user, token } = useAuth()
   const sync = useSync()
   const { pathname } = useLocation()
@@ -57,13 +65,13 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
   const isPersonal = pathname === '/personal' || pathname.startsWith('/personal/')
   const isFoodHome = pathname === '/food/home'
   const selectedApp = app === 'shared' ? null : app
-  const comingSoon = selectedApp === 'habit'
   const { has } = useEntitlements()
-  const apps = visibleApps.filter((a) => has(a.id === 'habit' ? 'plate' : a.id))
+  const apps = visibleApps.filter((a) => has(a.id))
   // With one app available, the profile button shares the app tab's surface (until Personal is open).
   const singleApp = apps.length === 1
   const appInfo = apps.find((app) => app.id === selectedApp) ?? apps[0] ?? visibleApps[0]
-  const navigationItems = selectedApp === 'food' ? foodTabs : tabs
+  const navigationItems =
+    selectedApp === 'food' ? foodTabs : selectedApp === 'plate' ? plateTabs : tabs
   const addPath = selectedApp === 'food' ? '/food/add' : '/money/expenses/new'
   const isOffline = sync.state === 'offline' || !navigator.onLine
   const syncMessage =
@@ -92,11 +100,7 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
         {apps.map(({ id, label, Icon }) => {
           const selected = selectedApp === id
           const appTheme =
-            id === 'money'
-              ? 'text-[#4b8bff]'
-              : id === 'food'
-                ? 'text-[#39c98a]'
-                : 'text-[#ed2939]'
+            id === 'money' ? 'text-[#4b8bff]' : id === 'food' ? 'text-[#39c98a]' : 'text-[#ed2939]'
           return (
             <button
               key={label}
@@ -104,11 +108,7 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
               aria-pressed={selected}
               onClick={() =>
                 navigate(
-                  id === 'money'
-                    ? '/money/home'
-                    : id === 'food'
-                      ? '/food/home'
-                      : '/habits/today',
+                  id === 'money' ? '/money/home' : id === 'food' ? '/food/home' : '/plate/today',
                 )
               }
               className={`flex min-w-0 items-center justify-center gap-1.5 px-1.5 py-2 text-xs font-semibold transition-colors ${
@@ -128,10 +128,10 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
           aria-current={pathname === '/personal' ? 'page' : undefined}
           className={`flex items-center justify-center text-muted-foreground transition-colors ${
             isPersonal
-            ? 'personal-selector-tab-active h-16 w-full bg-card hover:bg-card'
-            : singleApp && selectedApp
-              ? 'app-connected-surface app-selector-tab-active h-16 w-full'
-              : 'h-16 w-full rounded-xl'
+              ? 'personal-selector-tab-active h-16 w-full bg-card hover:bg-card'
+              : singleApp && selectedApp
+                ? 'app-connected-surface app-selector-tab-active h-16 w-full'
+                : 'h-16 w-full rounded-xl'
           }`}
         >
           {picture && picture !== failedPicture ? (
@@ -172,7 +172,13 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
             onClick={() => void sync.syncNow()}
             disabled={sync.state === 'syncing' || isOffline || !token}
           >
-            {sync.state === 'syncing' ? 'Syncing…' : isOffline ? 'Offline' : !token ? 'Waiting…' : 'Sync now'}
+            {sync.state === 'syncing'
+              ? 'Syncing…'
+              : isOffline
+                ? 'Offline'
+                : !token
+                  ? 'Waiting…'
+                  : 'Sync now'}
           </Button>
         </aside>
       ) : null}
@@ -187,32 +193,15 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
       >
         <Outlet />
       </main>
-      {isPersonal ? null : comingSoon ? (
-        <nav
-          aria-label={`${appInfo.label} navigation`}
-          className="bottom-nav fixed inset-x-0 bottom-0 z-10 mx-auto flex w-full max-w-md items-center justify-around py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))]"
-        >
-          {habitTabs.map(({ label, Icon }) => (
-            <button
-              key={label}
-              type="button"
-              disabled
-              aria-disabled="true"
-              className="flex min-w-16 flex-col items-center gap-0.5 rounded-2xl px-3 py-1.5 text-[11px] font-medium text-primary"
-            >
-              <Icon size={21} className="text-primary" />
-              {label}
-            </button>
-          ))}
-        </nav>
-      ) : (
+      {isPersonal ? null : (
         <nav
           aria-label={`${appInfo.label} navigation`}
           className={`bottom-nav fixed inset-x-0 bottom-0 z-10 mx-auto grid w-full max-w-md grid-cols-5 items-center justify-items-center py-2 pb-[max(0.5rem,env(safe-area-inset-bottom))] ${isFoodHome ? 'food-home-nav' : ''}`}
         >
           {navigationItems.map(({ to, label, Icon }, index) => (
             <Fragment key={to}>
-              {index === 2 && (
+              {index === 2 && selectedApp === 'plate' && <PlateAddButton />}
+              {index === 2 && selectedApp !== 'plate' && (
                 <Link
                   to={addPath}
                   aria-label={selectedApp === 'food' ? 'Add meal' : 'Add expense'}
@@ -233,7 +222,9 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'habit' | 'sha
                 }
               >
                 {isFoodHome ? (
-                  <span className={`flex h-7 w-12 items-center justify-center rounded-full ${pathname === to ? 'bg-[#173a2a]' : ''}`}>
+                  <span
+                    className={`flex h-7 w-12 items-center justify-center rounded-full ${pathname === to ? 'bg-[#173a2a]' : ''}`}
+                  >
                     <Icon size={20} aria-hidden="true" />
                   </span>
                 ) : (

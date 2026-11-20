@@ -26,12 +26,14 @@ import BudgetCategoryDetail from './pages/BudgetCategoryDetail'
 import FoodHome from './pages/FoodHome'
 import FoodLog from './pages/FoodLog'
 import { FoodDataProvider } from './food/FoodDataProvider'
-import {
-  FoodDiary,
-  FoodInsights,
-  FoodProfile,
-} from './pages/FoodSections'
-import HabitsHome from './pages/HabitsHome'
+import { FoodDiary, FoodInsights, FoodProfile } from './pages/FoodSections'
+import { PlateProvider } from './plate/PlateProvider'
+import PlateToday from './pages/plate/Today'
+import PlatePlan from './pages/plate/Plan'
+import PlateCart from './pages/plate/Cart'
+import PlateKitchens from './pages/plate/Kitchens'
+import PlateKitchenSettings from './pages/plate/KitchenSettings'
+import PlateIdeas from './pages/plate/Ideas'
 import { CurrencyProvider } from './money/CurrencyContext'
 import { useInstall } from './pwa/useInstall'
 
@@ -118,79 +120,86 @@ export default function App() {
       <CurrencyProvider>
         <InstallPrompt />
         <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route element={<Protected />}>
-          <Route index element={<Navigate to="/money/home" replace />} />
-          <Route path="/welcome" element={<Welcome />} />
-          <Route path="/home" element={<LegacyMoneyRedirect />} />
-          <Route path="/transactions/*" element={<LegacyMoneyRedirect />} />
-          <Route path="/expenses/*" element={<LegacyMoneyRedirect />} />
-          <Route path="/insights" element={<LegacyMoneyRedirect />} />
-          <Route path="/budgets/*" element={<LegacyMoneyRedirect />} />
-          <Route path="/settings/*" element={<LegacyMoneyRedirect />} />
-          <Route path="/accounts/*" element={<LegacyMoneyRedirect />} />
-          <Route path="/groups/*" element={<LegacyMoneyRedirect />} />
-          <Route element={<Layout app="money" />}>
-            <Route path="/money" element={<Navigate to="/money/home" replace />} />
-            <Route path="/money/home" element={<Home />} />
-            <Route path="/money/settings" element={<Settings />} />
-            <Route path="/money/settings/currency" element={<CurrencySettings />} />
-            <Route path="/money/transactions" element={<Transactions />} />
-            <Route path="/money/transactions/:transactionId" element={<TransactionDetail />} />
-            <Route path="/money/expenses/new" element={<AddExpense />} />
-            <Route path="/money/insights" element={<Insights />} />
-            <Route path="/money/budgets" element={<Budgets />} />
+          <Route path="/login" element={<Login />} />
+          <Route element={<Protected />}>
+            <Route index element={<Navigate to="/money/home" replace />} />
+            <Route path="/welcome" element={<Welcome />} />
+            <Route path="/home" element={<LegacyMoneyRedirect />} />
+            <Route path="/transactions/*" element={<LegacyMoneyRedirect />} />
+            <Route path="/expenses/*" element={<LegacyMoneyRedirect />} />
+            <Route path="/insights" element={<LegacyMoneyRedirect />} />
+            <Route path="/budgets/*" element={<LegacyMoneyRedirect />} />
+            <Route path="/settings/*" element={<LegacyMoneyRedirect />} />
+            <Route path="/accounts/*" element={<LegacyMoneyRedirect />} />
+            <Route path="/groups/*" element={<LegacyMoneyRedirect />} />
+            <Route element={<Layout app="money" />}>
+              <Route path="/money" element={<Navigate to="/money/home" replace />} />
+              <Route path="/money/home" element={<Home />} />
+              <Route path="/money/settings" element={<Settings />} />
+              <Route path="/money/settings/currency" element={<CurrencySettings />} />
+              <Route path="/money/transactions" element={<Transactions />} />
+              <Route path="/money/transactions/:transactionId" element={<TransactionDetail />} />
+              <Route path="/money/expenses/new" element={<AddExpense />} />
+              <Route path="/money/insights" element={<Insights />} />
+              <Route path="/money/budgets" element={<Budgets />} />
+              <Route
+                path="/money/budgets/categories/:categoryId"
+                element={<BudgetCategoryDetail />}
+              />
+              <Route path="/money/settings/accounts" element={<SettingsAccounts />} />
+              <Route path="/money/accounts/:accountId" element={<AccountDetail />} />
+              <Route path="/money/settings/categories" element={<SettingsCategories />} />
+              <Route path="/money/groups" element={<Groups />} />
+              <Route path="/money/groups/:groupId" element={<GroupDetail />} />
+            </Route>
             <Route
-              path="/money/budgets/categories/:categoryId"
-              element={<BudgetCategoryDetail />}
-            />
-            <Route path="/money/settings/accounts" element={<SettingsAccounts />} />
-            <Route path="/money/accounts/:accountId" element={<AccountDetail />} />
-            <Route path="/money/settings/categories" element={<SettingsCategories />} />
-            <Route path="/money/groups" element={<Groups />} />
-            <Route path="/money/groups/:groupId" element={<GroupDetail />} />
-          </Route>
-          <Route
-            element={
-              <RequireFeature feature="food">
-                <FoodDataProvider>
-                  <Layout app="food" />
-                </FoodDataProvider>
-              </RequireFeature>
-            }
-          >
-            <Route path="/food" element={<Navigate to="/food/home" replace />} />
-            <Route path="/food/home" element={<FoodHome />} />
-            <Route path="/food/diary" element={<FoodDiary />} />
-            <Route path="/food/add" element={<FoodLog />} />
-            <Route path="/food/insights" element={<FoodInsights />} />
-            <Route path="/food/profile" element={<FoodProfile />} />
-            <Route path="/food/*" element={<Navigate to="/food/home" replace />} />
-          </Route>
-          <Route
-            element={
-              <RequireFeature feature="plate">
-                <Layout app="habit" />
-              </RequireFeature>
-            }
-          >
-            <Route path="/habits" element={<Navigate to="/habits/today" replace />} />
-            <Route path="/habits/today" element={<HabitsHome />} />
-            <Route path="/habits/*" element={<Navigate to="/habits/today" replace />} />
-          </Route>
-          <Route element={<Layout app="shared" />}>
-            <Route path="/personal" element={<Personal />} />
-            <Route path="/personal/feedback" element={<Feedback />} />
-            <Route
-              path="/personal/dashboard"
               element={
-                <RequireOwner>
-                  <OwnerDashboard />
-                </RequireOwner>
+                <RequireFeature feature="food">
+                  <FoodDataProvider>
+                    <Layout app="food" />
+                  </FoodDataProvider>
+                </RequireFeature>
               }
-            />
+            >
+              <Route path="/food" element={<Navigate to="/food/home" replace />} />
+              <Route path="/food/home" element={<FoodHome />} />
+              <Route path="/food/diary" element={<FoodDiary />} />
+              <Route path="/food/add" element={<FoodLog />} />
+              <Route path="/food/insights" element={<FoodInsights />} />
+              <Route path="/food/profile" element={<FoodProfile />} />
+              <Route path="/food/*" element={<Navigate to="/food/home" replace />} />
+            </Route>
+            <Route
+              element={
+                <RequireFeature feature="plate">
+                  <PlateProvider>
+                    <Layout app="plate" />
+                  </PlateProvider>
+                </RequireFeature>
+              }
+            >
+              <Route path="/plate" element={<Navigate to="/plate/today" replace />} />
+              <Route path="/plate/today" element={<PlateToday />} />
+              <Route path="/plate/plan" element={<PlatePlan />} />
+              <Route path="/plate/ideas" element={<PlateIdeas />} />
+              <Route path="/plate/cart" element={<PlateCart />} />
+              <Route path="/plate/kitchens" element={<PlateKitchens />} />
+              <Route path="/plate/kitchens/:kitchenId" element={<PlateKitchenSettings />} />
+              <Route path="/plate/*" element={<Navigate to="/plate/today" replace />} />
+            </Route>
+            <Route element={<Layout app="shared" />}>
+              <Route path="/personal" element={<Personal />} />
+              <Route path="/personal/feedback" element={<Feedback />} />
+              <Route
+                path="/personal/dashboard"
+                element={
+                  <RequireOwner>
+                    <OwnerDashboard />
+                  </RequireOwner>
+                }
+              />
+            </Route>
           </Route>
-        </Route>
         </Routes>
       </CurrencyProvider>
     </BrowserRouter>

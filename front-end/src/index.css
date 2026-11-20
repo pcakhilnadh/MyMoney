@@ -41,7 +41,7 @@
   --app-glow: rgba(124, 108, 255, 0.18);
   --money-primary: #4b8bff;
   --food-primary: #39c98a;
-  --habit-primary: #ed2939;
+  --plate-primary: #ed2939;
   --background: #0a0a0f;
   --foreground: #f4f4f8;
   --card: #15151c;
@@ -95,7 +95,7 @@
   color: #a9bfb5;
   font-size: 11px;
   font-weight: 600;
-  letter-spacing: .12em;
+  letter-spacing: 0.12em;
   text-transform: uppercase;
 }
 .food-icon {
@@ -108,6 +108,129 @@
   border-radius: 50%;
   background: #1a2824;
 }
+/* MyPlate: flat warm surfaces on the red app canvas. Every class is prefixed `pl-`. */
+@layer components {
+  .pl-card {
+    background: rgba(255, 255, 255, 0.055);
+    border: 1px solid rgba(255, 255, 255, 0.07);
+    border-radius: 16px;
+  }
+  .pl-card-accent {
+    background: linear-gradient(180deg, rgba(237, 41, 57, 0.16), rgba(237, 41, 57, 0.05));
+    border: 1px solid rgba(237, 41, 57, 0.38);
+    border-radius: 18px;
+  }
+  .pl-sunken {
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid rgba(255, 255, 255, 0.06);
+  }
+  .pl-label {
+    font-size: 11px;
+    font-weight: 600;
+    letter-spacing: 0.08em;
+    text-transform: uppercase;
+    color: var(--muted-foreground);
+  }
+  .pl-chip {
+    display: inline-flex;
+    max-width: 100%;
+    align-items: center;
+    gap: 0.375rem;
+    height: 1.625rem;
+    padding: 0 0.625rem;
+    border-radius: 999px;
+    background: rgba(0, 0, 0, 0.28);
+    font-size: 12px;
+    font-weight: 600;
+    white-space: nowrap;
+  }
+  .pl-input {
+    width: 100%;
+    height: 2.875rem;
+    padding: 0 0.875rem;
+    border-radius: 12px;
+    background: rgba(0, 0, 0, 0.24);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--foreground);
+    font-size: 15px;
+    outline: none;
+    transition: border-color 150ms ease;
+  }
+  .pl-input::placeholder {
+    color: var(--muted-foreground);
+    opacity: 0.8;
+  }
+  .pl-input:focus {
+    border-color: color-mix(in srgb, var(--primary) 70%, transparent);
+  }
+  select.pl-input {
+    appearance: none;
+    padding-right: 2.25rem;
+    cursor: pointer;
+    background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='16' viewBox='0 0 24 24' fill='none' stroke='%23c9b3b7' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat: no-repeat;
+    background-position: right 0.75rem center;
+  }
+  select.pl-input option {
+    background: #2a171b;
+    color: var(--foreground);
+  }
+  input.pl-input[type='date'] {
+    color-scheme: dark;
+  }
+  .pl-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    height: 3rem;
+    padding: 0 1.125rem;
+    border-radius: 14px;
+    font-size: 15px;
+    font-weight: 600;
+    white-space: nowrap;
+    transition:
+      filter 150ms ease,
+      background-color 150ms ease;
+  }
+  .pl-btn:disabled {
+    opacity: 0.5;
+    pointer-events: none;
+  }
+  .pl-btn-primary {
+    background: var(--primary);
+    color: #fff;
+  }
+  .pl-btn-primary:hover {
+    filter: brightness(1.08);
+  }
+  .pl-btn-success {
+    background: #3f9d6a;
+    color: #fff;
+  }
+  .pl-btn-success:hover {
+    filter: brightness(1.08);
+  }
+  .pl-btn-secondary {
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    color: var(--foreground);
+  }
+  .pl-btn-secondary:hover {
+    background: rgba(255, 255, 255, 0.09);
+  }
+  .pl-btn-danger {
+    background: rgba(255, 107, 122, 0.1);
+    border: 1px solid rgba(255, 107, 122, 0.2);
+    color: var(--destructive);
+  }
+  .pl-sheet {
+    background: #2a171b;
+    border-top: 1px solid rgba(255, 255, 255, 0.08);
+    box-shadow: 0 -24px 48px -16px rgba(0, 0, 0, 0.8);
+  }
+}
+
 [data-app='food'] .app-connected-surface {
   --connected-surface-color: #1d2f29;
 }
@@ -128,10 +251,12 @@
   box-shadow: 0 0 0 6px rgba(111, 207, 151, 0.14);
 }
 
-[data-app='habit'] {
-  --primary: var(--habit-primary);
+[data-app='plate'] {
+  --primary: var(--plate-primary);
   --primary-foreground: #ffffff;
-  --positive: #ff8b94;
+  /* Warm grey that reads on the red canvas; the app-wide grey is cool blue. */
+  --muted-foreground: #b9a2a6;
+  --positive: #4cc38a;
   --ring: #ed2939;
   --app-glow: rgba(237, 41, 57, 0.18);
   --app-side-glow: rgba(237, 41, 57, 0.06);
@@ -163,13 +288,23 @@
   position: absolute;
   inset: -20% 0 auto;
   height: 20%;
-  background: linear-gradient(to bottom, transparent, rgba(112, 175, 255, 0.35), rgba(195, 228, 255, 0.85), transparent);
+  background: linear-gradient(
+    to bottom,
+    transparent,
+    rgba(112, 175, 255, 0.35),
+    rgba(195, 228, 255, 0.85),
+    transparent
+  );
   filter: drop-shadow(0 0 8px rgba(75, 139, 255, 0.9));
   animation: bill-scan 2.4s ease-in-out infinite alternate;
 }
 @keyframes bill-scan {
-  from { transform: translateY(0); }
-  to { transform: translateY(600%); }
+  from {
+    transform: translateY(0);
+  }
+  to {
+    transform: translateY(600%);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .bill-scan-overlay::after {
@@ -202,9 +337,22 @@
   border: 1px solid color-mix(in srgb, var(--primary) 50%, transparent);
   animation: welcome-ring 6s ease-in-out infinite;
 }
-.welcome-ring-1 { width: 7rem; height: 7rem; }
-.welcome-ring-2 { width: 10rem; height: 10rem; animation-delay: 0.3s; opacity: 0.6; }
-.welcome-ring-3 { width: 13.5rem; height: 13.5rem; animation-delay: 0.6s; opacity: 0.35; }
+.welcome-ring-1 {
+  width: 7rem;
+  height: 7rem;
+}
+.welcome-ring-2 {
+  width: 10rem;
+  height: 10rem;
+  animation-delay: 0.3s;
+  opacity: 0.6;
+}
+.welcome-ring-3 {
+  width: 13.5rem;
+  height: 13.5rem;
+  animation-delay: 0.6s;
+  opacity: 0.35;
+}
 .welcome-orbit {
   position: absolute;
   inset: 0;
@@ -221,7 +369,11 @@
   background: var(--positive);
   box-shadow: 0 0 12px var(--positive);
 }
-.welcome-orbit-2 { animation-duration: 18s; animation-direction: reverse; inset: 1.25rem; }
+.welcome-orbit-2 {
+  animation-duration: 18s;
+  animation-direction: reverse;
+  inset: 1.25rem;
+}
 .welcome-word {
   position: absolute;
   inset: 0;
@@ -231,27 +383,59 @@
   background-clip: text;
   color: transparent;
 }
-.welcome-in { animation: welcome-in 6s ease-in-out infinite; }
-.welcome-out { animation: welcome-in 6s ease-in-out infinite; animation-delay: -3s; }
+.welcome-in {
+  animation: welcome-in 6s ease-in-out infinite;
+}
+.welcome-out {
+  animation: welcome-in 6s ease-in-out infinite;
+  animation-delay: -3s;
+}
 
 @keyframes welcome-breathe {
-  0%, 100% { transform: scale(0.7); }
-  50% { transform: scale(1.35); }
+  0%,
+  100% {
+    transform: scale(0.7);
+  }
+  50% {
+    transform: scale(1.35);
+  }
 }
 @keyframes welcome-ring {
-  0%, 100% { transform: scale(0.75); }
-  50% { transform: scale(1.05); }
+  0%,
+  100% {
+    transform: scale(0.75);
+  }
+  50% {
+    transform: scale(1.05);
+  }
 }
 @keyframes welcome-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 @keyframes welcome-in {
-  0%, 100% { opacity: 0; transform: translateY(6px); }
-  15%, 35% { opacity: 1; transform: translateY(0); }
-  50% { opacity: 0; transform: translateY(-6px); }
+  0%,
+  100% {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  15%,
+  35% {
+    opacity: 1;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 0;
+    transform: translateY(-6px);
+  }
 }
 @media (prefers-reduced-motion: reduce) {
-  .welcome-core, .welcome-ring, .welcome-orbit { animation: none; }
+  .welcome-core,
+  .welcome-ring,
+  .welcome-orbit {
+    animation: none;
+  }
 }
 
 [data-app] {
@@ -344,7 +528,11 @@
     }
   }
   .gloss {
-    background: linear-gradient(180deg, color-mix(in srgb, var(--primary) 82%, white) 0%, var(--primary) 100%);
+    background: linear-gradient(
+      180deg,
+      color-mix(in srgb, var(--primary) 82%, white) 0%,
+      var(--primary) 100%
+    );
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.4),
       0 8px 20px -6px color-mix(in srgb, var(--primary) 70%, transparent);
@@ -551,20 +739,31 @@
   /* Neon cyberpunk greeting banner with clipped corners and animated scanline. */
   .cyber-greeting {
     --neon-cyan: var(--primary);
-    --neon-pink: var(--habit-primary);
+    --neon-pink: var(--plate-primary);
     position: relative;
     isolation: isolate;
     overflow: hidden;
     padding: 1.25rem 1.25rem 1.1rem;
     background:
       linear-gradient(135deg, color-mix(in srgb, var(--primary) 12%, transparent), transparent 45%),
-      linear-gradient(315deg, color-mix(in srgb, var(--habit-primary) 16%, transparent), transparent 50%),
+      linear-gradient(
+        315deg,
+        color-mix(in srgb, var(--plate-primary) 16%, transparent),
+        transparent 50%
+      ),
       #07070d;
     border: 1px solid color-mix(in srgb, var(--neon-cyan) 55%, transparent);
-    clip-path: polygon(0 0, calc(100% - 22px) 0, 100% 22px, 100% 100%, 22px 100%, 0 calc(100% - 22px));
+    clip-path: polygon(
+      0 0,
+      calc(100% - 22px) 0,
+      100% 22px,
+      100% 100%,
+      22px 100%,
+      0 calc(100% - 22px)
+    );
     box-shadow:
       inset 0 0 28px color-mix(in srgb, var(--primary) 12%, transparent),
-      inset 0 0 0 1px color-mix(in srgb, var(--habit-primary) 15%, transparent);
+      inset 0 0 0 1px color-mix(in srgb, var(--plate-primary) 15%, transparent);
     animation: cyber-enter 520ms cubic-bezier(0.2, 0.8, 0.2, 1) both;
   }
   .cyber-greeting::before,
@@ -593,7 +792,11 @@
     z-index: -1;
     background-image:
       linear-gradient(color-mix(in srgb, var(--primary) 8%, transparent) 1px, transparent 1px),
-      linear-gradient(90deg, color-mix(in srgb, var(--primary) 8%, transparent) 1px, transparent 1px);
+      linear-gradient(
+        90deg,
+        color-mix(in srgb, var(--primary) 8%, transparent) 1px,
+        transparent 1px
+      );
     background-size: 22px 22px;
     mask-image: linear-gradient(to bottom, transparent, #000 60%, transparent);
     animation: cyber-grid 6s linear infinite;
@@ -668,18 +871,18 @@
   .personal-theme-food {
     color: var(--food-primary);
   }
-  .personal-theme-habit {
-    color: var(--habit-primary);
+  .personal-theme-plate {
+    color: var(--plate-primary);
   }
   .cyber-panel {
     border: 1px solid color-mix(in srgb, var(--primary) 13%, transparent);
     border-radius: 1.125rem;
     background:
       radial-gradient(
-          ellipse at 100% 0%,
-          color-mix(in srgb, var(--primary) 7%, transparent),
-          transparent 48%
-        ),
+        ellipse at 100% 0%,
+        color-mix(in srgb, var(--primary) 7%, transparent),
+        transparent 48%
+      ),
       linear-gradient(145deg, #141820 0%, #10131a 100%);
     box-shadow:
       inset 0 1px 0 rgba(255, 255, 255, 0.035),
@@ -791,7 +994,9 @@
   }
   @keyframes cyber-grid {
     to {
-      background-position: 0 22px, 22px 0;
+      background-position:
+        0 22px,
+        22px 0;
     }
   }
   @keyframes cyber-scan {
@@ -850,15 +1055,15 @@
 .cyber-signout {
   min-height: 2.75rem;
   justify-content: center;
-  border-color: color-mix(in srgb, var(--habit-primary) 28%, transparent);
-  background-color: color-mix(in srgb, var(--habit-primary) 7%, transparent);
-  color: var(--habit-primary);
+  border-color: color-mix(in srgb, var(--plate-primary) 28%, transparent);
+  background-color: color-mix(in srgb, var(--plate-primary) 7%, transparent);
+  color: var(--plate-primary);
   letter-spacing: 0.04em;
 }
 button.cyber-signout:hover:not(:disabled) {
-  border-color: color-mix(in srgb, var(--habit-primary) 55%, transparent);
-  background-color: color-mix(in srgb, var(--habit-primary) 13%, transparent);
-  color: var(--habit-primary);
+  border-color: color-mix(in srgb, var(--plate-primary) 55%, transparent);
+  background-color: color-mix(in srgb, var(--plate-primary) 13%, transparent);
+  color: var(--plate-primary);
 }
 
 /* Allocation slider: track gradient is supplied per instance through --track. */

@@ -2,7 +2,15 @@ import { useCallback, useEffect, useState } from 'react'
 import { PlateIcon } from '@/components/PlateIcon'
 import { useDialog } from '@/components/DialogProvider'
 import { Link } from 'react-router-dom'
-import { BadgeCheck, LayoutDashboard, MessageSquareText, RefreshCw, Utensils, WalletCards, X } from 'lucide-react'
+import {
+  BadgeCheck,
+  LayoutDashboard,
+  MessageSquareText,
+  RefreshCw,
+  Utensils,
+  WalletCards,
+  X,
+} from 'lucide-react'
 import { ApiError, revokeAuthSession, type AuthSession } from '@/auth/api'
 import { useAuth } from '@/auth/AuthContext'
 import { PLAN_LABEL, ROLE_LABEL } from '@/account/membership'
@@ -124,7 +132,7 @@ export default function Personal() {
           <p className="mt-3 max-w-xs text-sm leading-relaxed text-white/70">
             Your personal hub to track <span className="personal-theme-money">money</span>,{' '}
             <span className="personal-theme-food">food</span>, and{' '}
-            <span className="personal-theme-habit">habits</span> — all in one place.
+            <span className="personal-theme-plate">meals</span> — all in one place.
           </p>
           <div className="mt-4 flex flex-wrap gap-2" role="list" aria-label="Things you can track">
             <span className="cyber-feature" role="listitem">
@@ -134,7 +142,7 @@ export default function Personal() {
               <Utensils size={14} aria-hidden="true" /> Food
             </span>
             <span className="cyber-feature" role="listitem">
-              <PlateIcon size={14} aria-hidden="true" /> Habits
+              <PlateIcon size={14} aria-hidden="true" /> Meals
             </span>
           </div>
         </div>
@@ -205,7 +213,7 @@ export default function Personal() {
                       ? 'We couldn’t sync your latest updates. Try again when you’re ready.'
                       : sync.pending > 0 || !sync.lastSyncedAt
                         ? 'Sync now to back up your latest changes.'
-                        : 'Your money, food, and habit data is backed up.'}
+                        : 'Your money, food, and meal data is backed up.'}
               </p>
             </div>
           </div>
