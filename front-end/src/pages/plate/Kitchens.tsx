@@ -1,10 +1,10 @@
 import { Link } from 'react-router-dom'
-import { ChevronRight } from 'lucide-react'
+import { Bell, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import * as api from '@/plate/api'
 import { usePlate } from '@/plate/context'
 import { SectionLabel } from '@/plate/components'
-import { addDays, todayKey, weekStart } from '@/plate/dates'
+import { addDays, formatTime, todayKey, weekStart } from '@/plate/dates'
 import {
   useInvites,
   useKitchens,
@@ -18,7 +18,9 @@ import { KITCHEN_TYPE_LABEL, orderKitchens, shoppingLine } from '@/plate/logic'
 import { LiveDot } from '@/plate/shopping'
 import { KitchenTile } from '@/plate/sheets/KitchenSheets'
 import type { Kitchen } from '@/plate/types'
-import { AvatarStack, ErrorLine } from '@/plate/ui'
+import { AvatarStack, ErrorLine, Switch } from '@/plate/ui'
+
+const REMINDER_TIMES = ['19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00']
 
 export default function PlateKitchens() {
   const { open, select } = usePlate()
@@ -87,6 +89,8 @@ export default function PlateKitchens() {
             />
           )}
 
+          <ReminderSetting />
+
           <section aria-label="Shared kitchens" className="space-y-2.5">
             <SectionLabel>Shared</SectionLabel>
             {shared.length === 0 ? (
@@ -133,6 +137,52 @@ export default function PlateKitchens() {
         </>
       )}
     </div>
+  )
+}
+
+/** One reminder for all your kitchens, so it lives here and not in a single kitchen. */
+function ReminderSetting() {
+  const settings = useSettings().data
+  const update = usePlateMutation(api.updateSettings)
+  if (!settings) return null
+  return (
+    <section aria-label="Reminder" className="pl-card space-y-3 p-4">
+      <div className="flex items-center gap-3">
+        <Bell size={18} className="shrink-0 text-[#ff6b78]" aria-hidden="true" />
+        <div className="min-w-0 flex-1">
+          <p className="text-sm font-semibold">Pre-prep reminder</p>
+          <p className="text-xs text-muted-foreground">
+            {settings.reminder_enabled
+              ? `One notification at ${formatTime(settings.reminder_time)} · only what's still open`
+              : 'Reminder is off'}
+          </p>
+        </div>
+        <Switch
+          label="Prep reminder"
+          checked={settings.reminder_enabled}
+          onChange={(on) => update.mutate({ reminder_enabled: on })}
+        />
+      </div>
+      {settings.reminder_enabled && (
+        <div className="flex items-center justify-between gap-3">
+          <p className="text-xs text-muted-foreground">Applies to all your kitchens.</p>
+          <select
+            aria-label="Reminder time"
+            value={settings.reminder_time}
+            onChange={(e) => update.mutate({ reminder_time: e.target.value })}
+            className="pl-input h-9 w-[6.5rem] rounded-full px-3 pr-7 text-[13px] font-semibold"
+            style={{ backgroundPosition: 'right 0.5rem center' }}
+          >
+            {REMINDER_TIMES.map((time) => (
+              <option key={time} value={time}>
+                {formatTime(time)}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
+      <ErrorLine error={update.error} />
+    </section>
   )
 }
 
