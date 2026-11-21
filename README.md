@@ -6,7 +6,7 @@ A personal tracker you install on your phone, with three apps in one:
 - **My Food**: a food diary with a daily calorie goal and insights.
 - **MyPlate**: meal planning with the people you cook for.
 
-Version **1.0.1** · API **v1**
+Version **1.0.2** · API **v1**
 
 ## Core features
 
@@ -141,6 +141,11 @@ The browser tests use fake sign-ins against a test-only server; they never touch
 
 
 ## Changelog
+
+### 1.0.2 (2026-11-22)
+
+- **Budgets card (My Money home):** lists every category you've spent in without a budget, each
+  with its own "Set budget", instead of only the first one.
 
 ### 1.0.1 (2026-11-22)
 
