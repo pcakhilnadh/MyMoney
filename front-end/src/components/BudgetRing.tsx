@@ -67,7 +67,7 @@ export function BudgetRing({ ring, currency }: { ring: BudgetRingData; currency:
               {formatCompactMinor(spent, currency)}
             </p>
             <Link
-              to="/money/budgets?view=allocate"
+              to="/money/budgets?view=budget"
               onClick={(e) => e.stopPropagation()}
               className="mt-1 rounded-full bg-white/15 px-2 py-0.5 text-[9px] font-semibold text-white"
             >

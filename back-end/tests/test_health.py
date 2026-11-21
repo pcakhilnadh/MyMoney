@@ -10,7 +10,7 @@ def test_health_when_database_is_connected(monkeypatch):
 
     r = TestClient(main_module.app).get("/health")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok", "database": "connected", "version": "1.0.0", "api": "v1"}
+    assert r.json() == {"status": "ok", "database": "connected", "version": "1.0.1", "api": "v1"}
 
 
 def test_health_when_database_is_unavailable(monkeypatch):

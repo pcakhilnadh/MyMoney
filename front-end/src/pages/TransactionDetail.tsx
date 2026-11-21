@@ -96,16 +96,26 @@ export default function TransactionDetail() {
     typeof location.state.from === 'string'
       ? location.state.from
       : '/money/transactions'
+  // Opened from a list in the app, so going back returns to it as it was.
+  const fromApp =
+    typeof location.state === 'object' && location.state !== null && 'from' in location.state
   const returnTo =
-    origin.startsWith('/money/accounts/') || origin.startsWith('/money/budgets/categories/')
+    origin.startsWith('/money/accounts/') ||
+    origin.startsWith('/money/budgets/categories/') ||
+    origin.startsWith('/money/transactions')
       ? origin
       : '/money/transactions'
-  const returnLabel =
-    returnTo === '/money/transactions'
-      ? '← Transactions'
-      : returnTo.startsWith('/money/budgets/categories/')
-        ? '← Category'
-        : '← Account'
+  const returnLabel = returnTo.startsWith('/money/transactions')
+    ? '← Transactions'
+    : returnTo.startsWith('/money/budgets/categories/')
+      ? '← Category'
+      : '← Account'
+  /** Back the way you came, so the list keeps its month, filter and place. */
+  const goBack = (event?: React.MouseEvent) => {
+    event?.preventDefault()
+    if (fromApp && window.history.length > 1) navigate(-1)
+    else navigate(returnTo, { state: { restore: true } })
+  }
   const transaction = useLiveQuery(() => transactionsRepo.get(transactionId), [transactionId])
   const categories = useLiveQuery(() => db.categories.toArray(), [])
   const accounts = useLiveQuery(() => db.accounts.toArray(), [])
@@ -114,7 +124,7 @@ export default function TransactionDetail() {
   if (transaction === undefined)
     return (
       <div className="space-y-4">
-        <Link to={returnTo} className="text-sm text-primary">
+        <Link to={returnTo} onClick={goBack} className="text-sm text-primary">
           {returnLabel}
         </Link>
         <p className="text-muted-foreground">Loading transaction…</p>
@@ -124,7 +134,7 @@ export default function TransactionDetail() {
   if (!transaction)
     return (
       <div className="space-y-4">
-        <Link to={returnTo} className="text-sm text-primary">
+        <Link to={returnTo} onClick={goBack} className="text-sm text-primary">
           {returnLabel}
         </Link>
         <p className="text-muted-foreground">Transaction not found.</p>
@@ -319,7 +329,8 @@ export default function TransactionDetail() {
     setDeleteError(null)
     try {
       await transactionsRepo.remove(selectedTransaction.id)
-      navigate(returnTo, { replace: true })
+      if (fromApp && window.history.length > 1) navigate(-1)
+      else navigate(returnTo, { replace: true })
     } catch (error) {
       setDeleteError(error instanceof Error ? error.message : 'Unable to delete transaction.')
       setDeleting(false)
@@ -328,7 +339,7 @@ export default function TransactionDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to={returnTo} className="text-sm text-primary">
+      <Link to={returnTo} onClick={goBack} className="text-sm text-primary">
         {returnLabel}
       </Link>
       <PageHeader title={selectedTransaction.title} subtitle={displayKind.label} />

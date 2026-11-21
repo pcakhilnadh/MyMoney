@@ -60,6 +60,8 @@ export default function Home() {
   const hasTxThisMonth = txs.some((t) => t.transaction_date.startsWith(period.month))
 
   const budgetRows = topBudgetRows({ txs, cats, budgets, month: period.month, limit: 5 })
+  // No monthly budget yet: set one first. With a budget, go straight to allocating it.
+  const budgetsPath = `/money/budgets?view=${budgetMinor === null ? 'budget' : 'allocate'}`
 
   return (
     <div className="space-y-5">
@@ -68,11 +70,11 @@ export default function Home() {
         aria-labelledby="spending-overview-title"
         role="link"
         tabIndex={0}
-        onClick={() => navigate('/money/budgets?view=allocate')}
+        onClick={() => navigate(budgetsPath)}
         onKeyDown={(e) => {
           if (e.target === e.currentTarget && (e.key === 'Enter' || e.key === ' ')) {
             e.preventDefault()
-            navigate('/money/budgets?view=allocate')
+            navigate(budgetsPath)
           }
         }}
       >

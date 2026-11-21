@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import type { ComponentType } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useSearchParams } from 'react-router-dom'
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CornerUpLeft, Receipt } from 'lucide-react'
 import { AddIconButton, PageHeader } from '@/components/kit'
 import { FilterMenu } from '@/components/FilterMenu'
@@ -53,9 +53,29 @@ function SummaryStat({
 
 export default function Transactions() {
   const navigate = useNavigate()
-  const [filter, setFilter] = useState<(typeof FILTERS)[number]>('All')
   const [currentMonth] = useState(() => monthKey(new Date()))
-  const [selectedMonth, setSelectedMonth] = useState(currentMonth)
+  // The month and filter live in the address, so coming back from a transaction (or
+  // reloading) keeps them. The current month and "All" are left out of it.
+  const [params, setParams] = useSearchParams()
+  const requestedMonth = params.get('month')
+  const selectedMonth =
+    requestedMonth && /^\d{4}-\d{2}$/.test(requestedMonth) && requestedMonth <= currentMonth
+      ? requestedMonth
+      : currentMonth
+  const filter = FILTERS.find((option) => option.toLowerCase() === params.get('filter')) ?? 'All'
+  const update = (key: string, value: string | null) =>
+    setParams(
+      (current) => {
+        const next = new URLSearchParams(current)
+        if (value === null) next.delete(key)
+        else next.set(key, value)
+        return next
+      },
+      { replace: true },
+    )
+  const setSelectedMonth = (month: string) => update('month', month === currentMonth ? null : month)
+  const setFilter = (next: (typeof FILTERS)[number]) =>
+    update('filter', next === 'All' ? null : next.toLowerCase())
   const startDate = `${selectedMonth}-01`
   const endDate = `${shiftMonth(selectedMonth, 1)}-01`
   const loaded = useLiveQuery(

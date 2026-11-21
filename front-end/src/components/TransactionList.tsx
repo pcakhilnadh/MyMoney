@@ -1,4 +1,5 @@
-import { useLocation, useNavigate } from 'react-router-dom'
+import { useEffect } from 'react'
+import { useLocation, useNavigate, useNavigationType } from 'react-router-dom'
 import { ArrowDownLeft, ArrowLeftRight, ArrowUpRight, CornerUpLeft } from 'lucide-react'
 import type { Transaction } from '@/db/types'
 import { formatCompactMinor, formatMinor } from '@/lib/money'
@@ -35,10 +36,51 @@ export const TYPE_STYLE = {
   },
 } as const
 
+/** The list and row a transaction was opened from, to scroll back to on return. */
+const RETURN_KEY = 'ledger.return'
+
 export function TransactionList({ transactions }: { transactions: Transaction[] }) {
   const navigate = useNavigate()
-  const { pathname } = useLocation()
+  const location = useLocation()
+  const navigationType = useNavigationType()
+  const here = location.pathname + location.search
   const { currency } = useCurrency()
+
+  // Back from a transaction (browser back, or the detail page's back link): scroll the row
+  // that was opened into view instead of starting at the top.
+  useEffect(() => {
+    const returning =
+      navigationType === 'POP' ||
+      (typeof location.state === 'object' && location.state !== null && 'restore' in location.state)
+    if (!returning) return
+    let saved: { path: string; id: string } | null = null
+    try {
+      saved = JSON.parse(sessionStorage.getItem(RETURN_KEY) ?? 'null')
+    } catch {
+      return
+    }
+    if (!saved || saved.path !== here) return
+    try {
+      sessionStorage.removeItem(RETURN_KEY)
+    } catch {
+      // Nothing to clear.
+    }
+    const row = document.querySelector<HTMLElement>(
+      `[data-transaction-id="${CSS.escape(saved.id)}"]`,
+    )
+    if (!row) return
+    row.scrollIntoView({ block: 'center' })
+    row.focus({ preventScroll: true })
+  }, [here, navigationType, location.state, transactions.length])
+
+  function open(transaction: Transaction) {
+    try {
+      sessionStorage.setItem(RETURN_KEY, JSON.stringify({ path: here, id: transaction.id }))
+    } catch {
+      // Without storage the ledger simply opens at the top.
+    }
+    navigate(`/money/transactions/${transaction.id}`, { state: { from: here } })
+  }
   const days = new Map<string, Transaction[]>()
   for (const transaction of transactions) {
     const day = transaction.transaction_date.slice(0, 10)
@@ -117,12 +159,9 @@ export function TransactionList({ transactions }: { transactions: Transaction[] 
                   <button
                     key={transaction.id}
                     type="button"
+                    data-transaction-id={transaction.id}
                     aria-label={`${kind.label}: ${transaction.title}, ${formatMinor(transaction.amount_minor, currency)}`}
-                    onClick={() =>
-                      navigate(`/money/transactions/${transaction.id}`, {
-                        state: { from: pathname },
-                      })
-                    }
+                    onClick={() => open(transaction)}
                     className="flex min-h-12 w-full min-w-0 items-center gap-2.5 px-3 py-2 text-left transition-colors hover:bg-muted/50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-inset focus-visible:ring-primary"
                   >
                     <span
