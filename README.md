@@ -49,30 +49,6 @@ Version **1.0.0** · API **v1**
                           PostgreSQL (Supabase)
 ```
 
-- **Local first.** Each app keeps its own local database per Google account. Screens read only from it, so
-  nothing waits for the network.
-- **Each app syncs on its own.** A slow or failed sync in one app never holds up the others.
-  - My Money and My Food push changed records and pull what changed since the last sync. Every record has an
-    id made on the phone and a version number; the higher version wins.
-  - MyPlate queues each change and sends them in order to the `/plate` routes, so the server's rules always
-    apply. It then pulls what changed in your kitchens since the last sync. If the server refuses a change,
-    the phone undoes it and the profile says so.
-- **Some things need a connection:** group money, AI analysis, and MyPlate's kitchens, invites,
-  going live and recipe import.
-- **Live updates.** In shared kitchens, other people's ticks, cart changes and "shopping now" arrive within about
-  15 seconds; otherwise MyPlate refreshes every minute, on open, and when you come back to the app. The live layer
-  is kept separate so it can become part of a paid plan later.
-- **Access.** Roles (member, admin, owner) decide which apps someone can open; the server enforces it.
-- **Privacy.** The server stores your Google id and email, never your name or photo. Other members of a group or
-  kitchen only see your first name.
-- Money is stored as whole minor units (paise).
-
-### API versions
-
-All routes live under `/api/v1`. To make a breaking change, add `v2` in `back-end/app/versions.py`. Build it from
-v1's routers, replacing only what changes, and serve both versions until installed apps have updated. Then point the
-front-end at the new version in `front-end/src/auth/api.ts`. New routes and new optional fields stay in the
-current version.
 
 ## Repository layout
 
@@ -160,26 +136,9 @@ npm run e2e:pwa                       # installable and reloads offline
 
 The browser tests use fake sign-ins against a test-only server; they never touch your real database or Google.
 
-## Troubleshooting
-
-| Problem | Fix |
-|---|---|
-| Missing table or column | `uv run alembic upgrade head` |
-| Can't reach Supabase | Use the **Session pooler** connection string, keeping the `postgresql+psycopg://` prefix |
-| `password authentication failed` | URL-encode special characters in the password (`@` → `%40`) |
-| Google button doesn't show / *origin_mismatch* | Add your front-end address to Authorized JavaScript origins and restart `npm run dev` |
-| CORS errors or "Failed to fetch" | The API isn't running, the front-end's API root is wrong, or your address isn't an allowed origin |
-| Changes don't show after a production build | The service worker caches the app; reload twice |
-| Another account's data is missing | Each Google account has its own local data; sign in with that account |
 
 ## Changelog
 
 ### 1.0.0 (2026-11-21)
 
-- **My Money, My Food and MyPlate** in one installable app, signed in with Google.
-- **MyPlate:** kitchens, a weekly plan, today's prep, a shared cart with "go live", ideas with voting and recipe
-  import.
-- **Local-first:** each app has its own local database and syncs on its own in the background; one sync status on
-  the profile page.
-- **API v1:** every route under `/api/v1`, ready for new versions without breaking installed apps. The old
-  combined sync routes are removed.
+- **My Money, My Food and MyPlate** in one installable app, signed in with Google. First initial product version is released.
