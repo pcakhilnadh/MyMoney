@@ -293,3 +293,40 @@ test('one Save plans the meal with its prep and cart items; leftovers are a tick
   await form.getByRole('button', { name: 'Save meal' }).click()
   await expect(page.getByText('Paneer paratha (leftovers)')).toBeVisible()
 })
+
+test('planning a meal can pick the dish from your cravings', async ({ page }) => {
+  const gia = { sub: 'g-plate-gia', email: 'gia.plate@gmail.com', name: 'Gia G' }
+  await open(page, gia)
+  await page.goto('/plate/cravings')
+  await page.getByRole('button', { name: 'Add a craving' }).click()
+  await sheet(page).getByRole('textbox', { name: 'Dish' }).fill('Hyderabadi biryani')
+  await sheet(page)
+    .getByRole('button', { name: /^(Save|Add)/ })
+    .last()
+    .click()
+  await expect(sheet(page)).toHaveCount(0)
+
+  await nav(page).getByRole('link', { name: 'Plan' }).click()
+  await page.getByRole('button', { name: 'Add dinner' }).click()
+  const form = sheet(page)
+  const dish = form.getByRole('textbox', { name: 'Main dish' })
+
+  // Typing part of a craving offers it.
+  await dish.fill('biry')
+  await form.getByRole('button', { name: /Hyderabadi biryani is on your cravings/ }).click()
+  await expect(dish).toHaveValue('Hyderabadi biryani')
+
+  // Or open the list from the 😋 count in the field.
+  await dish.fill('')
+  const cravings = form.getByRole('button', { name: /Pick from cravings/ })
+  await cravings.click()
+  await expect(cravings).toHaveAttribute('aria-expanded', 'true')
+  await form
+    .getByRole('list', { name: 'Your cravings' })
+    .getByRole('button', { name: /Hyderabadi biryani/ })
+    .click()
+  await expect(dish).toHaveValue('Hyderabadi biryani')
+  await expect(form.getByRole('list', { name: 'Your cravings' })).toHaveCount(0)
+  await sheet(page).getByRole('button', { name: 'Save meal' }).click()
+  await expect(page.getByText('Hyderabadi biryani')).toBeVisible()
+})

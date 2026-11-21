@@ -19,9 +19,25 @@ import { cn } from '@/lib/utils'
 import * as api from '../api'
 import { usePlate, type PlateSheet } from '../context'
 import { addDays, formatDay, todayKey, weekStart } from '../dates'
-import { useGroceries, useKitchens, useMe, useMeals, usePeople, usePlateMutation } from '../hooks'
-import { AISLE_ICON, guessAisle, mealLabel, orderKitchens, SLOT_LABEL, SLOT_ORDER } from '../logic'
-import type { ChefType, Kitchen, Meal, MealDraft, MealSlot } from '../types'
+import {
+  useGroceries,
+  useIdeas,
+  useKitchens,
+  useMe,
+  useMeals,
+  usePeople,
+  usePlateMutation,
+} from '../hooks'
+import {
+  AISLE_ICON,
+  guessAisle,
+  mealLabel,
+  orderKitchens,
+  SLOT_LABEL,
+  SLOT_ORDER,
+  sortIdeas,
+} from '../logic'
+import type { ChefType, Idea, Kitchen, Meal, MealDraft, MealSlot } from '../types'
 import { Avatar, Chip, ErrorLine, PlateSelect, RoundCheck, Sheet } from '../ui'
 
 type Props = Extract<PlateSheet, { kind: 'meal' }>
@@ -95,6 +111,11 @@ function MealForm({
         rank(m) < rank({ meal_date: mealDate, meal_slot: mealSlot }),
     )
     .sort((a, b) => rank(b).localeCompare(rank(a)))
+  // This kitchen's cravings, most wanted first, to pick the dish from.
+  const cravings = sortIdeas(
+    (useIdeas().data ?? []).filter((idea) => idea.group_id === kitchen.id),
+    kitchens,
+  ).slice(0, 8)
   const inCart = (useGroceries().data ?? []).filter((item) => meal && item.meal_plan_id === meal.id)
 
   const save = usePlateMutation(
@@ -135,6 +156,11 @@ function MealForm({
     setLeftoverOf(source.id)
     setTitle(`${source.title.replace(/ [(]leftovers[)]$/, '')} (leftovers)`)
     setSides(source.sides)
+  }
+
+  function pickCraving(idea: Idea) {
+    setTitle(idea.title)
+    if (idea.recipe_url) setRecipeUrl(idea.recipe_url)
   }
 
   function draft(): MealDraft & { id?: string } {
@@ -335,18 +361,14 @@ function MealForm({
 
         {!isLeftovers && (
           <Card icon={<UtensilsCrossed size={16} />} title="What’s cooking">
-            <div className="space-y-1.5">
-              <p className="text-xs font-semibold text-muted-foreground">Main dish</p>
-              <input
-                aria-label="Main dish"
-                className="pl-well h-14 w-full px-4 text-lg font-semibold outline-none placeholder:font-normal placeholder:text-muted-foreground"
-                placeholder="e.g. Rajma chawal"
-                value={title}
-                onChange={(e) => setTitle(e.target.value)}
-                required
-                autoFocus={!meal && !fromIdea}
-              />
-            </div>
+            <MainDish
+              value={title}
+              onChange={setTitle}
+              cravings={cravings}
+              showVotes={!solo}
+              onPick={pickCraving}
+              autoFocus={!meal && !fromIdea}
+            />
             <div className="space-y-1.5">
               <p className="text-xs font-semibold text-muted-foreground">
                 Side dishes <span className="font-normal">· optional</span>
@@ -529,6 +551,118 @@ function MealForm({
         <ErrorLine error={save.error ?? remove.error} />
       </form>
     </Sheet>
+  )
+}
+
+/**
+ * The main dish, with cravings one tap away: a small 😋 count opens them under the field, and
+ * typing a dish that's a craving offers it. Nothing shows when the kitchen has no cravings.
+ */
+function MainDish({
+  value,
+  onChange,
+  cravings,
+  showVotes,
+  onPick,
+  autoFocus,
+}: {
+  value: string
+  onChange: (value: string) => void
+  cravings: Idea[]
+  showVotes: boolean
+  onPick: (idea: Idea) => void
+  autoFocus: boolean
+}) {
+  const [open, setOpen] = useState(false)
+  const typed = value.trim().toLowerCase()
+  const chosen = cravings.find((idea) => idea.title.toLowerCase() === typed)
+  const suggestion =
+    !open && !chosen && typed.length >= 2
+      ? cravings.find((idea) => idea.title.toLowerCase().includes(typed))
+      : undefined
+  const pick = (idea: Idea) => {
+    onPick(idea)
+    setOpen(false)
+  }
+
+  return (
+    <div className="space-y-1.5">
+      <p className="text-xs font-semibold text-muted-foreground">Main dish</p>
+      <div className="pl-well flex items-center gap-2 pr-2">
+        <input
+          aria-label="Main dish"
+          className="h-14 min-w-0 flex-1 bg-transparent px-4 text-lg font-semibold outline-none placeholder:font-normal placeholder:text-muted-foreground"
+          placeholder="e.g. Rajma chawal"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          required
+          autoFocus={autoFocus}
+        />
+        {cravings.length > 0 && (
+          <button
+            type="button"
+            aria-label={`Pick from cravings (${cravings.length})`}
+            aria-expanded={open}
+            onClick={() => setOpen(!open)}
+            className={cn(
+              'flex h-8 shrink-0 items-center gap-1 rounded-full px-2.5 text-xs font-bold tabular-nums transition-colors',
+              chosen
+                ? 'bg-[#f5c542] text-[#2a1a05]'
+                : 'bg-[#f5c542]/12 text-[#f6d77a] ring-1 ring-[#f5c542]/30 hover:bg-[#f5c542]/20',
+            )}
+          >
+            <span aria-hidden="true">😋</span>
+            {chosen ? <Check size={13} strokeWidth={3} /> : cravings.length}
+          </button>
+        )}
+      </div>
+
+      {open && (
+        <ul
+          aria-label="Your cravings"
+          className="pl-well animate-in divide-y divide-white/[0.05] duration-150 fade-in-0 slide-in-from-top-1"
+        >
+          {cravings.map((idea) => (
+            <li key={idea.id}>
+              <button
+                type="button"
+                onClick={() => pick(idea)}
+                className="flex w-full items-center gap-2.5 px-3.5 py-2.5 text-left hover:bg-white/[0.03]"
+              >
+                <span aria-hidden="true">😋</span>
+                <span className="min-w-0 flex-1 truncate text-sm font-medium">{idea.title}</span>
+                {idea.recipe_url && (
+                  <Link2
+                    size={13}
+                    className="shrink-0 text-muted-foreground"
+                    aria-label="Has a recipe"
+                  />
+                )}
+                {showVotes && idea.votes.length > 0 && (
+                  <span className="shrink-0 text-xs text-muted-foreground tabular-nums">
+                    {idea.votes.length} vote{idea.votes.length === 1 ? '' : 's'}
+                  </span>
+                )}
+              </button>
+            </li>
+          ))}
+        </ul>
+      )}
+
+      {suggestion && (
+        <button
+          type="button"
+          onClick={() => pick(suggestion)}
+          className="flex w-full items-center gap-2 px-1 text-left text-xs text-[#f6d77a] animate-in fade-in-0"
+        >
+          <span aria-hidden="true">😋</span>
+          <span className="min-w-0 flex-1 truncate">
+            <b className="font-semibold">{suggestion.title}</b> is on your cravings
+          </span>
+          <span className="shrink-0 font-semibold">Use</span>
+        </button>
+      )}
+    </div>
   )
 }
 

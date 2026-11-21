@@ -271,7 +271,7 @@ export function IdeaSheet({ kitchenId }: { kitchenId: string }) {
           className="pl-btn pl-btn-primary w-full"
           disabled={!title.trim() || save.isPending}
         >
-          Save idea
+          Save craving
         </button>
       }
     >
