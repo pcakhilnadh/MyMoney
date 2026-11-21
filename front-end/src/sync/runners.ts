@@ -37,7 +37,7 @@ export const RUNNERS: SyncRunner[] = [
   },
   {
     name: 'plate',
-    label: 'MyPlate',
+    label: 'My Plate',
     run: async () => {
       const sync = runPlateSync()
       platePending.add(sync)

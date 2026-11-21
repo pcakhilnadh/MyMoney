@@ -23,6 +23,6 @@ export const ROLE_LABEL: Record<AppRole, string> = {
 
 export const FEATURE_LABEL: Record<Feature, string> = {
   money: 'My Money',
-  food: 'MyFood',
-  plate: 'MyPlate',
+  food: 'My Food',
+  plate: 'My Plate',
 }

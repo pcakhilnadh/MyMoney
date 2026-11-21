@@ -5,7 +5,7 @@ import { fakeSignIn } from '../e2e/helpers'
 const alice = { sub: 'g-plate-alice', email: 'alice.plate@gmail.com', name: 'Alice A' }
 const bob = { sub: 'g-plate-bob', email: 'bob.plate@gmail.com', name: 'Bob B' }
 
-const nav = (page: Page) => page.getByRole('navigation', { name: 'MyPlate navigation' })
+const nav = (page: Page) => page.getByRole('navigation', { name: 'My Plate navigation' })
 const sheet = (page: Page) => page.getByRole('dialog')
 
 async function open(page: Page, who: typeof alice) {

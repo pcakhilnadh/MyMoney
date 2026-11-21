@@ -93,8 +93,8 @@ test('money and food navigation share item and icon alignment', async ({ page })
       expect(await getGeometry()).toEqual(moneyGeometry)
     }
 
-    await page.getByRole('button', { name: 'MyFood' }).click()
-    const foodNav = page.getByRole('navigation', { name: 'MyFood navigation' })
+    await page.getByRole('button', { name: 'My Food' }).click()
+    const foodNav = page.getByRole('navigation', { name: 'My Food navigation' })
     await expect(foodNav.getByRole('link')).toHaveCount(5)
     expect(await getGeometry()).toEqual(moneyGeometry)
     expect(moneyGeometry.every(({ item }) => item.x >= 0 && item.x + item.width <= width)).toBe(
@@ -106,7 +106,7 @@ test('money and food navigation share item and icon alignment', async ({ page })
       ['Add meal', '/food/add', 'Log Meal'],
       ['Insights', '/food/insights', 'Insights'],
       ['Profile', '/food/profile', 'Profile'],
-      ['Home', '/food/home', 'MyFood'],
+      ['Home', '/food/home', 'My Food'],
     ]) {
       const link = foodNav.getByRole('link', { name: label, exact: true })
       await link.click()
@@ -138,17 +138,17 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
     'aria-pressed',
     'true',
   )
-  await expect(appSelector.getByRole('button', { name: 'MyFood' })).toHaveAttribute(
+  await expect(appSelector.getByRole('button', { name: 'My Food' })).toHaveAttribute(
     'aria-pressed',
     'false',
   )
-  await expect(appSelector.getByRole('button', { name: 'MyPlate' })).toHaveAttribute(
+  await expect(appSelector.getByRole('button', { name: 'My Plate' })).toHaveAttribute(
     'aria-pressed',
     'false',
   )
   const getAppTabBounds = () =>
     Promise.all(
-      ['My Money', 'MyFood', 'MyPlate'].map((name) =>
+      ['My Money', 'My Food', 'My Plate'].map((name) =>
         appSelector.getByRole('button', { name }).evaluate((element) => {
           const { x, width } = element.getBoundingClientRect()
           return { x, width }
@@ -159,7 +159,7 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   expect(initialAppTabBounds.every(({ width }) => width === initialAppTabBounds[0].width)).toBe(
     true,
   )
-  const foodAppTab = appSelector.getByRole('button', { name: 'MyFood' })
+  const foodAppTab = appSelector.getByRole('button', { name: 'My Food' })
   await foodAppTab.hover()
   await expect(foodAppTab).toHaveCSS('background-color', 'rgba(0, 0, 0, 0)')
   const personalLink = appSelector.getByRole('link', { name: 'Personal' })
@@ -181,11 +181,11 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
     'color',
     'rgb(75, 139, 255)',
   )
-  await expect(appSelector.getByRole('button', { name: 'MyFood' })).toHaveCSS(
+  await expect(appSelector.getByRole('button', { name: 'My Food' })).toHaveCSS(
     'color',
     'rgb(57, 201, 138)',
   )
-  await expect(appSelector.getByRole('button', { name: 'MyPlate' })).toHaveCSS(
+  await expect(appSelector.getByRole('button', { name: 'My Plate' })).toHaveCSS(
     'color',
     'rgb(237, 41, 57)',
   )
@@ -212,9 +212,9 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await expect(page.getByRole('link', { name: 'Ledger' })).toHaveAttribute('aria-current', 'page')
   await expect(page.getByRole('link', { name: 'Ledger' })).toHaveCSS('color', 'rgb(75, 139, 255)')
   await page.goto('/money/transactions')
-  await appSelector.getByRole('button', { name: 'MyFood' }).click()
+  await appSelector.getByRole('button', { name: 'My Food' }).click()
   await expect(page).toHaveURL(/\/food\/home$/)
-  await expect(page.getByRole('heading', { name: 'MyFood' })).toBeVisible()
+  await expect(page.getByRole('heading', { name: 'My Food' })).toBeVisible()
   expect(await getAppTabBounds()).toEqual(initialAppTabBounds)
   await expect(foodAppTab).toHaveClass(/app-connected-surface/)
   await expect(foodAppTab).toHaveCSS('border-radius', '0px')
@@ -230,31 +230,31 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
     'color',
     'rgb(75, 139, 255)',
   )
-  await expect(appSelector.getByRole('button', { name: 'MyFood' })).toHaveCSS(
+  await expect(appSelector.getByRole('button', { name: 'My Food' })).toHaveCSS(
     'color',
     'rgb(57, 201, 138)',
   )
-  await expect(appSelector.getByRole('button', { name: 'MyPlate' })).toHaveCSS(
+  await expect(appSelector.getByRole('button', { name: 'My Plate' })).toHaveCSS(
     'color',
     'rgb(237, 41, 57)',
   )
   await expect(page.getByText('Coming Soon')).toBeVisible()
   await expect(page.locator('[data-app="food"]')).toHaveCSS('background-image', /50vh/)
   await expect(
-    page.getByRole('navigation', { name: 'MyFood navigation' }).locator('svg').first(),
+    page.getByRole('navigation', { name: 'My Food navigation' }).locator('svg').first(),
   ).toHaveCSS('color', 'rgb(57, 201, 138)')
   await expect(
-    page.getByRole('navigation', { name: 'MyFood navigation' }).getByText('Home'),
+    page.getByRole('navigation', { name: 'My Food navigation' }).getByText('Home'),
   ).toHaveCSS('color', 'rgb(57, 201, 138)')
   await expect(
-    page.getByRole('navigation', { name: 'MyFood navigation' }).getByText('Home'),
+    page.getByRole('navigation', { name: 'My Food navigation' }).getByText('Home'),
   ).toBeVisible()
   await expect(
-    page.getByRole('navigation', { name: 'MyFood navigation' }).getByRole('link'),
+    page.getByRole('navigation', { name: 'My Food navigation' }).getByRole('link'),
   ).toHaveCount(5)
   await expect(page.locator('[data-app="food"]')).toHaveCSS('--primary', '#39c98a')
   await page.reload()
-  await expect(appSelector.getByRole('button', { name: 'MyFood' })).toHaveAttribute(
+  await expect(appSelector.getByRole('button', { name: 'My Food' })).toHaveAttribute(
     'aria-pressed',
     'true',
   )
@@ -262,11 +262,11 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await expect(page).toHaveURL(/\/food\/diary$/)
   await expect(page.getByRole('heading', { name: 'Diary' })).toBeVisible()
   await expect(page.getByText('Coming Soon')).toBeVisible()
-  await appSelector.getByRole('button', { name: 'MyPlate' }).click()
+  await appSelector.getByRole('button', { name: 'My Plate' }).click()
   await expect(page).toHaveURL(/\/plate\/today$/)
   await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible()
   expect(await getAppTabBounds()).toEqual(initialAppTabBounds)
-  const plateAppTab = appSelector.getByRole('button', { name: 'MyPlate' })
+  const plateAppTab = appSelector.getByRole('button', { name: 'My Plate' })
   await expect(plateAppTab).toHaveClass(/app-connected-surface/)
   await expect(plateAppTab).toHaveCSS('border-radius', '0px')
   await expect(plateAppTab).toHaveCSS('background-image', 'none')
@@ -281,19 +281,19 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
     'color',
     'rgb(75, 139, 255)',
   )
-  await expect(appSelector.getByRole('button', { name: 'MyFood' })).toHaveCSS(
+  await expect(appSelector.getByRole('button', { name: 'My Food' })).toHaveCSS(
     'color',
     'rgb(57, 201, 138)',
   )
-  await expect(appSelector.getByRole('button', { name: 'MyPlate' })).toHaveCSS(
+  await expect(appSelector.getByRole('button', { name: 'My Plate' })).toHaveCSS(
     'color',
     'rgb(237, 41, 57)',
   )
   await expect(page.locator('[data-app="plate"]')).toHaveCSS('background-image', /50vh/)
   await expect(
-    page.getByRole('navigation', { name: 'MyPlate navigation' }).locator('svg').first(),
+    page.getByRole('navigation', { name: 'My Plate navigation' }).locator('svg').first(),
   ).toHaveCSS('color', 'rgb(237, 41, 57)')
-  const plateNavigation = page.getByRole('navigation', { name: 'MyPlate navigation' })
+  const plateNavigation = page.getByRole('navigation', { name: 'My Plate navigation' })
   await expect(plateNavigation.getByRole('link')).toHaveText(['Today', 'Plan', 'Cart', 'Kitchens'])
   await expect(plateNavigation.getByRole('button', { name: 'Create' })).toBeVisible()
   await expect(page.locator('[data-app="plate"]')).toHaveCSS('--primary', '#ed2939')
@@ -321,11 +321,11 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
     'color',
     'rgb(75, 139, 255)',
   )
-  await expect(appSelector.getByRole('button', { name: 'MyFood' })).toHaveCSS(
+  await expect(appSelector.getByRole('button', { name: 'My Food' })).toHaveCSS(
     'color',
     'rgb(57, 201, 138)',
   )
-  await expect(appSelector.getByRole('button', { name: 'MyPlate' })).toHaveCSS(
+  await expect(appSelector.getByRole('button', { name: 'My Plate' })).toHaveCSS(
     'color',
     'rgb(237, 41, 57)',
   )

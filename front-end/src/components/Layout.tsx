@@ -37,12 +37,9 @@ const foodTabs = [
 
 const allApps = [
   { id: 'money', label: 'My Money', Icon: WalletCards },
-  { id: 'food', label: 'MyFood', Icon: Utensils },
-  { id: 'plate', label: 'MyPlate', Icon: PlateIcon },
+  { id: 'food', label: 'My Food', Icon: Utensils },
+  { id: 'plate', label: 'My Plate', Icon: PlateIcon },
 ] as const
-
-// MyFood is hidden from the top tabs for now. Remove this filter to bring it back.
-const visibleApps: readonly (typeof allApps)[number][] = allApps.filter((app) => app.id !== 'food')
 
 // Today stays first: it's what MyPlate opens on. Ideas lives in the Plan header.
 const plateTabs = [
@@ -62,10 +59,10 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'plate' | 'sha
   const isFoodHome = pathname === '/food/home'
   const selectedApp = app === 'shared' ? null : app
   const { has } = useEntitlements()
-  const apps = visibleApps.filter((a) => has(a.id))
+  const apps = allApps.filter((a) => has(a.id))
   // With one app available, the profile button shares the app tab's surface (until Personal is open).
   const singleApp = apps.length === 1
-  const appInfo = apps.find((app) => app.id === selectedApp) ?? apps[0] ?? visibleApps[0]
+  const appInfo = apps.find((app) => app.id === selectedApp) ?? apps[0] ?? allApps[0]
   const navigationItems =
     selectedApp === 'food' ? foodTabs : selectedApp === 'plate' ? plateTabs : tabs
   const addPath = selectedApp === 'food' ? '/food/add' : '/money/expenses/new'

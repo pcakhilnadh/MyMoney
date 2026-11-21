@@ -63,7 +63,7 @@ test('food home, goal, diary and insights use logged data', async ({ page }) => 
   const breakfast = page.getByRole('link', { name: /breakfast.*75 kcal/i })
   const dinner = page.getByRole('link', { name: /dinner.*add/i })
   const streak = page.getByRole('link', { name: /day streak/i })
-  const navigation = page.getByRole('navigation', { name: 'MyFood navigation' })
+  const navigation = page.getByRole('navigation', { name: 'My Food navigation' })
   await expect(breakfast).toHaveCSS('display', 'flex')
   await expect(streak).toHaveCSS('display', 'flex')
   await expect(navigation).toHaveCSS('background-color', 'rgb(22, 36, 31)')
