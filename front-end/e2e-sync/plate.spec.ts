@@ -130,3 +130,16 @@ test('local-first: changes save offline and a reload shows them before the serve
   await a.reload()
   await expect(dairy).toContainText('Paneer (400g)')
 })
+
+test('the prep reminder lives in kitchen settings, not on Today', async ({ page }) => {
+  await open(page, alice)
+  await expect(page.getByText('Remind me with the full checklist')).toHaveCount(0)
+
+  await nav(page).getByRole('link', { name: 'Kitchens' }).click()
+  await page.getByRole('link', { name: /My Kitchen/ }).first().click()
+  await expect(page.getByText('Pre-prep reminder')).toBeVisible()
+  await page.getByRole('combobox', { name: 'Reminder time' }).selectOption('21:00')
+  await page.reload()
+  await expect(page.getByRole('combobox', { name: 'Reminder time' })).toHaveValue('21:00')
+})
+

@@ -1,18 +1,11 @@
 import { Link } from 'react-router-dom'
-import { Bell, ChevronRight } from 'lucide-react'
+import { ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import * as api from '@/plate/api'
 import { usePlate } from '@/plate/context'
 import { CookChip, EatingLine, SectionLabel } from '@/plate/components'
-import { addDays, formatDay, formatTime, todayKey, weekStart } from '@/plate/dates'
-import {
-  useGroceries,
-  useKitchens,
-  useMe,
-  useMeals,
-  usePlateMutation,
-  useSettings,
-} from '@/plate/hooks'
+import { addDays, formatDay, todayKey, weekStart } from '@/plate/dates'
+import { useGroceries, useKitchens, useMe, useMeals, usePlateMutation } from '@/plate/hooks'
 import {
   leftToBuy,
   mealsIAmEating,
@@ -24,9 +17,7 @@ import {
 } from '@/plate/logic'
 import { LiveDot } from '@/plate/shopping'
 import type { Kitchen, Meal } from '@/plate/types'
-import { Avatar, Checkbox, ErrorLine, KitchenChip, KitchenDot, Switch } from '@/plate/ui'
-
-const REMINDER_TIMES = ['19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00']
+import { Avatar, Checkbox, ErrorLine, KitchenChip, KitchenDot } from '@/plate/ui'
 
 export default function PlateToday() {
   const me = useMe()
@@ -102,11 +93,9 @@ function PrepChecklist({
   tomorrow: string
 }) {
   const { open } = usePlate()
-  const settings = useSettings().data
   const tick = usePlateMutation(({ id, done }: { id: string; done: boolean }) =>
     api.setPrepTaskDone(id, done),
   )
-  const update = usePlateMutation(api.updateSettings)
   const progress = prepProgress(meals)
   const kitchenOf = (id: string) => kitchens.find((k) => k.id === id)
 
@@ -201,40 +190,7 @@ function PrepChecklist({
         </p>
       )}
 
-      {settings && (
-        <div className="mt-4 flex items-center gap-3 border-t border-white/10 pt-4">
-          <Bell size={18} className="shrink-0 text-[#ff6b78]" aria-hidden="true" />
-          <div className="min-w-0 flex-1">
-            <p className="text-sm font-semibold">Remind me with the full checklist</p>
-            <p className="text-xs text-muted-foreground">
-              {settings.reminder_enabled
-                ? `One notification at ${formatTime(settings.reminder_time)} · only what's still open`
-                : 'Reminder is off'}
-            </p>
-          </div>
-          {settings.reminder_enabled && (
-            <select
-              aria-label="Reminder time"
-              value={settings.reminder_time}
-              onChange={(e) => update.mutate({ reminder_time: e.target.value })}
-              className="pl-input h-9 w-[6.5rem] rounded-full px-3 pr-7 text-[13px] font-semibold"
-              style={{ backgroundPosition: 'right 0.5rem center' }}
-            >
-              {REMINDER_TIMES.map((time) => (
-                <option key={time} value={time}>
-                  {formatTime(time)}
-                </option>
-              ))}
-            </select>
-          )}
-          <Switch
-            label="Prep reminder"
-            checked={settings.reminder_enabled}
-            onChange={(on) => update.mutate({ reminder_enabled: on })}
-          />
-        </div>
-      )}
-      <ErrorLine error={tick.error ?? update.error} />
+      <ErrorLine error={tick.error} />
     </section>
   )
 }
