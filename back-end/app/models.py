@@ -390,3 +390,225 @@ class RoleEntitlement(Base):
 
     role: Mapped[str] = mapped_column(String(20), primary_key=True)
     feature: Mapped[str] = mapped_column(String(30), primary_key=True)
+
+
+# ---------------------------------------------------------------------------------------
+# MyPlate (meal planning). The UI calls a group a "kitchen". Users are host-app profiles.
+# ---------------------------------------------------------------------------------------
+
+KITCHEN_TYPES = ("personal", "couple", "family", "flatmates", "friends")
+MEAL_SLOTS = ("B", "L", "S", "D")
+CHEF_TYPES = ("MEMBER", "TOGETHER", "TAKEOUT", "EATING_OUT")
+REACTIONS = ("heart", "up")
+
+
+def _in(column: str, values: tuple[str, ...], name: str) -> CheckConstraint:
+    allowed = ", ".join(f"'{v}'" for v in values)
+    return CheckConstraint(f"{column} IN ({allowed})", name=name)
+
+
+class PlateKitchen(Base):
+    """A kitchen: its own week, cart, ideas and members. My Kitchen is the personal one."""
+
+    __tablename__ = "plate_kitchens"
+    __table_args__ = (
+        # Exactly one My Kitchen per user.
+        Index(
+            "uq_plate_kitchens_one_personal",
+            "owner_id",
+            unique=True,
+            postgresql_where=text("is_personal = true"),
+            sqlite_where=text("is_personal = 1"),
+        ),
+        _in("group_type", KITCHEN_TYPES, "ck_plate_kitchens_type"),
+    )
+
+    id: Mapped[uuid.UUID] = _pk()
+    name: Mapped[str] = mapped_column(String(60))
+    emoji: Mapped[str] = mapped_column(String(16))
+    group_type: Mapped[str] = mapped_column(String(16))
+    is_personal: Mapped[bool] = mapped_column(Boolean, default=False)
+    owner_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), index=True)
+    color: Mapped[str] = mapped_column(String(9))
+    meal_slots: Mapped[list[str]] = mapped_column(JSON, default=lambda: ["B", "L", "D"])
+    timezone: Mapped[str] = mapped_column(String(64), default="Asia/Kolkata")
+    invite_code: Mapped[str | None] = mapped_column(String(16), unique=True)
+    # Drives "new activity" on the Kitchens list.
+    last_activity_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    last_activity_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("profiles.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )
+
+    members: Mapped[list["PlateKitchenMember"]] = relationship(
+        back_populates="kitchen",
+        cascade="all, delete-orphan",
+        order_by="PlateKitchenMember.joined_at",
+    )
+    invites: Mapped[list["PlateKitchenInvite"]] = relationship(cascade="all, delete-orphan")
+
+
+class PlateKitchenMember(Base):
+    __tablename__ = "plate_kitchen_members"
+    __table_args__ = (
+        UniqueConstraint("kitchen_id", "user_id", name="uq_plate_kitchen_members"),
+        _in("role", ("owner", "member"), "ck_plate_kitchen_members_role"),
+    )
+
+    id: Mapped[uuid.UUID] = _pk()
+    kitchen_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("plate_kitchens.id"), index=True)
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), index=True)
+    role: Mapped[str] = mapped_column(String(10), default="member")
+    color: Mapped[str] = mapped_column(String(9))
+    # First name and picture from the member's last visit, for when no session has them.
+    display_name: Mapped[str | None] = mapped_column(String(60))
+    avatar_url: Mapped[str | None] = mapped_column(String)
+    last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    # Set while the member is live as shopping; presence lapses after an hour.
+    shopping_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    kitchen: Mapped[PlateKitchen] = relationship(back_populates="members")
+
+
+class PlateKitchenInvite(Base):
+    """A pending in-app invite to a host-app user. Removed when accepted or declined."""
+
+    __tablename__ = "plate_kitchen_invites"
+    __table_args__ = (
+        UniqueConstraint("kitchen_id", "invited_user_id", name="uq_plate_kitchen_invites"),
+    )
+
+    id: Mapped[uuid.UUID] = _pk()
+    kitchen_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("plate_kitchens.id"), index=True)
+    invited_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), index=True)
+    invited_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class PlateMeal(Base):
+    """`meal_plans`: one dish in a kitchen's slot on a day."""
+
+    __tablename__ = "plate_meals"
+    __table_args__ = (
+        Index("ix_plate_meals_kitchen_date", "kitchen_id", "meal_date"),
+        _in("meal_slot", MEAL_SLOTS, "ck_plate_meals_slot"),
+        _in("chef_type", CHEF_TYPES, "ck_plate_meals_chef_type"),
+        CheckConstraint("guest_count >= 0", name="ck_plate_meals_guests"),
+    )
+
+    id: Mapped[uuid.UUID] = _pk()
+    kitchen_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("plate_kitchens.id"))
+    meal_date: Mapped[date] = mapped_column(Date)
+    meal_slot: Mapped[str] = mapped_column(String(1))
+    title: Mapped[str] = mapped_column(String(120))
+    sides: Mapped[list[str]] = mapped_column(JSON, default=list)
+    leftover_of: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("plate_meals.id", ondelete="SET NULL")
+    )
+    chef_type: Mapped[str] = mapped_column(String(12))
+    chef_user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("profiles.id"))
+    guest_count: Mapped[int] = mapped_column(Integer, default=0)
+    recipe_url: Mapped[str | None] = mapped_column(String(500))
+    created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )
+
+    attendees: Mapped[list["PlateMealAttendee"]] = relationship(cascade="all, delete-orphan")
+    reactions: Mapped[list["PlateMealReaction"]] = relationship(cascade="all, delete-orphan")
+    prep_tasks: Mapped[list["PlatePrepTask"]] = relationship(
+        cascade="all, delete-orphan", order_by="PlatePrepTask.sort_order"
+    )
+
+
+class PlateMealAttendee(Base):
+    __tablename__ = "plate_meal_attendees"
+
+    meal_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("plate_meals.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), primary_key=True)
+
+
+class PlateMealReaction(Base):
+    __tablename__ = "plate_meal_reactions"
+    __table_args__ = (_in("reaction", REACTIONS, "ck_plate_meal_reactions"),)
+
+    meal_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("plate_meals.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), primary_key=True)
+    reaction: Mapped[str] = mapped_column(String(8))
+
+
+class PlatePrepTask(Base):
+    """Pre-prep for the day before (soak rajma). Ticks record who did it."""
+
+    __tablename__ = "plate_prep_tasks"
+
+    id: Mapped[uuid.UUID] = _pk()
+    meal_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("plate_meals.id", ondelete="CASCADE"), index=True
+    )
+    title: Mapped[str] = mapped_column(String(200))
+    sort_order: Mapped[int] = mapped_column(Integer, default=0)
+    done_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("profiles.id"))
+    done_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+
+
+class PlateGroceryItem(Base):
+    __tablename__ = "plate_grocery_items"
+
+    id: Mapped[uuid.UUID] = _pk()
+    kitchen_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("plate_kitchens.id"), index=True)
+    name: Mapped[str] = mapped_column(String(120))
+    quantity: Mapped[str] = mapped_column(String(40), default="")
+    aisle: Mapped[str] = mapped_column(String(30))
+    # The meal it was added for ("Fri Dinner"); null for quick adds.
+    meal_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("plate_meals.id", ondelete="SET NULL")
+    )
+    added_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"))
+    checked_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("profiles.id"))
+    checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class PlateIdea(Base):
+    """`cravings`: a private wishlist in My Kitchen, a vote in shared kitchens."""
+
+    __tablename__ = "plate_ideas"
+
+    id: Mapped[uuid.UUID] = _pk()
+    kitchen_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("plate_kitchens.id"), index=True)
+    title: Mapped[str] = mapped_column(String(120))
+    recipe_url: Mapped[str | None] = mapped_column(String(500))
+    added_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"))
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    votes: Mapped[list["PlateIdeaVote"]] = relationship(cascade="all, delete-orphan")
+
+
+class PlateIdeaVote(Base):
+    __tablename__ = "plate_idea_votes"
+
+    idea_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("plate_ideas.id", ondelete="CASCADE"), primary_key=True
+    )
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), primary_key=True)
+
+
+class PlateSettings(Base):
+    """`user_myplate_settings`. A null default kitchen means "All kitchens"."""
+
+    __tablename__ = "plate_settings"
+
+    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), primary_key=True)
+    default_kitchen_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("plate_kitchens.id", ondelete="SET NULL")
+    )
+    reminder_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
+    reminder_time: Mapped[str] = mapped_column(String(5), default="20:00")

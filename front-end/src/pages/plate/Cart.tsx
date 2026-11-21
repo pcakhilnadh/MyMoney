@@ -45,8 +45,10 @@ export default function PlateCart() {
   const mealOf = (id: string | null) => (id ? meals.find((m) => m.id === id) : undefined)
   const target = kitchen ?? kitchenOf(personalId ?? '')
   const toBuyByKitchen: Record<string, number> = {}
+  const inBasketByKitchen: Record<string, number> = {}
   for (const item of all ?? []) {
-    if (!item.checked_at) toBuyByKitchen[item.group_id] = (toBuyByKitchen[item.group_id] ?? 0) + 1
+    const counts = item.checked_at ? inBasketByKitchen : toBuyByKitchen
+    counts[item.group_id] = (counts[item.group_id] ?? 0) + 1
   }
   const byKitchen = !kitchen && grouping === 'kitchen'
   const groups = byKitchen
@@ -90,6 +92,7 @@ export default function PlateCart() {
         <ShoppingPresence
           kitchens={kitchen ? [kitchen] : kitchens}
           toBuyByKitchen={toBuyByKitchen}
+          inBasketByKitchen={inBasketByKitchen}
         />
       )}
 

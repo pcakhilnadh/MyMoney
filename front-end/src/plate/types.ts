@@ -8,8 +8,9 @@ export type UserId = string
 /** A host-app user as MyPlate sees them (name and avatar come from the host profile). */
 export interface PlateUser {
   id: UserId
+  /** First name only; full names are never shared with other members. */
   name: string
-  avatar?: string
+  avatar?: string | null
   /** Avatar fill when there's no picture. */
   color?: string
 }

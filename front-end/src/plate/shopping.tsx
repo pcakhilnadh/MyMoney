@@ -47,10 +47,13 @@ function listNames(names: string[]): string {
 export function ShoppingPresence({
   kitchens,
   toBuyByKitchen,
+  inBasketByKitchen,
 }: {
   /** The kitchens in view: the selected one, or all of them. */
   kitchens: Kitchen[]
   toBuyByKitchen: Record<string, number>
+  /** Ticked items not cleared yet. */
+  inBasketByKitchen: Record<string, number>
 }) {
   const me = useMe()
   const now = useNow()
@@ -78,6 +81,9 @@ export function ShoppingPresence({
       .map((user) => ({ user, kitchen: k, since: k.shopping_since[user] })),
   )
   const leftInLive = myLive.reduce((sum, k) => sum + (toBuyByKitchen[k.id] ?? 0), 0)
+  const inBasket = myLive.reduce((sum, k) => sum + (inBasketByKitchen[k.id] ?? 0), 0)
+  // Only offer "Done" once something was ticked and nothing is left.
+  const allTicked = leftInLive === 0 && inBasket > 0
   const startedAt = myLive
     .map((k) => k.shopping_since[me])
     .filter((value): value is string => !!value)
@@ -102,7 +108,7 @@ export function ShoppingPresence({
                 You're shopping · {since(startedAt, now)}
               </p>
               <p className="mt-0.5 truncate text-xs text-[#8fcfaa]">
-                {leftInLive === 0
+                {allTicked
                   ? "Everything's ticked. Done shopping?"
                   : `${audience(myLive).names} can see you're at the store${where(myLive)}`}
               </p>
@@ -113,10 +119,10 @@ export function ShoppingPresence({
               onClick={() => toggle.mutate({ ids: myLive.map((k) => k.id), on: false })}
               className={cn(
                 'pl-btn h-9 shrink-0 px-3.5 text-sm',
-                leftInLive === 0 ? 'pl-btn-success' : 'pl-btn-secondary',
+                allTicked ? 'pl-btn-success' : 'pl-btn-secondary',
               )}
             >
-              {leftInLive === 0 ? 'Done' : 'Stop'}
+              {allTicked ? 'Done' : 'Stop'}
             </button>
           </div>
         </section>

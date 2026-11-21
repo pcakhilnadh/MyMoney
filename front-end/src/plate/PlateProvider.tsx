@@ -33,8 +33,10 @@ export function PlateProvider({ children }: { children: ReactNode }) {
   const [sheet, setSheet] = useState<PlateSheet | null>(null)
 
   const personalId = kitchens?.find((k) => k.is_personal)?.id
-  // Last choice on this device, else the default kitchen (null default = All).
-  const wanted = chosen ?? (settings ? (settings.default_group_id ?? 'all') : null)
+  // Last choice on this device, else the default kitchen (null default = All). With only
+  // My Kitchen there's nothing to merge, so it opens on My Kitchen.
+  const fallback = kitchens && kitchens.length <= 1 ? (personalId ?? 'all') : 'all'
+  const wanted = chosen ?? (settings ? (settings.default_group_id ?? fallback) : null)
   const selection: KitchenSelection =
     wanted === 'all' || (wanted && kitchens?.some((k) => k.id === wanted))
       ? wanted

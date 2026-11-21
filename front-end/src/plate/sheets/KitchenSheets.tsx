@@ -423,7 +423,11 @@ export function InvitePanel({ kitchen, onDone }: { kitchen: Kitchen; onDone?: ()
       <div>
         <FieldLabel>People on the app</FieldLabel>
         {candidates.length === 0 ? (
-          <p className="text-sm text-muted-foreground">Everyone you know is already here.</p>
+          <p className="text-sm text-muted-foreground">
+            {contacts.length === 0
+              ? 'People you share a money group or kitchen with show up here. Until then, share the code below.'
+              : 'Everyone you know is already here.'}
+          </p>
         ) : (
           <ul className="pl-card divide-y divide-white/[0.06]">
             {candidates.map((person) => {
@@ -524,7 +528,7 @@ export function InvitePanel({ kitchen, onDone }: { kitchen: Kitchen; onDone?: ()
 
 /** From My Kitchen: start a shared kitchen and optionally copy this week into it. */
 export function PlanWithSomeoneSheet() {
-  const { close, select, personalId } = usePlate()
+  const { close, open, select, personalId } = usePlate()
   const navigate = useNavigate()
   const { nameOf } = usePeople()
   const contacts = useContacts().data ?? []
@@ -561,8 +565,10 @@ export function PlanWithSomeoneSheet() {
       const kitchen = await start.mutateAsync()
       if (!kitchen) return
       select(kitchen.id)
-      close()
       navigate('/plate/plan')
+      // Nobody picked: hand over the invite code straight away.
+      if (picked.length === 0) open({ kind: 'invite', kitchenId: kitchen.id })
+      else close()
     } catch (caught) {
       setError(caught)
     } finally {
@@ -590,6 +596,12 @@ export function PlanWithSomeoneSheet() {
       </p>
       <div>
         <FieldLabel>With</FieldLabel>
+        {contacts.length === 0 && (
+          <p className="text-sm text-muted-foreground">
+            People you share a money group with show up here. You can also send an invite code once
+            the kitchen exists.
+          </p>
+        )}
         <div className="flex flex-wrap gap-2">
           {contacts.map((person) => {
             const on = picked.includes(person.id)

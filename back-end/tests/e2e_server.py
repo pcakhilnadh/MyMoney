@@ -7,13 +7,13 @@ import json
 import os
 
 os.environ["DATABASE_URL"] = "sqlite:///./e2e.db"
-os.environ["CORS_ORIGINS"] = '["http://localhost:5174"]'
+os.environ["CORS_ORIGINS"] = os.environ.get("E2E_CORS_ORIGINS", '["http://localhost:5174"]')
 if os.path.exists("e2e.db"):
     os.remove("e2e.db")
 
 import uvicorn  # noqa: E402
 
-from app import auth  # noqa: E402
+from app import auth, entitlements  # noqa: E402
 from app.db import Base, engine  # noqa: E402
 from app.main import app  # noqa: E402
 
@@ -25,6 +25,8 @@ def fake_verify(token: str) -> auth.GoogleIdentity:
 
 
 auth.verify_google_token = fake_verify
+# Browser tests sign in as plain members; let them open every app, MyPlate included.
+entitlements.DEFAULT_ENTITLEMENTS["member"] = entitlements.FEATURES
 Base.metadata.create_all(engine)
 
 if __name__ == "__main__":
