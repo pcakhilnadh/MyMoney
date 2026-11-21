@@ -302,10 +302,14 @@ export const saveMeal = ({ id: mealId, ...draft }: MealDraft & { id?: string }) 
 
 export const deleteMeal = (mealId: string) =>
   saveLocally(async () => {
-    await plateDb.meals.delete(mealId)
-    await plateDb.meals.filter((m) => m.leftover_of === mealId).modify({ leftover_of: null })
+    // Removing a meal removes the leftovers planned from it (the server does the same).
+    const gone = [
+      mealId,
+      ...(await plateDb.meals.filter((m) => m.leftover_of === mealId).primaryKeys()),
+    ]
+    await plateDb.meals.bulkDelete(gone)
     await plateDb.grocery_items
-      .filter((item) => item.meal_plan_id === mealId)
+      .filter((item) => item.meal_plan_id !== null && gone.includes(item.meal_plan_id))
       .modify({ meal_plan_id: null })
     await queue({
       method: 'DELETE',

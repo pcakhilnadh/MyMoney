@@ -171,3 +171,16 @@ def test_presence_lives_under_live(c):
     assert response.status_code == 200
     shared = next(k for k in pull(c, "alice")["kitchens"] if k["id"] == kitchen)
     assert len(shared["shopping_now"]) == 1
+
+
+def test_deleting_a_meal_tells_other_phones_to_drop_its_leftovers(c):
+    kitchen = shared_kitchen(c)
+    members = [m["user_id"] for m in pull(c, "alice")["kitchens"][1]["members"]]
+    dinner = send(
+        c, "alice", "POST", "/meals", meal_body(kitchen, meal_date=TODAY, attendees=members), 201
+    ).json()
+    left = send(c, "alice", "POST", f"/meals/{dinner['id']}/leftovers", status=201).json()
+    cursor = pull(c, "bob")["server_time"]
+    send(c, "alice", "DELETE", f"/meals/{dinner['id']}", status=204)
+    assert sorted(pull(c, "bob", cursor)["deleted"]["meals"]) == sorted([dinner["id"], left["id"]])
+

@@ -872,18 +872,21 @@ def delete_meal(
 ):
     meal, kitchen = _require_meal(db, meal_id, viewer)
     now = _now()
-    db.execute(
-        update(PlateMeal)
-        .where(PlateMeal.leftover_of == meal.id)
-        .values(leftover_of=None, updated_at=now)
-    )
+    # Removing a meal removes the leftovers planned from it.
+    leftovers = db.scalars(select(PlateMeal).where(PlateMeal.leftover_of == meal.id)).all()
+    gone = [meal, *leftovers]
+    gone_ids = [m.id for m in gone]
     db.execute(
         update(PlateGroceryItem)
-        .where(PlateGroceryItem.meal_id == meal.id)
+        .where(PlateGroceryItem.meal_id.in_(gone_ids))
         .values(meal_id=None, updated_at=now)
     )
-    db.delete(meal)
-    _tombstone(db, kitchen.id, "meals", [meal.id])
+    for row in leftovers:
+        row.leftover_of = None  # so the original can be deleted first
+    db.flush()
+    for row in gone:
+        db.delete(row)
+    _tombstone(db, kitchen.id, "meals", gone_ids)
     _touch(db, kitchen, viewer)
     db.commit()
     return Response(status_code=204)

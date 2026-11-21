@@ -211,10 +211,10 @@ def test_leftovers_land_in_the_next_slot_with_no_prep(c):
     assert left["title"] == "Paneer butter masala (leftovers)"
     assert left["leftover_of"] == dinner["id"] and left["prep_tasks"] == []
 
-    # Deleting the original keeps the leftovers, unlinked.
+    # Deleting the original deletes its leftovers too.
     send(c, "alice", "DELETE", f"/meals/{dinner['id']}", status=204)
     remaining = get(c, "alice", "/meals", **{"from": D(), "to": D(3)})
-    assert [m["leftover_of"] for m in remaining if m["id"] == left["id"]] == [None]
+    assert [m["meal_slot"] for m in remaining] == ["B"]  # only the unrelated breakfast is left
 
 
 def test_copy_week_fills_empty_slots_only(c):

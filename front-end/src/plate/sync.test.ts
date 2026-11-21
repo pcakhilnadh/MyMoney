@@ -173,6 +173,23 @@ describe('saving offline', () => {
     expect(next.prep_tasks[0].done_by).toBeNull()
   })
 
+  it('deleting a meal deletes its leftovers and unlinks their cart items', async () => {
+    serve()
+    const meal = await api.saveMeal(draft())
+    const leftovers = await api.planLeftovers(meal.id)
+    const item = await api.addGrocery({
+      group_id: 'home',
+      name: 'Rice',
+      meal_plan_id: leftovers.id,
+    })
+
+    await api.deleteMeal(meal.id)
+
+    expect(await plateDb.meals.count()).toBe(0)
+    expect((await plateDb.grocery_items.get(item.id))?.meal_plan_id).toBeNull()
+    expect((await plateDb.outbox.toArray()).at(-1)?.method).toBe('DELETE')
+  })
+
   it('adds cart items with a guessed aisle and keeps ideas votes', async () => {
     const item = await api.addGrocery({ group_id: 'home', name: 'Paneer' })
     expect(item.aisle).toBe('Dairy & Eggs')
