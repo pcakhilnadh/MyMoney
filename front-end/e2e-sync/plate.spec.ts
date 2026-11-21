@@ -12,12 +12,12 @@ async function open(page: Page, who: typeof alice) {
   await page.setViewportSize({ width: 390, height: 844 })
   await fakeSignIn(page, who)
   await page.goto('/plate/today')
-  await expect(page.getByRole('heading', { name: 'Today', exact: true })).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Up next' })).toBeVisible()
 }
 
 test('solo: plan tomorrow with prep, tick it on Today, and fill the cart', async ({ page }) => {
   await open(page, alice)
-  await expect(page.getByText('Nothing planned for today yet.')).toBeVisible()
+  await expect(page.getByRole('region', { name: 'Today’s meals' })).toContainText('0 of 4 planned')
 
   // A new user starts on My Kitchen.
   await nav(page).getByRole('link', { name: 'Plan' }).click()
@@ -106,6 +106,18 @@ test('shared: create a kitchen, join by code, and see each other shopping', asyn
   await b.getByRole('checkbox', { name: 'Tomatoes' }).click(live)
   await expect(b.getByRole('region', { name: "You're shopping" })).toContainText('Done shopping?')
   await expect(a.getByRole('region', { name: 'In the basket' })).toContainText('Tomatoes', live)
+
+  // Stopping waits for the server; meanwhile the button says so.
+  let release: () => void = () => {}
+  const held = new Promise<void>((resolve) => (release = resolve))
+  await b.route('**/api/v1/plate/live/presence', async (route) => {
+    await held
+    await route.fallback()
+  })
+  await shopping.getByRole('button', { name: 'Done' }).click()
+  await expect(shopping.getByRole('button', { name: /Stopping/ })).toBeVisible()
+  release()
+  await expect(shopping).toHaveCount(0)
 })
 
 test('local-first: changes save offline and a reload shows them before the server answers', async ({

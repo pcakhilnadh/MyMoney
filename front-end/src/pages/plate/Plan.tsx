@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
+import { Link, useLocation } from 'react-router-dom'
 import { ChevronLeft, ChevronRight, Cookie, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePlate } from '@/plate/context'
@@ -13,7 +13,9 @@ import type { MealSlot } from '@/plate/types'
 export default function PlatePlan() {
   const { selection, open } = usePlate()
   const today = todayKey()
-  const [day, setDay] = useState(today)
+  // Today's week view can open Plan on a chosen day.
+  const opened = (useLocation().state as { day?: string } | null)?.day
+  const [day, setDay] = useState(opened ?? today)
   const start = weekStart(day)
   const kitchens = useKitchens().data
   const meals = useMeals(start, addDays(start, 6)).data

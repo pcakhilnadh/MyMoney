@@ -1,5 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
+import { Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import * as api from './api'
 import { usePlate } from './context'
@@ -122,7 +123,15 @@ export function ShoppingPresence({
                 allTicked ? 'pl-btn-success' : 'pl-btn-secondary',
               )}
             >
-              {allTicked ? 'Done' : 'Stop'}
+              {toggle.isPending ? (
+                <>
+                  <Loader2 size={14} className="animate-spin" aria-hidden="true" /> Stopping…
+                </>
+              ) : allTicked ? (
+                'Done'
+              ) : (
+                'Stop'
+              )}
             </button>
           </div>
         </section>
@@ -147,8 +156,16 @@ export function ShoppingPresence({
             onClick={() => toggle.mutate({ ids: targets.map((k) => k.id), on: true })}
             className="pl-btn pl-btn-success h-9 shrink-0 gap-1.5 px-3.5 text-sm"
           >
-            <span aria-hidden="true" className="size-1.5 rounded-full bg-white" />
-            Go live
+            {toggle.isPending ? (
+              <>
+                <Loader2 size={14} className="animate-spin" aria-hidden="true" /> Going live…
+              </>
+            ) : (
+              <>
+                <span aria-hidden="true" className="size-1.5 rounded-full bg-white" />
+                Go live
+              </>
+            )}
           </button>
         </section>
       )}
@@ -206,9 +223,15 @@ export function LiveShoppingPill() {
           type="button"
           disabled={stop.isPending}
           onClick={() => stop.mutate(live.map((k) => k.id))}
-          className="h-7 rounded-full bg-white/10 px-2.5 text-xs font-semibold text-white hover:bg-white/15"
+          className="flex h-7 items-center gap-1 rounded-full bg-white/10 px-2.5 text-xs font-semibold text-white hover:bg-white/15 disabled:opacity-80"
         >
-          Stop
+          {stop.isPending ? (
+            <>
+              <Loader2 size={12} className="animate-spin" aria-hidden="true" /> Stopping…
+            </>
+          ) : (
+            'Stop'
+          )}
         </button>
       </div>
     </div>
