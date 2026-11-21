@@ -31,6 +31,7 @@ from app.models import (
     PlateMealAttendee,
     PlateMealReaction,
     PlatePrepTask,
+    PlateCravingFulfilment,
     PlateDeletion,
     PlateSettings,
     Profile,
@@ -752,6 +753,35 @@ class MealIn(BaseModel):
     guest_count: int = Field(0, ge=0, le=50)
     recipe_url: str | None = Field(None, max_length=500)
     prep_tasks: list[PrepTaskIn] = Field(default_factory=list, max_length=20)
+    # The craving this meal was planned from. Planning it takes it off the list, for
+    # whoever planned it (not only whoever suggested it).
+    from_idea_id: uuid.UUID | None = None
+
+
+def _fulfil_craving(
+    db: Session, body: MealIn, kitchen: PlateKitchen, meal: PlateMeal, viewer: Viewer
+) -> None:
+    if body.from_idea_id is None:
+        return
+    idea = db.get(PlateIdea, body.from_idea_id)
+    if idea is None or idea.kitchen_id != kitchen.id:
+        return  # already planned by someone else, or from another kitchen: nothing to do
+    if meal.id is None:
+        db.flush()  # the meal's id, for the record below
+    # Keep who wanted it and who planned it; the craving itself leaves the list.
+    db.add(
+        PlateCravingFulfilment(
+            kitchen_id=kitchen.id,
+            title=idea.title,
+            suggested_by=idea.added_by,
+            voters=[str(v.user_id) for v in idea.votes],
+            planned_by=viewer.id,
+            meal_id=meal.id,
+            suggested_at=idea.created_at,
+        )
+    )
+    db.delete(idea)
+    _tombstone(db, kitchen.id, "ideas", [idea.id])
 
 
 def _apply_meal(
@@ -827,6 +857,7 @@ def create_meal(body: MealIn, viewer: Viewer = Depends(get_viewer), db: Session 
         meal.id = body.id
     _apply_meal(db, meal, body, kitchen, viewer)
     db.add(meal)
+    _fulfil_craving(db, body, kitchen, meal, viewer)
     _touch(db, kitchen, viewer)
     db.commit()
     return _meal_out(meal)
@@ -843,6 +874,7 @@ def update_meal(
     if body.group_id != meal.kitchen_id:
         raise HTTPException(422, "Meals can't move between kitchens.")
     _apply_meal(db, meal, body, kitchen, viewer)
+    _fulfil_craving(db, body, kitchen, meal, viewer)
     _touch(db, kitchen, viewer)
     db.commit()
     return _meal_out(meal)

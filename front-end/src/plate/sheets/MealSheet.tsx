@@ -18,6 +18,7 @@ import { useDialog } from '@/components/DialogProvider'
 import { cn } from '@/lib/utils'
 import * as api from '../api'
 import { usePlate, type PlateSheet } from '../context'
+import { toast } from '../toast'
 import { addDays, formatDay, todayKey, weekStart } from '../dates'
 import {
   useGroceries,
@@ -51,6 +52,8 @@ export function MealSheet(props: Props) {
 
 const rank = (meal: Pick<Meal, 'meal_date' | 'meal_slot'>) =>
   `${meal.meal_date}|${SLOT_ORDER.indexOf(meal.meal_slot)}`
+
+type PlannedMeal = MealDraft & { id?: string; from_idea_id?: string | null }
 
 const plural = (n: number, word: string) => `${n} ${word}${n === 1 ? '' : 's'}`
 
@@ -98,6 +101,10 @@ function MealForm({
     meal?.prep_tasks.map((t) => ({ id: t.id, title: t.title })) ?? [],
   )
   const [toBuy, setToBuy] = useState<string[]>([])
+  // The craving this meal is planned from (picked here, or "Plan it" on Cravings).
+  const [craving, setCraving] = useState<Idea | null>(
+    fromIdea && fromIdea.id !== 'import' ? fromIdea : null,
+  )
 
   // Leftovers can come from anything this kitchen cooked in the three days before.
   const recent = useMeals(addDays(mealDate, -3), mealDate).data ?? []
@@ -118,9 +125,8 @@ function MealForm({
   ).slice(0, 8)
   const inCart = (useGroceries().data ?? []).filter((item) => meal && item.meal_plan_id === meal.id)
 
-  const save = usePlateMutation(
-    ({ draft, items }: { draft: MealDraft & { id?: string }; items: string[] }) =>
-      api.saveMealWithCart(draft, items),
+  const save = usePlateMutation(({ draft, items }: { draft: PlannedMeal; items: string[] }) =>
+    api.saveMealWithCart(draft, items),
   )
   const remove = usePlateMutation(api.deleteMeal)
 
@@ -161,9 +167,11 @@ function MealForm({
   function pickCraving(idea: Idea) {
     setTitle(idea.title)
     if (idea.recipe_url) setRecipeUrl(idea.recipe_url)
+    setCraving(idea)
+    toast(`${idea.title} added from your cravings`, '😋')
   }
 
-  function draft(): MealDraft & { id?: string } {
+  function draft(): PlannedMeal {
     return {
       id: meal?.id,
       group_id: kitchen.id,
@@ -177,13 +185,24 @@ function MealForm({
       attendees: solo ? [me] : attendees,
       guest_count: guests,
       recipe_url: recipeUrl || null,
+      // Only while the dish is still that craving; renaming it keeps the craving.
+      from_idea_id: craving && title.trim() === craving.title ? craving.id : null,
       prep_tasks: cooking ? tasks.filter((t) => t.title.trim()) : [],
     }
   }
 
   function submit(event: React.FormEvent) {
     event.preventDefault()
-    save.mutate({ draft: draft(), items: cooking ? toBuy : [] }, { onSuccess: onClose })
+    const planned = draft()
+    save.mutate(
+      { draft: planned, items: cooking ? toBuy : [] },
+      {
+        onSuccess: () => {
+          if (planned.from_idea_id) toast(`${title.trim()} planned · off your cravings`, '✅')
+          onClose()
+        },
+      },
+    )
   }
 
   async function onDelete() {

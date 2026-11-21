@@ -285,18 +285,22 @@ const mealBody = (meal: Meal) => ({
   prep_tasks: meal.prep_tasks.map((task) => ({ id: task.id, title: task.title })),
 })
 
-async function addMeal(meal: Meal) {
+async function addMeal(meal: Meal, fromIdeaId: string | null = null) {
   await plateDb.meals.put(meal)
   await queue({
     method: 'POST',
     path: '/meals',
-    body: { id: meal.id, ...mealBody(meal) },
+    body: { id: meal.id, ...mealBody(meal), from_idea_id: fromIdeaId },
     entity: 'meals',
     entity_id: meal.id,
   })
 }
 
-type MealInput = MealDraft & { id?: string }
+type MealInput = MealDraft & {
+  id?: string
+  /** The craving this meal comes from; planning it takes it off the list. */
+  from_idea_id?: string | null
+}
 
 /** Creates the meal, or updates it when `id` is set. */
 export const saveMeal = (input: MealInput) => saveLocally(() => writeMeal(input))
@@ -313,22 +317,27 @@ export const saveMealWithCart = (input: MealInput, toBuy: string[]) =>
     return meal
   })
 
-async function writeMeal({ id: mealId, ...draft }: MealInput): Promise<Meal> {
+async function writeMeal({ id: mealId, from_idea_id, ...draft }: MealInput): Promise<Meal> {
   const [me, kitchen] = await Promise.all([myId(), kitchenOf(draft.group_id)])
   const existing = mealId ? await plateDb.meals.get(mealId) : undefined
   if (mealId && !existing) throw new Error('That meal was removed.')
   if (existing && existing.group_id !== draft.group_id)
     throw new Error('Meals can’t move between kitchens.')
   const meal = buildMeal(mealId ?? newId(), draft, kitchen, me, existing)
+  // A planned craving is fulfilled: it leaves the list here now, and on the server with the
+  // meal (for whoever planned it). Only a craving from this kitchen counts.
+  const idea = from_idea_id ? await plateDb.ideas.get(from_idea_id) : undefined
+  const fromIdeaId = idea && idea.group_id === kitchen.id ? idea.id : null
+  if (fromIdeaId) await plateDb.ideas.delete(fromIdeaId)
   if (!existing) {
-    await addMeal(meal)
+    await addMeal(meal, fromIdeaId)
     return meal
   }
   await plateDb.meals.put(meal)
   await queue({
     method: 'PUT',
     path: `/meals/${id(meal.id)}`,
-    body: mealBody(meal),
+    body: { ...mealBody(meal), from_idea_id: fromIdeaId },
     entity: 'meals',
     entity_id: meal.id,
   })

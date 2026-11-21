@@ -42,8 +42,14 @@ export async function flushOutbox(): Promise<PlateSyncResult> {
   return { rejected }
 }
 
+/** Rows with changes still waiting, including cravings a waiting meal will take off. */
 const pendingIds = (commands: OutboxCommand[]) =>
-  new Set(commands.flatMap((c) => (c.entity_id ? [c.entity_id] : [])))
+  new Set(
+    commands.flatMap((c) => {
+      const fromIdea = (c.body as { from_idea_id?: string | null } | undefined)?.from_idea_id
+      return [c.entity_id, fromIdea].filter((v): v is string => !!v)
+    }),
+  )
 
 /** Kitchens keep the server's order. */
 const ordered = (kitchens: Kitchen[]) =>

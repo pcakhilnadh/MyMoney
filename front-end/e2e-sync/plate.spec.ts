@@ -315,6 +315,9 @@ test('planning a meal can pick the dish from your cravings', async ({ page }) =>
   await dish.fill('biry')
   await form.getByRole('button', { name: /Hyderabadi biryani is on your cravings/ }).click()
   await expect(dish).toHaveValue('Hyderabadi biryani')
+  await expect(
+    page.getByRole('status').filter({ hasText: 'added from your cravings' }),
+  ).toBeVisible()
 
   // Or open the list from the 😋 count in the field.
   await dish.fill('')
@@ -329,4 +332,12 @@ test('planning a meal can pick the dish from your cravings', async ({ page }) =>
   await expect(form.getByRole('list', { name: 'Your cravings' })).toHaveCount(0)
   await sheet(page).getByRole('button', { name: 'Save meal' }).click()
   await expect(page.getByText('Hyderabadi biryani')).toBeVisible()
+  await expect(page.getByRole('status').filter({ hasText: 'off your cravings' })).toBeVisible()
+
+  // Planned, so it's no longer a craving: not on the list, and not offered again.
+  await page.goto('/plate/cravings')
+  await expect(page.getByText('Hyderabadi biryani')).toHaveCount(0)
+  await nav(page).getByRole('link', { name: 'Plan' }).click()
+  await page.getByRole('button', { name: 'Add lunch' }).click()
+  await expect(sheet(page).getByRole('button', { name: /Pick from cravings/ })).toHaveCount(0)
 })

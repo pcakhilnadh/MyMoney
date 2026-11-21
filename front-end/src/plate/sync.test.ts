@@ -209,6 +209,20 @@ describe('saving offline', () => {
     )
   })
 
+  it('planning a craving takes it off the list, even if a sync lands first', async () => {
+    serve()
+    const idea = await api.saveIdea({ group_id: 'home', title: 'Dosa', recipe_url: null })
+    await api.saveMeal({ ...draft({ title: 'Dosa' }), from_idea_id: idea.id })
+
+    expect(await plateDb.ideas.get(idea.id)).toBeUndefined()
+    const post = (await plateDb.outbox.toArray()).find((c) => c.path === '/meals')
+    expect((post?.body as { from_idea_id: string }).from_idea_id).toBe(idea.id)
+
+    // A pull that left before the meal was sent still lists the craving; it stays off.
+    await mergePull(pulled({ ideas: [idea] }))
+    expect(await plateDb.ideas.get(idea.id)).toBeUndefined()
+  })
+
   it('adds cart items with a guessed aisle and keeps ideas votes', async () => {
     const item = await api.addGrocery({ group_id: 'home', name: 'Paneer' })
     expect(item.aisle).toBe('Dairy & Eggs')

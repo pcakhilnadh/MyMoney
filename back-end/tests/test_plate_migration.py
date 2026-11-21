@@ -13,6 +13,7 @@ sync = importlib.import_module("migrations.versions.g8b9c0d1e2f3_plate_sync")
 emails = importlib.import_module("migrations.versions.h9c0d1e2f3a4_plate_email_invites")
 shared = importlib.import_module("migrations.versions.i0a1b2c3d4e5_shared_memberships")
 all_meals = importlib.import_module("migrations.versions.j1b2c3d4e5f6_my_kitchen_all_meals")
+fulfilments = importlib.import_module("migrations.versions.l3d4e5f6a7b8_craving_fulfilments")
 PLATE_TABLES = sorted(t for t in Base.metadata.tables if t.startswith("plate_"))
 
 
@@ -26,6 +27,8 @@ def test_postgresql_sql_has_the_one_personal_kitchen_index_and_checks():
         sync.upgrade()
         emails.upgrade()
         shared.upgrade()
+        fulfilments.upgrade()
+        fulfilments.downgrade()
         shared.downgrade()
         emails.downgrade()
         sync.downgrade()
@@ -90,7 +93,7 @@ def test_migrations_match_the_models_and_reverse():
             "INSERT INTO plate_kitchen_invites (id, kitchen_id, invited_user_id, invited_by,"
             " created_at) VALUES ('i1', 'k1', 'p2', 'p1', '2026-11-03')"
         )
-    run(shared.upgrade, all_meals.upgrade)
+    run(shared.upgrade, all_meals.upgrade, fulfilments.upgrade)
     with engine.connect() as connection:
         slots = connection.exec_driver_sql("SELECT meal_slots FROM plate_kitchens").scalar_one()
     assert slots == '["B", "L", "S", "D"]'
@@ -117,7 +120,7 @@ def test_migrations_match_the_models_and_reverse():
         modelled_indexes = {i.name for i in Base.metadata.tables[table].indexes}
         assert modelled_indexes <= migrated_indexes, table
 
-    run(shared.downgrade)
+    run(fulfilments.downgrade, shared.downgrade)
     assert "plate_kitchen_invites" in inspect(engine).get_table_names()
     run(emails.downgrade)
     assert "invited_email" not in {

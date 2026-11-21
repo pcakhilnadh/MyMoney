@@ -649,3 +649,27 @@ class PlateDeletion(Base):
     entity: Mapped[str] = mapped_column(String(20))
     entity_id: Mapped[uuid.UUID] = mapped_column()
     deleted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+
+class PlateCravingFulfilment(Base):
+    """A craving that was planned as a meal. Kept when the craving leaves the list, for
+    future group insights (e.g. how often someone plans another member's craving)."""
+
+    __tablename__ = "plate_craving_fulfilments"
+    __table_args__ = (Index("ix_plate_craving_fulfilments_kitchen", "kitchen_id", "fulfilled_at"),)
+
+    id: Mapped[uuid.UUID] = _pk()
+    kitchen_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("plate_kitchens.id", ondelete="CASCADE")
+    )
+    title: Mapped[str] = mapped_column(String(120))
+    # Who wanted it: whoever suggested it, and everyone who voted for it.
+    suggested_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"))
+    voters: Mapped[list[str]] = mapped_column(JSON, default=list)
+    planned_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"))
+    meal_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("plate_meals.id", ondelete="SET NULL")
+    )
+    suggested_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
+    fulfilled_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+

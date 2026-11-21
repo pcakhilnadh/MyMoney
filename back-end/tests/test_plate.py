@@ -3,7 +3,7 @@ from datetime import date, datetime, timedelta, timezone
 import pytest
 
 from app import plate_recipes
-from app.models import PlateKitchenMember
+from app.models import PlateCravingFulfilment, PlateKitchenMember
 from tests.conftest import H
 
 TODAY = date(2026, 11, 20)  # a Friday
@@ -379,6 +379,29 @@ def test_new_activity_until_seen(c):
 
 
 # ─── Ideas and settings ────────────────────────────────────────────────────────────────
+
+
+def test_planning_a_craving_takes_it_off_the_list_for_anyone(c):
+    kitchen = shared_kitchen(c)
+    idea = send(c, "alice", "POST", "/ideas", {"group_id": kitchen, "title": "Dosa"}, 201).json()
+    other = send(c, "alice", "POST", "/ideas", {"group_id": kitchen, "title": "Idli"}, 201).json()
+    body = meal_body(kitchen, title="Dosa", guest_count=1, from_idea_id=idea["id"])
+    send(c, "bob", "PUT", f"/ideas/{idea['id']}/vote", {"voted": True}, 200)
+    # Bob didn't suggest it, yet planning it takes it off.
+    meal = send(c, "bob", "POST", "/meals", body, 201).json()
+    assert [i["id"] for i in get(c, "alice", "/ideas")] == [other["id"]]
+    # Who wanted it and who planned it is kept, for group insights later.
+    with c.session_factory() as s:
+        (done,) = s.query(PlateCravingFulfilment).all()
+        assert done.title == "Dosa" and str(done.meal_id) == meal["id"]
+        assert str(done.suggested_by) == me(c, "alice") and str(done.planned_by) == me(c, "bob")
+        assert sorted(done.voters) == sorted([me(c, "alice"), me(c, "bob")])
+    # Planning it again (another meal, or a retry) is fine.
+    send(c, "bob", "POST", "/meals", {**body, "meal_slot": "L"}, 201)
+    # A craving from another kitchen is left alone.
+    mine = next(k for k in get(c, "bob", "/kitchens") if k["is_personal"])["id"]
+    send(c, "bob", "POST", "/meals", meal_body(mine, from_idea_id=other["id"]), 201)
+    assert [i["id"] for i in get(c, "alice", "/ideas")] == [other["id"]]
 
 
 def test_ideas_vote_in_shared_kitchens_only(c):

@@ -6,6 +6,7 @@ import { useKitchens, usePlateAutoSync, useSettings } from './hooks'
 import type { KitchenSelection } from './types'
 import { MealSheet } from './sheets/MealSheet'
 import { LiveShoppingPill } from './shopping'
+import { Toaster } from './toast'
 import { CreateSheet, IdeaSheet, ImportSheet, ItemSheet } from './sheets/CreateSheets'
 import { InviteSheet, JoinSheet, NewKitchenSheet, SwitcherSheet } from './sheets/KitchenSheets'
 
@@ -62,6 +63,7 @@ export function PlateProvider({ children }: { children: ReactNode }) {
     <PlateContext.Provider value={value}>
       {children}
       <LiveShoppingPill />
+      <Toaster />
       {sheet && <ActiveSheet key={sheetKey(sheet)} sheet={sheet} />}
     </PlateContext.Provider>
   )
