@@ -77,7 +77,11 @@ export default function PlatePlan() {
           }
         />
         <ContextLine
-          count={`${inKitchen.length} meal${inKitchen.length === 1 ? '' : 's'} this week`}
+          count={
+            inKitchen.length
+              ? `${inKitchen.length} meal${inKitchen.length === 1 ? '' : 's'} this week`
+              : ''
+          }
         />
       </div>
 

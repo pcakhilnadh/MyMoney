@@ -61,6 +61,7 @@ export function KitchenTitle({
 }
 
 /** Under the title: type · cooks · count, avatars and settings. In All: a colour legend. */
+/** `count` is left empty when there's nothing to count, and then isn't shown. */
 export function ContextLine({ count }: { count: string }) {
   const { selection } = usePlate()
   const kitchens = useKitchens().data ?? []
@@ -75,7 +76,7 @@ export function ContextLine({ count }: { count: string }) {
             {k.name}
           </span>
         ))}
-        <span className="ml-auto text-foreground/80">{count}</span>
+        {count && <span className="ml-auto text-foreground/80">{count}</span>}
       </div>
     )
   }
@@ -84,7 +85,8 @@ export function ContextLine({ count }: { count: string }) {
     <div className="flex min-h-7 items-center gap-2 text-[13px] text-muted-foreground">
       <span className="min-w-0 flex-1 truncate">
         {KITCHEN_TYPE_LABEL[kitchen.group_type]} ·{' '}
-        {kitchen.is_personal ? 'private' : `${kitchen.members.length} cooks`} · {count}
+        {kitchen.is_personal ? 'private' : `${kitchen.members.length} cooks`}
+        {count && ` · ${count}`}
       </span>
       {!kitchen.is_personal && <AvatarStack userIds={kitchen.members.map((m) => m.user_id)} />}
       <Link

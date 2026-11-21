@@ -85,7 +85,7 @@ export default function PlateCart() {
     <div className="space-y-4">
       <div className="space-y-1">
         <KitchenTitle title="Cart" mode="cart" />
-        <ContextLine count={`${toBuy.length} to buy`} />
+        <ContextLine count={toBuy.length ? `${toBuy.length} to buy` : ''} />
       </div>
 
       {kitchens && (

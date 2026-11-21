@@ -52,32 +52,44 @@ export default function PlateToday() {
             tomorrow={tomorrow}
           />
 
-          <div className="grid grid-cols-2 gap-3">
-            <Link to="/plate/cart" className="pl-card block p-4 hover:bg-white/[0.07]">
-              <p className="flex items-center justify-between gap-2">
-                <span className="text-2xl font-bold tabular-nums">
-                  {leftToBuy(groceries).length}
-                </span>
-                {shoppingNow.length > 0 && (
-                  <span className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-[#7fdca7] uppercase">
-                    <LiveDot className="size-2" /> Live
-                  </span>
-                )}
-              </p>
-              <p className="mt-0.5 text-[13px] text-muted-foreground">
-                to buy · {kitchens.length} kitchen{kitchens.length === 1 ? '' : 's'}
-              </p>
-            </Link>
-            <Link to="/plate/plan" className="pl-card block p-4 hover:bg-white/[0.07]">
-              <p className="text-2xl font-bold tabular-nums">
-                {mealsLeftThisWeek(meals, today, weekEnd, me)}
-              </p>
-              <p className="mt-0.5 text-[13px] text-muted-foreground">meals left this week</p>
-            </Link>
-          </div>
+          <Tiles
+            toBuy={leftToBuy(groceries).length}
+            live={shoppingNow.length > 0}
+            mealsLeft={mealsLeftThisWeek(meals, today, weekEnd, me)}
+          />
 
           <OnYourPlate meals={mealsIAmEating(meals, today, me)} kitchens={kitchens} today={today} />
         </>
+      )}
+    </div>
+  )
+}
+
+/** Quick counts. A tile only shows when it has something to say. */
+function Tiles({ toBuy, live, mealsLeft }: { toBuy: number; live: boolean; mealsLeft: number }) {
+  const showCart = toBuy > 0 || live
+  const showMeals = mealsLeft > 0
+  if (!showCart && !showMeals) return null
+  return (
+    <div className={cn('grid gap-3', showCart && showMeals ? 'grid-cols-2' : 'grid-cols-1')}>
+      {showCart && (
+        <Link to="/plate/cart" className="pl-card block p-4 hover:bg-white/[0.07]">
+          <p className="flex items-center justify-between gap-2">
+            <span className="text-2xl font-bold tabular-nums">{toBuy}</span>
+            {live && (
+              <span className="flex items-center gap-1.5 text-[11px] font-bold tracking-wider text-[#7fdca7] uppercase">
+                <LiveDot className="size-2" /> Live
+              </span>
+            )}
+          </p>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">to buy</p>
+        </Link>
+      )}
+      {showMeals && (
+        <Link to="/plate/plan" className="pl-card block p-4 hover:bg-white/[0.07]">
+          <p className="text-2xl font-bold tabular-nums">{mealsLeft}</p>
+          <p className="mt-0.5 text-[13px] text-muted-foreground">meals left this week</p>
+        </Link>
       )}
     </div>
   )

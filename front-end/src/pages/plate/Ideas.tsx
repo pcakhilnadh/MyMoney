@@ -33,9 +33,11 @@ export default function PlateIdeas() {
         <KitchenTitle title="Ideas" mode="plan" />
         <ContextLine
           count={
-            kitchen?.is_personal
-              ? `${ideas.length} on your wishlist`
-              : `${ideas.length} idea${ideas.length === 1 ? '' : 's'}`
+            ideas.length === 0
+              ? ''
+              : kitchen?.is_personal
+                ? `${ideas.length} on your wishlist`
+                : `${ideas.length} idea${ideas.length === 1 ? '' : 's'}`
           }
         />
       </div>
