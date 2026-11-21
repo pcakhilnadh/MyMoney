@@ -11,7 +11,7 @@ For a previously signed-in account, cached local data opens immediately, includi
 
 ```
 ┌────────────────────────── Browser (PWA) ──────────────────────────┐
-│ React UI ──> Repositories ──> IndexedDB (Dexie, one DB per user)  │
+│ React UI ──> Repositories ──> IndexedDB (Dexie, per user and app)  │
 │     │                              ▲                              │
 │     │ groups / settlements         │ push & pull                  │
 │     ▼ (online only)                │                              │
@@ -20,7 +20,7 @@ For a previously signed-in account, cached local data opens immediately, includi
               │ HTTPS + app access token; HttpOnly refresh cookie
 ┌─────────────▼───────────── FastAPI (monolith) ────────────────────┐
 │ verify Google sign-in → issue renewable app session               │
-│ routes: /money/*, /food/*, shared /auth/* and /sync/*             │
+│ routes: /money/*, /food/*, /plate/*, /auth/*, /sync/<app>/*       │
 │ authorization + split/balance rules live here (app/splits.py)     │
 └─────────────┬─────────────────────────────────────────────────────┘
               │ SQLAlchemy (server-side connection string)
@@ -28,9 +28,24 @@ For a previously signed-in account, cached local data opens immediately, includi
 ```
 
 Key ideas
-- **Local-first for personal data.** Accounts, categories, budgets, personal transactions and meal logs are
-  written to IndexedDB immediately and marked `pending`. The sync engine pushes them (`POST /sync/push`) and pulls
-  changes (`GET /sync/pull`). Records have a client-generated UUID and a `version`; the higher version wins.
+- **Local-first, one sync per app.** Each app has its own IndexedDB database per user (`exptracker-<sub>` for
+  My Money, `myfood-<sub>`, `myplate-<sub>`) and syncs on its own, so one app's backlog or failure never holds up
+  another. Screens read only local data, so a reload or reopen shows everything at once, offline too.
+  - My Money and My Food records are written locally and marked `pending`, then pushed and pulled through
+    `POST /sync/money/push` + `GET /sync/money/pull` and `/sync/food/*`. Records have a client-generated UUID and
+    a `version`; the higher version wins.
+  - MyPlate saves meals, prep ticks, cart items, ideas, votes and settings locally and queues each change in an
+    outbox, replayed in order against the `/plate/*` routes (which keep every rule on the server). Then
+    `GET /sync/plate/pull?since=` brings what changed in my kitchens: kitchens, people, invites and settings whole;
+    meals, cart and ideas as changes plus tombstones (`plate_deletions`). A change the server refuses is dropped and
+    the server's copy restored. Kitchens, invites, going live and recipe import need a connection.
+  - The live layer (other members' ticks, cart and "shopping now" within ~15 s, presence at
+    `/plate/live/presence`) is kept separate from basic sync (every minute, on open and return) so it can move to
+    a paid plan later.
+  - One sync status for every app lives on the profile page, with a per-app breakdown.
+  - TODO(remove-legacy-sync): the combined `POST /sync/push` and `GET /sync/pull` (and `PUT /plate/presence`)
+    remain only for installed apps cached before the split; remove them, and the legacy `meal_logs` /
+    `food_settings` tables in My Money's local database, once no requests have arrived for a few weeks.
 - **Groups need the internet.** Group/family expenses, splits, balances and settlements go straight to the API.
 - **No Supabase Auth / RLS.** Google verifies the initial sign-in; FastAPI issues short-lived app access tokens and
   renews them using a secure, HttpOnly refresh cookie. Sessions remain active for 30 days after the last use.
@@ -76,7 +91,7 @@ JPEG, PNG and WebP images are validated, compressed to JPEG and stored with the 
 Apply the latest migration before using this field.
 
 The food diary is local-first like the money app. Meal items are written to the synced
-`meal_logs` IndexedDB store immediately, then pushed to the server's `user_meal_log` table
+`meal_logs` store in My Food's own IndexedDB database immediately, then pushed to the server's `user_meal_log` table
 (renamed from `food_entries`) by the sync engine. Each row stores the catalogue's per-100 g
 nutrition values and portion-scaled totals as snapshots, so later catalogue edits do not change
 history. Values unavailable for older rows remain null. The `image` column is reserved for future

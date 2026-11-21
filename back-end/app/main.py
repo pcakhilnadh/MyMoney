@@ -11,7 +11,7 @@ from app.routers_money import router as money_router
 from app.routers_feedback import router as feedback_router
 from app.routers_admin import router as admin_router
 from app.routers_food import router as food_router
-from app.routers_plate import router as plate_router
+from app.routers_plate import router as plate_router, sync_router as plate_sync_router
 from app.sync import router as sync_router
 from app.ai.expense import router as ai_router
 from app.ai.food import router as food_ai_router
@@ -33,6 +33,7 @@ app.include_router(feedback_router, prefix="/api")
 app.include_router(admin_router, prefix="/api")
 app.include_router(food_router, prefix="/api")
 app.include_router(plate_router, prefix="/api")
+app.include_router(plate_sync_router, prefix="/api")
 app.include_router(ai_router, prefix="/api")
 app.include_router(food_ai_router, prefix="/api")
 

@@ -12,6 +12,7 @@ import type {
   Transaction,
 } from './types'
 import { requestSync } from '@/sync/bus'
+import { foodDb } from '@/food/db'
 import {
   categoryTypeForTransaction,
   transferCategoryAccountError,
@@ -39,7 +40,7 @@ class AccountsRepository extends Repository<Account> {
       if (data.is_default) await this.clearOtherDefaults()
       return super.create(data)
     })
-    requestSync()
+    requestSync('money')
     return record
   }
 
@@ -51,11 +52,12 @@ class AccountsRepository extends Repository<Account> {
       const current = await db.accounts.get(id)
       if (!current || current.status === 'deleted') throw new Error('Account not found')
       const status = changes.status ?? current.status
-      if (changes.is_default && status !== 'active') throw new Error('Only active accounts can be the default')
+      if (changes.is_default && status !== 'active')
+        throw new Error('Only active accounts can be the default')
       if (changes.is_default) await this.clearOtherDefaults(id)
       return super.update(id, status === 'active' ? changes : { ...changes, is_default: false })
     })
-    requestSync()
+    requestSync('money')
     return record
   }
 
@@ -72,7 +74,7 @@ class AccountsRepository extends Repository<Account> {
         updated_at: new Date().toISOString(),
       })
     })
-    requestSync()
+    requestSync('money')
   }
 }
 
@@ -93,13 +95,13 @@ class MealLogsRepository extends Repository<MealLog> {
       created_at: now,
       updated_at: now,
     }))
-    await db.transaction('rw', db.meal_logs, () => db.meal_logs.bulkAdd(records))
-    requestSync()
+    await foodDb.transaction('rw', foodDb.meal_logs, () => foodDb.meal_logs.bulkAdd(records))
+    requestSync('food')
     return records
   }
 }
 
-export const mealLogsRepo = new MealLogsRepository(db.meal_logs)
+export const mealLogsRepo = new MealLogsRepository(foodDb.meal_logs, 'food')
 
 class CategoriesRepository extends Repository<Category> {
   async removeWithTransactions(id: string): Promise<void> {
@@ -122,16 +124,14 @@ class CategoriesRepository extends Repository<Category> {
       await Promise.all([
         db.categories.put(deletedRecord(category)),
         db.transactions.bulkPut(
-          transactions
-            .filter((transaction) => transaction.status !== 'deleted')
-            .map(deletedRecord),
+          transactions.filter((transaction) => transaction.status !== 'deleted').map(deletedRecord),
         ),
         db.budgets.bulkPut(
           budgets.filter((budget) => budget.status !== 'deleted').map(deletedRecord),
         ),
       ])
     })
-    requestSync()
+    requestSync('money')
   }
 }
 
@@ -190,11 +190,7 @@ class TransactionsRepository extends Repository<Transaction> {
       if (category.is_hidden)
         throw new Error('Hidden categories cannot be used for new transactions')
       if (data.transaction_type === 'transfer') {
-        const error = transferCategoryAccountError(
-          category.name,
-          !!account,
-          !!destination,
-        )
+        const error = transferCategoryAccountError(category.name, !!account, !!destination)
         if (error) throw new Error(error)
         if (data.account_id && data.account_id === data.transfer_to_account_id) {
           throw new Error('A transfer must use different accounts')

@@ -16,7 +16,8 @@ import { useAuth } from '@/auth/AuthContext'
 import { PLAN_LABEL, ROLE_LABEL } from '@/account/membership'
 import { Button, Card, SectionTitle } from '@/components/kit'
 import { useMe } from '@/groups/hooks'
-import { cachedAuthSessions, useSync } from '@/sync/SyncProvider'
+import { PendingChangesBanner } from '@/sync/PendingChangesBanner'
+import { cachedAuthSessions, useSync, type AppSyncStatus } from '@/sync/SyncProvider'
 
 const STATE = {
   idle: { label: 'Up to date', dot: 'bg-muted-foreground' },
@@ -24,6 +25,15 @@ const STATE = {
   offline: { label: 'Offline', dot: 'bg-muted-foreground' },
   error: { label: 'Error', dot: 'bg-destructive' },
 } as const
+
+/** One line per app in the sync breakdown. */
+function appSyncLabel(app: AppSyncStatus): string {
+  if (app.state === 'syncing') return 'Syncing…'
+  if (app.state === 'offline') return app.pending ? `Offline · ${app.pending} waiting` : 'Offline'
+  if (app.state === 'error') return 'Needs attention'
+  if (app.pending) return `${app.pending} waiting`
+  return app.lastSyncedAt ? 'Up to date' : 'Not synced yet'
+}
 
 const greeting = () => {
   const hour = new Date().getHours()
@@ -174,6 +184,7 @@ export default function Personal() {
       </section>
 
       <section className="space-y-2.5">
+        <PendingChangesBanner />
         <div className="flex items-center justify-between px-1">
           <SectionTitle>Sync status</SectionTitle>
           <span
@@ -226,6 +237,20 @@ export default function Personal() {
                 : 'Not synced yet'}
             </span>
           </div>
+          {sync.apps.length > 1 && (
+            <ul aria-label="Sync by app" className="divide-y divide-border/60 text-sm">
+              {sync.apps.map((app) => (
+                <li key={app.name} className="flex items-center justify-between gap-3 py-2">
+                  <span className="font-medium">{app.label}</span>
+                  <span
+                    className={app.state === 'error' ? 'text-destructive' : 'text-muted-foreground'}
+                  >
+                    {appSyncLabel(app)}
+                  </span>
+                </li>
+              ))}
+            </ul>
+          )}
           {sync.error && <div className="text-sm text-destructive">{sync.error}</div>}
           <Button
             variant="outline"

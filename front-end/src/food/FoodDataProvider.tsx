@@ -3,7 +3,7 @@ import type { ReactNode } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { api } from '@/auth/api'
 import { useAuth } from '@/auth/AuthContext'
-import { db } from '@/db/db'
+import { foodDb } from './db'
 import { requestSync } from '@/sync/bus'
 import type { MealLog } from '@/db/types'
 
@@ -37,14 +37,14 @@ function FoodSession({ children, token }: { children: ReactNode; token: string |
   const requestId = useRef(0)
   const entries = useLiveQuery(
     async () =>
-      (await db.meal_logs.where('status').notEqual('deleted').toArray()).sort(
+      (await foodDb.meal_logs.where('status').notEqual('deleted').toArray()).sort(
         (a, b) =>
           a.entry_date.localeCompare(b.entry_date) || a.created_at.localeCompare(b.created_at),
       ),
     [],
   )
   const goal = useLiveQuery(
-    async () => (await db.food_settings.get('goal')) ?? { key: 'goal', calories: null },
+    async () => (await foodDb.food_settings.get('goal')) ?? { key: 'goal', calories: null },
     [],
   )
 
@@ -68,7 +68,7 @@ function FoodSession({ children, token }: { children: ReactNode; token: string |
         timeout,
       ])
       if (requestId.current !== id) return
-      await db.food_settings.put({ key: 'goal', calories: result.calories })
+      await foodDb.food_settings.put({ key: 'goal', calories: result.calories })
       setError('')
     } catch (reason) {
       if (requestId.current !== id) return
@@ -82,10 +82,10 @@ function FoodSession({ children, token }: { children: ReactNode; token: string |
 
   useEffect(() => {
     void refreshGoal()
-    requestSync()
+    requestSync('food')
     const refresh = () => {
       void refreshGoal()
-      requestSync()
+      requestSync('food')
     }
     const onVisibilityChange = () => {
       if (document.visibilityState === 'visible') refresh()
@@ -101,19 +101,18 @@ function FoodSession({ children, token }: { children: ReactNode; token: string |
   }, [refreshGoal])
 
   const retry = useCallback(() => {
-    requestSync()
+    requestSync('food')
     void refreshGoal()
   }, [refreshGoal])
 
   const recordGoal = useCallback(async (calories: number) => {
     requestId.current += 1
     request.current?.abort()
-    await db.food_settings.put({ key: 'goal', calories })
+    await foodDb.food_settings.put({ key: 'goal', calories })
     setError('')
   }, [])
 
-  const data =
-    entries === undefined || goal === undefined ? null : { entries, goal: goal.calories }
+  const data = entries === undefined || goal === undefined ? null : { entries, goal: goal.calories }
 
   return (
     <FoodContext.Provider value={{ data, error, retry, recordGoal }}>

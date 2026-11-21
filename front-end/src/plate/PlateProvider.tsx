@@ -2,7 +2,7 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useLocation } from 'react-router-dom'
 import { Plus } from 'lucide-react'
 import { PlateContext, tabFromPath, usePlate, type PlateSheet } from './context'
-import { useKitchens, useSettings } from './hooks'
+import { useKitchens, usePlateAutoSync, useSettings } from './hooks'
 import type { KitchenSelection } from './types'
 import { MealSheet } from './sheets/MealSheet'
 import { LiveShoppingPill } from './shopping'
@@ -27,6 +27,7 @@ function readStored(): KitchenSelection | null {
 }
 
 export function PlateProvider({ children }: { children: ReactNode }) {
+  usePlateAutoSync()
   const kitchens = useKitchens().data
   const settings = useSettings().data
   const [chosen, setChosen] = useState<KitchenSelection | null>(readStored)

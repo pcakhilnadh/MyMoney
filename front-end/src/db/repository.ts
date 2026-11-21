@@ -1,5 +1,5 @@
 import type { EntityTable, Table } from 'dexie'
-import { requestSync } from '@/sync/bus'
+import { requestSync, type SyncDomain } from '@/sync/bus'
 import type { Syncable } from './types'
 
 export type NewRecord<T extends Syncable> = Omit<
@@ -13,9 +13,12 @@ export type NewRecord<T extends Syncable> = Omit<
  */
 export class Repository<T extends Syncable> {
   private table: Table<T, string>
+  /** The app whose sync picks up this table's changes. */
+  private domain: SyncDomain
 
-  constructor(table: EntityTable<T, 'id'>) {
+  constructor(table: EntityTable<T, 'id'>, domain: SyncDomain = 'money') {
     this.table = table as unknown as Table<T, string>
+    this.domain = domain
   }
 
   async list(): Promise<T[]> {
@@ -39,7 +42,7 @@ export class Repository<T extends Syncable> {
       updated_at: now,
     } as unknown as T
     await this.table.add(record)
-    requestSync()
+    requestSync(this.domain)
     return record
   }
 
@@ -57,7 +60,7 @@ export class Repository<T extends Syncable> {
       updated_at: new Date().toISOString(),
     } as T
     await this.table.put(next)
-    requestSync()
+    requestSync(this.domain)
     return next
   }
 
@@ -72,6 +75,6 @@ export class Repository<T extends Syncable> {
       sync_state: 'pending',
       updated_at: new Date().toISOString(),
     })
-    requestSync()
+    requestSync(this.domain)
   }
 }

@@ -49,6 +49,8 @@ export interface Kitchen {
   shopping_since: Partial<Record<UserId, string>>
   /** Something changed since I last opened this kitchen. */
   has_new_activity: boolean
+  /** Local only: keeps the server's order on the phone. */
+  position?: number
 }
 
 export type ChefType = 'MEMBER' | 'TOGETHER' | 'TAKEOUT' | 'EATING_OUT'
@@ -83,6 +85,7 @@ export interface Meal {
   reactions: Record<UserId, Reaction>
   recipe_url: string | null
   prep_tasks: PrepTask[]
+  created_at?: string
 }
 
 export type Aisle =
@@ -108,6 +111,7 @@ export interface GroceryItem {
   added_by: UserId
   checked_by: UserId | null
   checked_at: string | null
+  created_at?: string
 }
 
 /** `cravings`: a private wishlist in My Kitchen, a vote in shared kitchens. */
@@ -141,6 +145,6 @@ export interface KitchenInvite {
 /** What the kitchen picker shows: one kitchen, or every kitchen merged. */
 export type KitchenSelection = string | 'all'
 
-export type MealDraft = Omit<Meal, 'id' | 'prep_tasks' | 'reactions'> & {
+export type MealDraft = Omit<Meal, 'id' | 'prep_tasks' | 'reactions' | 'created_at'> & {
   prep_tasks: { id?: string; title: string }[]
 }

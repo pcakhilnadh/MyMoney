@@ -1,7 +1,6 @@
 import { Link } from 'react-router-dom'
 import { Bell, ChevronRight } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { useSync } from '@/sync/SyncProvider'
 import * as api from '@/plate/api'
 import { usePlate } from '@/plate/context'
 import { CookChip, EatingLine, SectionLabel } from '@/plate/components'
@@ -50,7 +49,6 @@ export default function PlateToday() {
           </p>
           <h1 className="text-[28px] leading-tight font-bold">Today</h1>
         </div>
-        <SyncPill />
       </header>
 
       {!kitchens || !meals || !groceries ? (
@@ -91,24 +89,6 @@ export default function PlateToday() {
         </>
       )}
     </div>
-  )
-}
-
-function SyncPill() {
-  const sync = useSync()
-  const offline = sync.state === 'offline' || !navigator.onLine
-  const [label, tone] = offline
-    ? ['Offline', 'bg-white/40']
-    : sync.state === 'syncing'
-      ? ['Syncing', 'bg-[#f5c542]']
-      : sync.state === 'error'
-        ? ['Sync failed', 'bg-destructive']
-        : ['Synced', 'bg-[#4cc38a]']
-  return (
-    <span className="pl-sunken mb-1 inline-flex h-7 items-center gap-1.5 rounded-full px-2.5 text-xs font-semibold">
-      <span aria-hidden="true" className={cn('size-1.5 rounded-full', tone)} />
-      {label}
-    </span>
   )
 }
 

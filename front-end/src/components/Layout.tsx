@@ -8,7 +8,6 @@ import {
   House,
   Plus,
   Receipt,
-  RefreshCw,
   Settings as SettingsIcon,
   ShoppingCart,
   Sun,
@@ -19,10 +18,8 @@ import {
 } from 'lucide-react'
 import { useEntitlements } from '@/account/entitlements'
 import { useAuth } from '@/auth/AuthContext'
-import { Button } from '@/components/kit'
 import { PlateIcon } from '@/components/PlateIcon'
 import { PlateAddButton } from '@/plate/PlateProvider'
-import { useSync } from '@/sync/SyncProvider'
 
 const tabs = [
   { to: '/money/home', label: 'Home', Icon: House },
@@ -56,8 +53,7 @@ const plateTabs = [
 ]
 
 export default function Layout({ app }: { app: 'money' | 'food' | 'plate' | 'shared' }) {
-  const { user, token } = useAuth()
-  const sync = useSync()
+  const { user } = useAuth()
   const { pathname } = useLocation()
   const navigate = useNavigate()
   const [failedPicture, setFailedPicture] = useState<string | null>(null)
@@ -73,17 +69,6 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'plate' | 'sha
   const navigationItems =
     selectedApp === 'food' ? foodTabs : selectedApp === 'plate' ? plateTabs : tabs
   const addPath = selectedApp === 'food' ? '/food/add' : '/money/expenses/new'
-  const isOffline = sync.state === 'offline' || !navigator.onLine
-  const syncMessage =
-    sync.state === 'syncing'
-      ? `Syncing your ${sync.pending} pending changes.`
-      : !token && !isOffline
-        ? `${sync.pending} changes are waiting. Preparing your session to sync.`
-        : isOffline
-          ? `${sync.pending} changes are waiting. Reconnect to sync your data.`
-          : sync.state === 'error'
-            ? `${sync.pending} changes are waiting. Sync failed; tap to retry.`
-            : `You have ${sync.pending} changes waiting. Sync now to back them up.`
 
   return (
     <div
@@ -148,40 +133,6 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'plate' | 'sha
           )}
         </Link>
       </div>
-      {sync.pending > 10 && !isPersonal ? (
-        <aside
-          role="status"
-          aria-live="polite"
-          className="mx-5 mt-2 flex items-center justify-between gap-3 rounded-xl border border-primary/25 bg-primary/10 px-4 py-3"
-        >
-          <div className="flex min-w-0 items-start gap-2.5">
-            <RefreshCw
-              size={17}
-              className={`mt-0.5 shrink-0 text-primary ${sync.state === 'syncing' ? 'animate-spin' : ''}`}
-              aria-hidden="true"
-            />
-            <div className="min-w-0">
-              <p className="text-sm font-semibold">Sync your data</p>
-              <p className="text-xs text-muted-foreground">{syncMessage}</p>
-            </div>
-          </div>
-          <Button
-            type="button"
-            variant="outline"
-            className="shrink-0"
-            onClick={() => void sync.syncNow()}
-            disabled={sync.state === 'syncing' || isOffline || !token}
-          >
-            {sync.state === 'syncing'
-              ? 'Syncing…'
-              : isOffline
-                ? 'Offline'
-                : !token
-                  ? 'Waiting…'
-                  : 'Sync now'}
-          </Button>
-        </aside>
-      ) : null}
       <main
         className={`space-y-5 px-5 pt-2 ${
           isPersonal

@@ -13,7 +13,7 @@ from typing import Literal
 
 from fastapi import APIRouter, Depends, HTTPException, Query, Response
 from pydantic import BaseModel, Field
-from sqlalchemy import delete, select, update
+from sqlalchemy import and_, delete, or_, select, update
 from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session, selectinload
 
@@ -33,6 +33,7 @@ from app.models import (
     PlateMealAttendee,
     PlateMealReaction,
     PlatePrepTask,
+    PlateDeletion,
     PlateSettings,
     Profile,
 )
@@ -43,12 +44,25 @@ router = APIRouter(
     tags=["plate"],
     dependencies=[Depends(require_feature("plate"))],
 )
+# Local-first sync for phones: pull what changed in my kitchens (see `pull` below).
+sync_router = APIRouter(
+    prefix="/sync/plate",
+    tags=["sync"],
+    dependencies=[Depends(require_feature("plate"))],
+)
 
 KITCHEN_COLORS = ("#f97316", "#4ade80", "#2dd4bf", "#a78bfa", "#facc15", "#60a5fa", "#f472b6")
 AVATAR_COLORS = ("#b4553d", "#4f9a6b", "#3a8f8a", "#9a6a3f", "#7d5aa8", "#b0577a")
 SLOT_ORDER = ("B", "L", "S", "D")
 SHOPPING_TTL = timedelta(hours=1)
 MAX_RANGE_DAYS = 62
+# A phone that syncs less often than tombstones are kept gets a full refresh instead.
+TOMBSTONE_TTL = timedelta(days=90)
+FULL_PULL_AFTER = timedelta(days=60)
+# Phones keep this many weeks of past meals; older weeks load from /plate/meals on demand.
+PAST_WEEKS = 8
+# Rows committed just before a pull may carry a slightly earlier time than its cursor.
+CURSOR_OVERLAP = timedelta(seconds=5)
 CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789"
 
 Slot = Literal["B", "L", "S", "D"]
@@ -202,6 +216,32 @@ def _touch(db: Session, kitchen: PlateKitchen, viewer: Viewer) -> None:
         member.last_seen_at = now
 
 
+def _tombstone(db: Session, kitchen_id: uuid.UUID, entity: str, ids) -> None:
+    """Remember deletions so other members' phones drop the rows on their next sync."""
+    now = _now()
+    for entity_id in ids:
+        db.add(
+            PlateDeletion(kitchen_id=kitchen_id, entity=entity, entity_id=entity_id, deleted_at=now)
+        )
+    db.execute(
+        delete(PlateDeletion).where(
+            PlateDeletion.kitchen_id == kitchen_id, PlateDeletion.deleted_at < now - TOMBSTONE_TTL
+        )
+    )
+
+
+def _existing(db: Session, model, row_id: uuid.UUID | None, viewer: Viewer):
+    """A create retried by a phone (its id is already saved): return the saved row."""
+    if row_id is None:
+        return None
+    row = db.get(model, row_id)
+    if row is None:
+        return None
+    if _membership(db, row.kitchen_id, viewer.id) is None:
+        raise HTTPException(409, "That id is already in use.")
+    return row
+
+
 # ─── People ──────────────────────────────────────────────────────────────────────────────
 
 
@@ -278,8 +318,8 @@ def me(viewer: Viewer = Depends(get_viewer), db: Session = Depends(get_db)):
     return _people(db, {viewer.id}, viewer)[0]
 
 
-@router.get("/people")
-def people(viewer: Viewer = Depends(get_viewer), db: Session = Depends(get_db)):
+def _people_ids(db: Session, viewer: Viewer) -> set[uuid.UUID]:
+    """Everyone MyPlate may show me: contacts, whoever invited me, whoever I invited."""
     inviters = set(
         db.scalars(
             select(PlateKitchenInvite.invited_by).where(
@@ -294,7 +334,12 @@ def people(viewer: Viewer = Depends(get_viewer), db: Session = Depends(get_db)):
             )
         )
     )
-    return _people(db, _contact_ids(db, viewer) | inviters | invited | {viewer.id}, viewer)
+    return _contact_ids(db, viewer) | inviters | invited | {viewer.id}
+
+
+@router.get("/people")
+def people(viewer: Viewer = Depends(get_viewer), db: Session = Depends(get_db)):
+    return _people(db, _people_ids(db, viewer), viewer)
 
 
 @router.get("/contacts")
@@ -503,7 +548,8 @@ class PresenceIn(BaseModel):
     shopping: bool
 
 
-@router.put("/presence")
+@router.put("/live/presence")
+@router.put("/presence")  # TODO(remove-legacy-sync): old clients; remove with /sync/pull.
 def set_presence(
     body: PresenceIn, viewer: Viewer = Depends(get_viewer), db: Session = Depends(get_db)
 ):
@@ -564,8 +610,7 @@ def invite_code(
     return {"code": kitchen.invite_code}
 
 
-@router.get("/invites")
-def list_invites(viewer: Viewer = Depends(get_viewer), db: Session = Depends(get_db)):
+def _invites_out(db: Session, viewer: Viewer) -> list[dict]:
     rows = db.execute(
         select(PlateKitchenInvite, PlateKitchen)
         .join(PlateKitchen, PlateKitchen.id == PlateKitchenInvite.kitchen_id)
@@ -582,6 +627,11 @@ def list_invites(viewer: Viewer = Depends(get_viewer), db: Session = Depends(get
         }
         for invite, kitchen in rows
     ]
+
+
+@router.get("/invites")
+def list_invites(viewer: Viewer = Depends(get_viewer), db: Session = Depends(get_db)):
+    return _invites_out(db, viewer)
 
 
 def _join(db: Session, kitchen: PlateKitchen, viewer: Viewer) -> None:
@@ -667,6 +717,7 @@ def _meal_out(meal: PlateMeal) -> dict:
             }
             for t in meal.prep_tasks
         ],
+        "created_at": _iso(meal.created_at),
     }
 
 
@@ -706,6 +757,8 @@ class PrepTaskIn(BaseModel):
 
 
 class MealIn(BaseModel):
+    # Set by phones so a meal keeps its id while offline; retries return the saved meal.
+    id: uuid.UUID | None = None
     group_id: uuid.UUID
     meal_date: date
     meal_slot: Slot
@@ -774,16 +827,23 @@ def _apply_meal(
             continue
         row = existing.get(task.id) if task.id else None
         if row is None:
-            row = PlatePrepTask(title=text)
+            fresh = task.id is not None and db.get(PlatePrepTask, task.id) is None
+            row = PlatePrepTask(id=task.id, title=text) if fresh else PlatePrepTask(title=text)
         row.title, row.sort_order = text, len(tasks)
         tasks.append(row)
     meal.prep_tasks = tasks
+    # Attendee and prep changes don't touch the meal row; phones pull by this time.
+    meal.updated_at = _now()
 
 
 @router.post("/meals", status_code=201)
 def create_meal(body: MealIn, viewer: Viewer = Depends(get_viewer), db: Session = Depends(get_db)):
     kitchen = _require_kitchen(db, body.group_id, viewer)
+    if saved := _existing(db, PlateMeal, body.id, viewer):
+        return _meal_out(saved)
     meal = PlateMeal(created_by=viewer.id, attendees=[], prep_tasks=[], reactions=[])
+    if body.id:
+        meal.id = body.id
     _apply_meal(db, meal, body, kitchen, viewer)
     db.add(meal)
     _touch(db, kitchen, viewer)
@@ -812,11 +872,19 @@ def delete_meal(
     meal_id: uuid.UUID, viewer: Viewer = Depends(get_viewer), db: Session = Depends(get_db)
 ):
     meal, kitchen = _require_meal(db, meal_id, viewer)
-    db.execute(update(PlateMeal).where(PlateMeal.leftover_of == meal.id).values(leftover_of=None))
+    now = _now()
     db.execute(
-        update(PlateGroceryItem).where(PlateGroceryItem.meal_id == meal.id).values(meal_id=None)
+        update(PlateMeal)
+        .where(PlateMeal.leftover_of == meal.id)
+        .values(leftover_of=None, updated_at=now)
+    )
+    db.execute(
+        update(PlateGroceryItem)
+        .where(PlateGroceryItem.meal_id == meal.id)
+        .values(meal_id=None, updated_at=now)
     )
     db.delete(meal)
+    _tombstone(db, kitchen.id, "meals", [meal.id])
     _touch(db, kitchen, viewer)
     db.commit()
     return Response(status_code=204)
@@ -844,6 +912,7 @@ def set_reaction(
         mine.reaction = body.reaction
     else:
         meal.reactions.append(PlateMealReaction(user_id=viewer.id, reaction=body.reaction))
+    meal.updated_at = _now()
     _touch(db, kitchen, viewer)
     db.commit()
     return _meal_out(meal)
@@ -866,6 +935,7 @@ def set_prep_done(
     meal, kitchen = _require_meal(db, task.meal_id, viewer)
     task.done_by = viewer.id if body.done else None
     task.done_at = _now() if body.done else None
+    meal.updated_at = _now()
     _touch(db, kitchen, viewer)
     db.commit()
     return _meal_out(meal)
@@ -1016,6 +1086,7 @@ def _item_out(item: PlateGroceryItem) -> dict:
         "added_by": str(item.added_by),
         "checked_by": _sid(item.checked_by),
         "checked_at": _iso(item.checked_at),
+        "created_at": _iso(item.created_at),
     }
 
 
@@ -1030,6 +1101,7 @@ def list_groceries(viewer: Viewer = Depends(get_viewer), db: Session = Depends(g
 
 
 class GroceryIn(BaseModel):
+    id: uuid.UUID | None = None
     group_id: uuid.UUID
     name: str = Field(min_length=1, max_length=120)
     quantity: str = Field("", max_length=40)
@@ -1040,6 +1112,8 @@ class GroceryIn(BaseModel):
 @router.post("/grocery-items", status_code=201)
 def add_grocery(body: GroceryIn, viewer: Viewer = Depends(get_viewer), db: Session = Depends(get_db)):
     kitchen = _require_kitchen(db, body.group_id, viewer)
+    if saved := _existing(db, PlateGroceryItem, body.id, viewer):
+        return _item_out(saved)
     name = body.name.strip()
     if not name:
         raise HTTPException(422, "Name the item.")
@@ -1048,6 +1122,7 @@ def add_grocery(body: GroceryIn, viewer: Viewer = Depends(get_viewer), db: Sessi
         if meal is None or meal.kitchen_id != kitchen.id:
             raise HTTPException(422, "That meal isn't in this kitchen.")
     item = PlateGroceryItem(
+        id=body.id or uuid.uuid4(),
         kitchen_id=kitchen.id,
         name=name,
         quantity=body.quantity.strip(),
@@ -1093,6 +1168,7 @@ def delete_grocery(
 ):
     item, kitchen = _require_item(db, item_id, viewer)
     db.delete(item)
+    _tombstone(db, item.kitchen_id, "grocery_items", [item.id])
     _touch(db, kitchen, viewer)  # type: ignore[arg-type]
     db.commit()
     return Response(status_code=204)
@@ -1108,12 +1184,13 @@ def clear_checked(
 ):
     for kitchen_id in dict.fromkeys(body.group_ids):
         kitchen = _require_kitchen(db, kitchen_id, viewer)
-        db.execute(
-            delete(PlateGroceryItem).where(
-                PlateGroceryItem.kitchen_id == kitchen.id,
-                PlateGroceryItem.checked_at.is_not(None),
-            )
+        checked = (
+            PlateGroceryItem.kitchen_id == kitchen.id,
+            PlateGroceryItem.checked_at.is_not(None),
         )
+        ids = db.scalars(select(PlateGroceryItem.id).where(*checked)).all()
+        _tombstone(db, kitchen.id, "grocery_items", ids)
+        db.execute(delete(PlateGroceryItem).where(*checked))
         _touch(db, kitchen, viewer)
     db.commit()
     return Response(status_code=204)
@@ -1146,6 +1223,7 @@ def list_ideas(viewer: Viewer = Depends(get_viewer), db: Session = Depends(get_d
 
 
 class IdeaIn(BaseModel):
+    id: uuid.UUID | None = None
     group_id: uuid.UUID
     title: str = Field(min_length=1, max_length=120)
     recipe_url: str | None = Field(None, max_length=500)
@@ -1154,10 +1232,13 @@ class IdeaIn(BaseModel):
 @router.post("/ideas", status_code=201)
 def add_idea(body: IdeaIn, viewer: Viewer = Depends(get_viewer), db: Session = Depends(get_db)):
     kitchen = _require_kitchen(db, body.group_id, viewer)
+    if saved := _existing(db, PlateIdea, body.id, viewer):
+        return _idea_out(saved)
     title = body.title.strip()
     if not title:
         raise HTTPException(422, "Name the idea.")
     idea = PlateIdea(
+        id=body.id or uuid.uuid4(),
         kitchen_id=kitchen.id,
         title=title,
         recipe_url=(body.recipe_url or "").strip() or None,
@@ -1197,6 +1278,7 @@ def vote(
         idea.votes.append(PlateIdeaVote(user_id=viewer.id))
     elif not body.voted and mine is not None:
         idea.votes.remove(mine)
+    idea.updated_at = _now()
     _touch(db, kitchen, viewer)  # type: ignore[arg-type]
     db.commit()
     return _idea_out(idea)
@@ -1210,6 +1292,7 @@ def delete_idea(
     if idea.added_by != viewer.id and kitchen.owner_id != viewer.id:  # type: ignore[union-attr]
         raise HTTPException(403, "Only whoever suggested it, or the kitchen owner, can remove it.")
     db.delete(idea)
+    _tombstone(db, idea.kitchen_id, "ideas", [idea.id])
     _touch(db, kitchen, viewer)  # type: ignore[arg-type]
     db.commit()
     return Response(status_code=204)
@@ -1275,3 +1358,87 @@ def recipe_import(body: ImportIn, viewer: Viewer = Depends(get_viewer)):
         return import_recipe(body.url.strip())
     except RecipeImportError as error:
         raise HTTPException(422, str(error)) from None
+
+
+# ─── Sync ────────────────────────────────────────────────────────────────────────────────
+
+
+def _cutoff(since: datetime | None) -> datetime | None:
+    """Pull rows changed after this; None means send everything."""
+    since = _aware(since)
+    if since is None or since < _now() - FULL_PULL_AFTER:
+        return None
+    return since - CURSOR_OVERLAP
+
+
+@sync_router.get("/pull")
+def pull(
+    since: datetime | None = None,
+    viewer: Viewer = Depends(get_viewer),
+    db: Session = Depends(get_db),
+):
+    """What a phone needs to show MyPlate offline.
+
+    Kitchens, people, invites and settings are small and always come whole. Meals, cart
+    items and ideas come as changes since `since`, with the ids of rows deleted since then.
+    The first pull, and any kitchen joined since `since`, comes whole (meals from
+    PAST_WEEKS ago on). Kitchens missing from `kitchens` were left or deleted.
+    Writes still go through the /plate routes, which keep every rule in one place.
+    """
+    _ensure_personal(db, viewer)
+    _refresh_profile_cache(db, viewer)
+    server_time = _now()
+    cutoff = _cutoff(since)
+    kitchens = _load_kitchens(db, viewer)
+    joined = {
+        m.kitchen_id: _aware(m.joined_at)
+        for m in db.scalars(select(PlateKitchenMember).where(PlateKitchenMember.user_id == viewer.id))
+    }
+    full = [k.id for k in kitchens if cutoff is None or joined[k.id] > cutoff]
+    delta = [k.id for k in kitchens if k.id not in full]
+    oldest = (server_time - timedelta(weeks=PAST_WEEKS)).date()
+
+    def changed(model):
+        recent = and_(model.kitchen_id.in_(delta), model.updated_at > cutoff) if delta else None
+        whole = model.kitchen_id.in_(full) if full else None
+        if model is PlateMeal and whole is not None:
+            whole = and_(whole, PlateMeal.meal_date >= oldest)
+        parts = [p for p in (whole, recent) if p is not None]
+        return or_(*parts) if parts else None
+
+    def rows(query, model):
+        condition = changed(model)
+        return [] if condition is None else db.scalars(query.where(condition)).all()
+
+    meals = rows(_meal_query().order_by(PlateMeal.meal_date, PlateMeal.created_at), PlateMeal)
+    items = rows(select(PlateGroceryItem).order_by(PlateGroceryItem.created_at), PlateGroceryItem)
+    ideas = rows(
+        select(PlateIdea).options(selectinload(PlateIdea.votes)).order_by(PlateIdea.created_at),
+        PlateIdea,
+    )
+    deleted: dict[str, list[str]] = {"meals": [], "grocery_items": [], "ideas": []}
+    if delta:
+        for tomb in db.scalars(
+            select(PlateDeletion).where(
+                PlateDeletion.kitchen_id.in_(delta), PlateDeletion.deleted_at > cutoff
+            )
+        ):
+            deleted[tomb.entity].append(str(tomb.entity_id))
+
+    everyone = _people(db, _people_ids(db, viewer), viewer)
+    contacts = {str(i) for i in _contact_ids(db, viewer)}
+    return {
+        "server_time": server_time.isoformat(),
+        "me": next(p for p in everyone if p["id"] == str(viewer.id)),
+        "people": everyone,
+        "contact_ids": sorted(contacts),
+        "kitchens": [_kitchen_out(k, viewer) for k in kitchens],
+        "invites": _invites_out(db, viewer),
+        "settings": _settings_out(db.get(PlateSettings, viewer.id)),
+        "full_kitchens": [str(k) for k in full],
+        "meals_from": oldest.isoformat(),
+        "meals": [_meal_out(m) for m in meals],
+        "grocery_items": [_item_out(i) for i in items],
+        "ideas": [_idea_out(i) for i in ideas],
+        "deleted": deleted,
+    }

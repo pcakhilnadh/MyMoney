@@ -38,7 +38,7 @@ test('meal logs load from IndexedDB on navigation and reload while the API is sl
   await fakeSignIn(page)
   await page.goto('/food/home')
   await expect(page.getByRole('region', { name: 'Calories today' })).toBeVisible()
-  await seedMealLogs(page, 'exptracker-1', [egg()])
+  await seedMealLogs(page, 'myfood-1', [egg()])
   await page.reload()
 
   await expect(page.getByRole('region', { name: 'Calories today' })).toContainText('75 kcal')
@@ -68,10 +68,10 @@ test('goal refresh reports a timeout instead of loading forever', async ({ page 
   )
   await page.route('**/auth/login', (route) => route.abort())
   await page.route('**/auth/me', (route) => route.fulfill({ json: { role: 'owner', entitlements: ['money', 'food', 'plate'] } }))
-  await page.route('**/sync/push', (route) =>
+  await page.route('**/sync/{money,food}/push', (route) =>
     route.fulfill({ json: { accepted: [], conflicts: [] } }),
   )
-  await page.route('**/sync/pull', (route) =>
+  await page.route('**/sync/{money,food}/pull', (route) =>
     route.fulfill({
       json: {
         categories: [],
@@ -136,7 +136,7 @@ test('saved meals and goals land in IndexedDB before the refresh', async ({ page
 
   await expect
     .poll(async () => {
-      const rows = await readMealLogs(page, 'exptracker-food-cache-save')
+      const rows = await readMealLogs(page, 'myfood-food-cache-save')
       return rows.map((row) => ({
         entry_date: row.entry_date,
         meal: row.meal,

@@ -3,7 +3,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { setAccessToken } from '@/auth/api'
 import { db } from '@/db/db'
 import type { Account, Budget, Category } from '@/db/types'
-import { runSync } from './engine'
+import { foodDb } from '@/food/db'
+import type { MealLog } from '@/db/types'
+import { foodSync, moneySync, runSync } from './engine'
 
 const category: Category = {
   id: 'category-id',
@@ -59,7 +61,7 @@ describe('sync dependencies', () => {
     const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
       const path = new URL(String(input)).pathname
       requestPaths.push(path)
-      if (path === '/api/sync/push') {
+      if (path === '/api/sync/money/push') {
         const body = JSON.parse(String(init?.body)) as { categories: Category[] }
         pushedCategories = body.categories
         return new Response(JSON.stringify({ accepted: [], conflicts: [] }), {
@@ -69,10 +71,18 @@ describe('sync dependencies', () => {
 
         it('pulls a changed default and clears the previous default on another device', async () => {
           const oldAccount: Account = {
-            id: 'old', name: 'Old', account_type: 'bank', currency: 'INR',
-            opening_balance: 0, credit_limit: null, is_default: true,
-            version: 1, sync_state: 'synced', status: 'active',
-            created_at: '2026-10-23T00:00:00.000Z', updated_at: '2026-10-23T00:00:00.000Z',
+            id: 'old',
+            name: 'Old',
+            account_type: 'bank',
+            currency: 'INR',
+            opening_balance: 0,
+            credit_limit: null,
+            is_default: true,
+            version: 1,
+            sync_state: 'synced',
+            status: 'active',
+            created_at: '2026-10-23T00:00:00.000Z',
+            updated_at: '2026-10-23T00:00:00.000Z',
           }
           const newAccount = { ...oldAccount, id: 'new', name: 'New', is_default: false }
           await db.accounts.bulkAdd([oldAccount, newAccount])
@@ -81,27 +91,32 @@ describe('sync dependencies', () => {
             setItem: () => undefined,
             removeItem: () => undefined,
           })
-          vi.stubGlobal('fetch', vi.fn<typeof fetch>(async (input) => {
-            const path = new URL(String(input)).pathname
-            const body = path === '/api/sync/pull'
-              ? {
-                  accounts: [
-                    { ...oldAccount, is_default: false, version: 2 },
-                    { ...newAccount, is_default: true, version: 2 },
-                  ],
-                  server_time: '2026-10-24T00:00:00.000Z',
-                }
-              : {}
-            return new Response(JSON.stringify(body), {
-              status: 200, headers: { 'Content-Type': 'application/json' },
-            })
-          }))
-          await runSync('token', 'user')
+          vi.stubGlobal(
+            'fetch',
+            vi.fn<typeof fetch>(async (input) => {
+              const path = new URL(String(input)).pathname
+              const body =
+                path === '/api/sync/money/pull'
+                  ? {
+                      accounts: [
+                        { ...oldAccount, is_default: false, version: 2 },
+                        { ...newAccount, is_default: true, version: 2 },
+                      ],
+                      server_time: '2026-10-24T00:00:00.000Z',
+                    }
+                  : {}
+              return new Response(JSON.stringify(body), {
+                status: 200,
+                headers: { 'Content-Type': 'application/json' },
+              })
+            }),
+          )
+          await runSync(moneySync, 'token', 'user')
           expect((await db.accounts.get('old'))?.is_default).toBe(false)
           expect((await db.accounts.get('new'))?.is_default).toBe(true)
         })
       }
-      if (path === '/api/sync/pull') {
+      if (path === '/api/sync/money/pull') {
         return new Response(
           JSON.stringify({
             categories: [],
@@ -123,10 +138,12 @@ describe('sync dependencies', () => {
       removeItem: () => undefined,
     })
 
-    await runSync('token', 'user')
+    await runSync(moneySync, 'token', 'user')
 
     expect(pushedCategories).toContainEqual(category)
-    expect(requestPaths.indexOf('/api/sync/pull')).toBeLessThan(requestPaths.indexOf('/api/sync/push'))
+    expect(requestPaths.indexOf('/api/sync/money/pull')).toBeLessThan(
+      requestPaths.indexOf('/api/sync/money/push'),
+    )
   })
 
   it('merges a duplicate category into the server category after the initial pull', async () => {
@@ -137,7 +154,7 @@ describe('sync dependencies', () => {
     let pullCount = 0
     const fetchMock = vi.fn<typeof fetch>(async (input) => {
       const path = new URL(String(input)).pathname
-      if (path === '/api/sync/push') {
+      if (path === '/api/sync/money/push') {
         return new Response(
           JSON.stringify({
             accepted: [
@@ -152,7 +169,7 @@ describe('sync dependencies', () => {
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         )
       }
-      if (path === '/api/sync/pull') {
+      if (path === '/api/sync/money/pull') {
         pullCount += 1
         return new Response(
           JSON.stringify({
@@ -176,7 +193,7 @@ describe('sync dependencies', () => {
       removeItem: () => undefined,
     })
 
-    await runSync('token', 'user')
+    await runSync(moneySync, 'token', 'user')
 
     expect(await db.categories.toArray()).toEqual([serverCategory])
     expect((await db.budgets.get(budget.id))?.category_id).toBe(serverCategory.id)
@@ -200,7 +217,7 @@ describe('sync dependencies', () => {
     const fetchMock = vi.fn<typeof fetch>(async (input) => {
       const path = new URL(String(input)).pathname
       requestPaths.push(path)
-      if (path === '/api/sync/pull') {
+      if (path === '/api/sync/money/pull') {
         pullCount += 1
         return new Response(
           JSON.stringify({
@@ -226,7 +243,7 @@ describe('sync dependencies', () => {
       removeItem: (key: string) => storage.delete(key),
     })
 
-    await runSync('token', 'alice')
+    await runSync(moneySync, 'token', 'alice')
 
     expect(await db.groups.toArray()).toEqual([
       { ...activeGroup, membership_status: 'active' },
@@ -236,10 +253,68 @@ describe('sync dependencies', () => {
     expect(requestPaths).not.toContain('/money/groups/invitations')
 
     invitations = []
-    await runSync('token', 'alice')
+    await runSync(moneySync, 'token', 'alice')
 
-    expect(await db.groups.toArray()).toEqual([
-      { ...activeGroup, membership_status: 'active' },
+    expect(await db.groups.toArray()).toEqual([{ ...activeGroup, membership_status: 'active' }])
+  })
+
+  it('syncs My Food on its own endpoints, leaving My Money alone', async () => {
+    const log: MealLog = {
+      id: 'meal-1',
+      entry_date: '2026-11-20',
+      meal: 'lunch',
+      food_id: 'egg',
+      food_name: 'Egg',
+      weight_g: 50,
+      calories: 70,
+      protein: 6,
+      carbs: 0,
+      fat: 5,
+      calories_100g: null,
+      protein_100g: null,
+      carbs_100g: null,
+      fat_100g: null,
+      image: null,
+      version: 1,
+      sync_state: 'pending',
+      status: 'active',
+      created_at: '2026-11-20T00:00:00.000Z',
+      updated_at: '2026-11-20T00:00:00.000Z',
+    }
+    await foodDb.meal_logs.clear()
+    await foodDb.meal_logs.add(log)
+    const requestPaths: string[] = []
+    const storage = new Map<string, string>()
+    vi.stubGlobal(
+      'fetch',
+      vi.fn<typeof fetch>(async (input) => {
+        const path = new URL(String(input)).pathname
+        requestPaths.push(path)
+        const body =
+          path === '/api/sync/food/push'
+            ? { accepted: [{ entity: 'meal_logs', id: log.id }], conflicts: [] }
+            : { meal_logs: [], server_time: '2026-11-21T00:00:00.000Z' }
+        return new Response(JSON.stringify(body), {
+          status: 200,
+          headers: { 'Content-Type': 'application/json' },
+        })
+      }),
+    )
+    vi.stubGlobal('localStorage', {
+      getItem: (key: string) => storage.get(key) ?? null,
+      setItem: (key: string, value: string) => storage.set(key, value),
+      removeItem: (key: string) => storage.delete(key),
+    })
+
+    await runSync(foodSync, 'token', 'alice')
+
+    expect(requestPaths).toEqual([
+      '/api/sync/food/pull',
+      '/api/sync/food/push',
+      '/api/sync/food/pull',
     ])
+    expect((await foodDb.meal_logs.get(log.id))?.sync_state).toBe('synced')
+    expect(storage.get('exptracker.sync.food.cursor.alice')).toBe('2026-11-21T00:00:00.000Z')
+    expect(storage.has('exptracker.sync.cursor.alice')).toBe(false)
   })
 })

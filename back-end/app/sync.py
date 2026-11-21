@@ -3,6 +3,9 @@
 Records carry a client-generated uuid (used as the primary key) and a `version`.
 A pushed record wins when its version is higher than the server's; otherwise the server
 copy is returned as a conflict and the client adopts it.
+
+Each app syncs on its own (`/sync/money/*`, `/sync/food/*`), so one app's backlog or failure
+never holds up another. MyPlate pulls from `/sync/plate/pull` in `routers_plate.py`.
 """
 
 import uuid
@@ -16,6 +19,7 @@ from sqlalchemy.exc import IntegrityError
 from sqlalchemy.orm import Session
 
 from app.auth import get_current_user
+from app.entitlements import require_feature
 from app.account_defaults import clear_other_defaults, lock_account_defaults
 from app.category_rules import transfer_category_account_error
 from app.db import get_db
@@ -116,14 +120,25 @@ class MealLogRec(Rec):
     image: str | None = None
 
 
-class PushIn(BaseModel):
+class MoneyPushIn(BaseModel):
     categories: list[CategoryRec] = []
     accounts: list[AccountRec] = []
     merchants: list[MerchantSyncRec] = []
     transactions: list[TransactionRec] = []
     budgets: list[BudgetRec] = []
     due_payments: list[DuePaymentRec] = []
+
+
+class FoodPushIn(BaseModel):
     meal_logs: list[MealLogRec] = []
+
+
+class PushIn(MoneyPushIn, FoodPushIn):
+    """Legacy combined payload."""
+
+
+MONEY = ("categories", "accounts", "merchants", "transactions", "budgets", "due_payments")
+FOOD = ("meal_logs",)
 
 
 # entity name -> (model, owner column, fields copied from the record)
@@ -384,14 +399,14 @@ def _upsert(db: Session, user: Profile, name: str, rec: Rec, result: dict) -> No
     result["accepted"].append({"entity": name, "id": str(rec.id)})
 
 
-@router.post("/push")
-def push(body: PushIn, user: Profile = Depends(get_current_user), db: Session = Depends(get_db)):
+def _push(body: BaseModel, entities: tuple[str, ...], user: Profile, db: Session) -> dict:
     result: dict = {"accepted": [], "conflicts": []}
-    if body.accounts:
+    if "accounts" in entities and body.accounts:
         lock_account_defaults(db, user.id)
     # parents before children so foreign keys resolve
-    for rec in body.categories:
-        _upsert(db, user, "categories", rec, result)
+    if "categories" in entities:
+        for rec in body.categories:
+            _upsert(db, user, "categories", rec, result)
     category_aliases = {
         uuid.UUID(accepted["id"]): uuid.UUID(accepted["canonical_id"])
         for accepted in result["accepted"]
@@ -405,6 +420,8 @@ def push(body: PushIn, user: Profile = Depends(get_current_user), db: Session = 
         "due_payments",
         "meal_logs",
     ):
+        if name not in entities:
+            continue
         records = getattr(body, name)
         if name == "accounts":
             records = sorted(records, key=lambda rec: rec.status == "active" and rec.is_default)
@@ -424,15 +441,17 @@ def _out(row, fields: list[str]) -> dict:
     return d
 
 
-@router.get("/pull")
-def pull(
-    since: datetime | None = None,
-    user: Profile = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
+def _pull(
+    since: datetime | None,
+    entities: tuple[str, ...],
+    with_groups: bool,
+    user: Profile,
+    db: Session,
+) -> dict:
     server_time = datetime.now(timezone.utc)
     out: dict = {"server_time": server_time}
-    for name, (model, owner_col, fields) in SPECS.items():
+    for name in entities:
+        model, owner_col, fields = SPECS[name]
         q = select(model)
         if owner_col is not None and name != "categories":
             q = q.where(getattr(model, owner_col) == user.id)
@@ -448,6 +467,8 @@ def pull(
         if since is not None:
             q = q.where(model.updated_at > since)
         out[name] = [_out(r, fields) for r in db.scalars(q)]
+    if not with_groups:
+        return out
     out["groups"] = [
         {
             "id": group.id,
@@ -489,3 +510,62 @@ def pull(
         )
     ]
     return out
+
+
+# ─── My Money ────────────────────────────────────────────────────────────────────────────
+# Also carries the money group list, which the client keeps as a snapshot.
+
+
+@router.post("/money/push")
+def push_money(
+    body: MoneyPushIn, user: Profile = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    return _push(body, MONEY, user, db)
+
+
+@router.get("/money/pull")
+def pull_money(
+    since: datetime | None = None,
+    user: Profile = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return _pull(since, MONEY, True, user, db)
+
+
+# ─── My Food ─────────────────────────────────────────────────────────────────────────────
+
+
+@router.post("/food/push", dependencies=[Depends(require_feature("food"))])
+def push_food(
+    body: FoodPushIn, user: Profile = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    return _push(body, FOOD, user, db)
+
+
+@router.get("/food/pull", dependencies=[Depends(require_feature("food"))])
+def pull_food(
+    since: datetime | None = None,
+    user: Profile = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return _pull(since, FOOD, False, user, db)
+
+
+# ─── Legacy combined sync ────────────────────────────────────────────────────────────────
+# TODO(remove-legacy-sync): delete /sync/push and /sync/pull (and PushIn) once installed
+# apps have updated to the per-app endpoints above. Clients cached before the split still
+# call these, so keep them until no requests have arrived for a few weeks.
+
+
+@router.post("/push")
+def push(body: PushIn, user: Profile = Depends(get_current_user), db: Session = Depends(get_db)):
+    return _push(body, MONEY + FOOD, user, db)
+
+
+@router.get("/pull")
+def pull(
+    since: datetime | None = None,
+    user: Profile = Depends(get_current_user),
+    db: Session = Depends(get_db),
+):
+    return _pull(since, MONEY + FOOD, True, user, db)

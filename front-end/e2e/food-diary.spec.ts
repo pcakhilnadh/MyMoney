@@ -16,7 +16,7 @@ test('food home, goal, diary and insights use logged data', async ({ page }) => 
   )
   await page.route('**/auth/login', (route) => route.abort())
   await page.route('**/auth/me', (route) => route.fulfill({ json: { role: 'owner', entitlements: ['money', 'food', 'plate'] } }))
-  await page.route('**/sync/push', (route) =>
+  await page.route('**/sync/{money,food}/push', (route) =>
     route.fulfill({ json: { accepted: [], conflicts: [] } }),
   )
   const entry = {
@@ -36,7 +36,7 @@ test('food home, goal, diary and insights use logged data', async ({ page }) => 
     created_at: `${key}T08:00:00.000Z`,
     updated_at: `${key}T08:00:00.000Z`,
   }
-  await page.route('**/sync/pull', (route) =>
+  await page.route('**/sync/{money,food}/pull', (route) =>
     route.fulfill({
       json: {
         categories: [],

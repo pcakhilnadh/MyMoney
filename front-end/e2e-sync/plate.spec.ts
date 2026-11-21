@@ -59,6 +59,7 @@ test('solo: plan tomorrow with prep, tick it on Today, and fill the cart', async
 })
 
 test('shared: create a kitchen, join by code, and see each other shopping', async ({ browser }) => {
+  test.setTimeout(90_000)
   const a = await (await browser.newContext()).newPage()
   const b = await (await browser.newContext()).newPage()
   await open(a, alice)
@@ -95,10 +96,37 @@ test('shared: create a kitchen, join by code, and see each other shopping', asyn
   await a.getByRole('textbox', { name: 'Add an item to Home' }).fill('Tomatoes')
   await a.keyboard.press('Enter')
 
-  // Bob ticks Alice's item; she sees who did.
-  await b.reload()
-  await b.getByRole('checkbox', { name: 'Tomatoes' }).click()
+  // Changes save on the phone at once and reach the others on the next live refresh.
+  const live = { timeout: 25_000 }
+  await b.getByRole('checkbox', { name: 'Tomatoes' }).click(live)
   await expect(b.getByRole('region', { name: "You're shopping" })).toContainText('Done shopping?')
+  await expect(a.getByRole('region', { name: 'In the basket' })).toContainText('Tomatoes', live)
+})
+
+test('local-first: changes save offline and a reload shows them before the server answers', async ({
+  browser,
+}) => {
+  const context = await browser.newContext()
+  const a = await context.newPage()
+  await open(a, alice)
+  await nav(a).getByRole('link', { name: 'Cart' }).click()
+  const dairy = a.getByRole('region', { name: 'Dairy & Eggs' })
+
+  // Offline, the item is saved and shown at once.
+  await context.setOffline(true)
+  await a.getByRole('textbox', { name: 'Add an item to My Kitchen' }).fill('Paneer (400g)')
+  await a.keyboard.press('Enter')
+  await expect(dairy).toContainText('Paneer (400g)')
+
+  // Back online it syncs in the background; another device of Alice's gets it.
+  await context.setOffline(false)
+  const phone = await (await browser.newContext()).newPage()
+  await open(phone, alice)
+  await nav(phone).getByRole('link', { name: 'Cart' }).click()
+  await expect(phone.getByRole('region', { name: 'Dairy & Eggs' })).toContainText('Paneer (400g)')
+
+  // With the server stalled, a reload still shows MyPlate from the phone's own copy.
+  await a.route('**/api/sync/plate/pull**', () => undefined)
   await a.reload()
-  await expect(a.getByRole('region', { name: 'In the basket' })).toContainText('Tomatoes')
+  await expect(dairy).toContainText('Paneer (400g)')
 })

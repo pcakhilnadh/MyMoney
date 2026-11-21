@@ -493,6 +493,7 @@ class PlateMeal(Base):
     __tablename__ = "plate_meals"
     __table_args__ = (
         Index("ix_plate_meals_kitchen_date", "kitchen_id", "meal_date"),
+        Index("ix_plate_meals_kitchen_updated", "kitchen_id", "updated_at"),
         _in("meal_slot", MEAL_SLOTS, "ck_plate_meals_slot"),
         _in("chef_type", CHEF_TYPES, "ck_plate_meals_chef_type"),
         CheckConstraint("guest_count >= 0", name="ck_plate_meals_guests"),
@@ -561,6 +562,7 @@ class PlatePrepTask(Base):
 
 class PlateGroceryItem(Base):
     __tablename__ = "plate_grocery_items"
+    __table_args__ = (Index("ix_plate_grocery_items_kitchen_updated", "kitchen_id", "updated_at"),)
 
     id: Mapped[uuid.UUID] = _pk()
     kitchen_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("plate_kitchens.id"), index=True)
@@ -575,12 +577,16 @@ class PlateGroceryItem(Base):
     checked_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("profiles.id"))
     checked_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )
 
 
 class PlateIdea(Base):
     """`cravings`: a private wishlist in My Kitchen, a vote in shared kitchens."""
 
     __tablename__ = "plate_ideas"
+    __table_args__ = (Index("ix_plate_ideas_kitchen_updated", "kitchen_id", "updated_at"),)
 
     id: Mapped[uuid.UUID] = _pk()
     kitchen_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("plate_kitchens.id"), index=True)
@@ -588,6 +594,10 @@ class PlateIdea(Base):
     recipe_url: Mapped[str | None] = mapped_column(String(500))
     added_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+    # Bumped on votes too, so other members' phones pull the change.
+    updated_at: Mapped[datetime] = mapped_column(
+        DateTime(timezone=True), default=_now, onupdate=_now
+    )
 
     votes: Mapped[list["PlateIdeaVote"]] = relationship(cascade="all, delete-orphan")
 
@@ -612,3 +622,24 @@ class PlateSettings(Base):
     )
     reminder_enabled: Mapped[bool] = mapped_column(Boolean, default=True)
     reminder_time: Mapped[str] = mapped_column(String(5), default="20:00")
+
+
+PLATE_SYNCED = ("meals", "grocery_items", "ideas")
+
+
+class PlateDeletion(Base):
+    """Tombstone for a deleted meal, cart item or idea, so other phones drop it on sync."""
+
+    __tablename__ = "plate_deletions"
+    __table_args__ = (
+        Index("ix_plate_deletions_kitchen_deleted", "kitchen_id", "deleted_at"),
+        _in("entity", PLATE_SYNCED, "ck_plate_deletions_entity"),
+    )
+
+    id: Mapped[uuid.UUID] = _pk()
+    kitchen_id: Mapped[uuid.UUID] = mapped_column(
+        ForeignKey("plate_kitchens.id", ondelete="CASCADE")
+    )
+    entity: Mapped[str] = mapped_column(String(20))
+    entity_id: Mapped[uuid.UUID] = mapped_column()
+    deleted_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)

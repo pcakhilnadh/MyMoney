@@ -32,10 +32,7 @@ export default function Groups() {
     '/money/groups',
     [],
   )
-  const join = useAction<{ id: string }>(
-    (b) => `/money/groups/${b.id}/join`,
-    [],
-  )
+  const join = useAction<{ id: string }>((b) => `/money/groups/${b.id}/join`, [])
   const locationState = location.state
   const groupDeleteError =
     locationState &&
@@ -53,7 +50,7 @@ export default function Groups() {
       <Card>
         <p className="font-semibold">Groups could not be synced.</p>
         <p className="text-sm text-muted-foreground">{sync.error}</p>
-        <Button className="mt-3" onClick={sync.syncNow}>
+        <Button className="mt-3" onClick={() => void sync.syncNow('money')}>
           Retry
         </Button>
       </Card>
@@ -84,10 +81,7 @@ export default function Groups() {
         {showForm ? (
           <span className="text-sm font-medium text-muted-foreground">New group</span>
         ) : (
-          <AddIconButton
-            label="Add group"
-            onClick={() => setShowForm(true)}
-          />
+          <AddIconButton label="Add group" onClick={() => setShowForm(true)} />
         )}
       </div>
       {groupDeleteError && (

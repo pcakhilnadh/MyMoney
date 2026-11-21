@@ -3,7 +3,15 @@ import Dexie from 'dexie'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { AppDB, db } from './db'
 import { clearLocalDatabase } from './clear'
-import { accountsRepo, categoriesRepo, mealLogsRepo, merchantsRepo, transactionsRepo } from './repos'
+import { foodDb, moveFoodData } from '@/food/db'
+import type { MealLog } from './types'
+import {
+  accountsRepo,
+  categoriesRepo,
+  mealLogsRepo,
+  merchantsRepo,
+  transactionsRepo,
+} from './repos'
 import { seedIfEmpty } from './seed'
 import { DEFAULT_CATEGORIES, formatMinor, normalizeMoneyInput, toMinor } from '@/lib/money'
 
@@ -23,7 +31,31 @@ const base = {
 }
 
 beforeEach(async () => {
-  await Promise.all(db.tables.map((t) => t.clear()))
+  await Promise.all([...db.tables, ...foodDb.tables].map((t) => t.clear()))
+})
+
+const mealLog = (overrides: Partial<MealLog> = {}): MealLog => ({
+  id: 'meal-1',
+  entry_date: '2026-10-01',
+  meal: 'breakfast',
+  food_id: 'egg',
+  food_name: 'Egg',
+  weight_g: 50,
+  calories: 75,
+  protein: 6,
+  carbs: 1,
+  fat: 5,
+  calories_100g: 150,
+  protein_100g: 12,
+  carbs_100g: 2,
+  fat_100g: 10,
+  image: null,
+  version: 1,
+  sync_state: 'pending',
+  status: 'active',
+  created_at: '2026-10-01T00:00:00.000Z',
+  updated_at: '2026-10-01T00:00:00.000Z',
+  ...overrides,
 })
 
 it('removes food and habit stores when upgrading local databases', async () => {
@@ -56,48 +88,59 @@ it('removes food and habit stores when upgrading local databases', async () => {
   }
 })
 
-it('keeps meal logs and the goal scoped to the local user database and clears them on sign-out', async () => {
-  await db.meal_logs.put({
-    id: 'meal-1',
-    entry_date: '2026-10-01',
-    meal: 'breakfast',
-    food_id: 'egg',
-    food_name: 'Egg',
-    weight_g: 50,
-    calories: 75,
-    protein: 6,
-    carbs: 1,
-    fat: 5,
-    calories_100g: 150,
-    protein_100g: 12,
-    carbs_100g: 2,
-    fat_100g: 10,
-    image: null,
-    version: 1,
-    sync_state: 'pending',
-    status: 'active',
-    created_at: '2026-10-01T00:00:00.000Z',
-    updated_at: '2026-10-01T00:00:00.000Z',
-  })
-  await db.food_settings.put({ key: 'goal', calories: 1800 })
-  expect((await db.meal_logs.get('meal-1'))?.food_name).toBe('Egg')
-  expect((await db.food_settings.get('goal'))?.calories).toBe(1800)
+it('keeps meal logs and the goal in the My Food database and clears them on sign-out', async () => {
+  await foodDb.meal_logs.put(mealLog())
+  await foodDb.food_settings.put({ key: 'goal', calories: 1800 })
+  expect((await foodDb.meal_logs.get('meal-1'))?.food_name).toBe('Egg')
+  expect((await foodDb.food_settings.get('goal'))?.calories).toBe(1800)
   await clearLocalDatabase()
+  expect(await foodDb.meal_logs.count()).toBe(0)
+  expect(await foodDb.food_settings.count()).toBe(0)
+})
+
+it('moves My Food out of the shared database once, keeping unsynced changes', async () => {
+  // Already pulled into the new database, and still synced there.
+  await foodDb.meal_logs.put(mealLog({ id: 'pulled', sync_state: 'synced', food_name: 'Server' }))
+  await foodDb.food_settings.put({ key: 'goal', calories: 2000 })
+  await db.meal_logs.bulkPut([
+    mealLog({ id: 'pending', food_name: 'Unsynced' }),
+    mealLog({ id: 'pulled', sync_state: 'synced', food_name: 'Stale' }),
+  ])
+  await db.food_settings.put({ key: 'goal', calories: 1800 })
+
+  await moveFoodData()
+
+  expect((await foodDb.meal_logs.get('pending'))?.food_name).toBe('Unsynced')
+  expect((await foodDb.meal_logs.get('pulled'))?.food_name).toBe('Server')
+  expect((await foodDb.food_settings.get('goal'))?.calories).toBe(2000)
   expect(await db.meal_logs.count()).toBe(0)
   expect(await db.food_settings.count()).toBe(0)
 })
 
 describe('repository', () => {
   it('does not partially save a meal if one row fails', async () => {
-    const randomUUID = vi.spyOn(crypto, 'randomUUID').mockReturnValue('aaaaaaaa-0000-0000-0000-000000000001')
+    const randomUUID = vi
+      .spyOn(crypto, 'randomUUID')
+      .mockReturnValue('aaaaaaaa-0000-0000-0000-000000000001')
     const item = {
-      entry_date: '2026-10-01', meal: 'breakfast' as const, food_id: 'egg', food_name: 'Egg',
-      weight_g: 50, calories: 75, protein: 6, carbs: null, fat: null,
-      calories_100g: 150, protein_100g: 12, carbs_100g: null, fat_100g: null, image: null,
+      entry_date: '2026-10-01',
+      meal: 'breakfast' as const,
+      food_id: 'egg',
+      food_name: 'Egg',
+      weight_g: 50,
+      calories: 75,
+      protein: 6,
+      carbs: null,
+      fat: null,
+      calories_100g: 150,
+      protein_100g: 12,
+      carbs_100g: null,
+      fat_100g: null,
+      image: null,
     }
     try {
       await expect(mealLogsRepo.createMany([item, item])).rejects.toThrow()
-      expect(await db.meal_logs.count()).toBe(0)
+      expect(await foodDb.meal_logs.count()).toBe(0)
     } finally {
       randomUUID.mockRestore()
     }
@@ -105,8 +148,12 @@ describe('repository', () => {
 
   it('atomically replaces and clears default accounts', async () => {
     const data = {
-      name: 'First', account_type: 'bank' as const, currency: 'INR',
-      opening_balance: 0, credit_limit: null, is_default: true,
+      name: 'First',
+      account_type: 'bank' as const,
+      currency: 'INR',
+      opening_balance: 0,
+      credit_limit: null,
+      is_default: true,
     }
     const first = await accountsRepo.create(data)
     const second = await accountsRepo.create({ ...data, name: 'Second' })
@@ -117,7 +164,9 @@ describe('repository', () => {
     expect((await accountsRepo.get(second.id))?.is_default).toBe(false)
     await accountsRepo.update(first.id, { status: 'archived' })
     expect((await accountsRepo.get(first.id))?.is_default).toBe(false)
-    await expect(accountsRepo.update(first.id, { is_default: true })).rejects.toThrow('Only active accounts')
+    await expect(accountsRepo.update(first.id, { is_default: true })).rejects.toThrow(
+      'Only active accounts',
+    )
     await accountsRepo.update(second.id, { is_default: true })
     await accountsRepo.remove(second.id)
     expect((await db.accounts.get(second.id))?.is_default).toBe(false)
@@ -292,14 +341,16 @@ describe('repository', () => {
       transactionsRepo.create({
         ...base,
         account_id: source.id,
-        category_id: (await categoriesRepo.create({
-          name: 'Self Transfer',
-          icon: 'tag',
-          color: null,
-          transaction_type: 'transfer',
-          is_system: true,
-          is_hidden: false,
-        })).id,
+        category_id: (
+          await categoriesRepo.create({
+            name: 'Self Transfer',
+            icon: 'tag',
+            color: null,
+            transaction_type: 'transfer',
+            is_system: true,
+            is_hidden: false,
+          })
+        ).id,
         transaction_type: 'transfer',
         title: 'Move money',
         amount_minor: 2000,
@@ -576,9 +627,9 @@ describe('seed and money', () => {
     expect(
       (await categoriesRepo.list()).filter((category) => category.transaction_type === 'transfer'),
     ).toHaveLength(8)
-    expect(
-      (await categoriesRepo.list()).some((category) => category.name === 'Pocket Money'),
-    ).toBe(true)
+    expect((await categoriesRepo.list()).some((category) => category.name === 'Pocket Money')).toBe(
+      true,
+    )
     expect(await db.accounts.count()).toBe(0)
   })
 

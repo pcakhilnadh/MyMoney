@@ -56,7 +56,7 @@ export interface StoredMealLog {
   updated_at: string
 }
 
-/** Add rows directly to the Dexie meal-log store, e.g. to simulate earlier synced data. */
+/** Add rows directly to My Food's local meal-log store (`myfood-<sub>`), e.g. to simulate earlier synced data. */
 export async function seedMealLogs(
   page: Page,
   dbName: string,

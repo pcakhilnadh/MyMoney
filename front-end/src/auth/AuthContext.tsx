@@ -2,7 +2,8 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useState } 
 import type { ReactNode } from 'react'
 import { clearLocalDatabase } from '@/db/clear'
 import { DB_SUB } from '@/db/db'
-import { clearSyncState, waitForSync } from '@/sync/engine'
+import { clearSyncState } from '@/sync/engine'
+import { waitForAllSyncs } from '@/sync/runners'
 import {
   AUTH_EXPIRED_EVENT,
   ApiError,
@@ -56,7 +57,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const signOut = useCallback(async () => {
     const sub = session?.user.sub ?? DB_SUB
-    if (sub) await waitForSync(sub)
+    if (sub) await waitForAllSyncs(sub)
     setAccessToken(null)
     clearStoredSession()
     window.google?.accounts.id.disableAutoSelect()
@@ -91,7 +92,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
             clearStoredUser()
             if (active) setSession(null)
           } else {
-            console.error('Unable to refresh the cached app session; continuing with local data', error)
+            console.error(
+              'Unable to refresh the cached app session; continuing with local data',
+              error,
+            )
           }
         }
         return

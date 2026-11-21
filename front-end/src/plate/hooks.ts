@@ -1,62 +1,97 @@
-import { useMemo } from 'react'
-import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
-import * as api from './api'
+import { useEffect, useMemo } from 'react'
+import { useMutation } from '@tanstack/react-query'
+import { useLiveQuery } from 'dexie-react-hooks'
+import { requestSync } from '@/sync/bus'
+import { plateDb } from './store'
+import { loadPastMeals } from './sync'
 import type { Kitchen, PlateUser, UserId } from './types'
 
-const KEY = ['plate'] as const
-
 /*
- * Other members' changes (ticks, cart, "shopping now") arrive by polling while MyPlate is
- * open, and on refocus. The fast lists are the ones people watch together.
+ * Screens read MyPlate from the local database, so it opens instantly, offline too, and
+ * updates as soon as a change is saved or synced. `data` is undefined until the first
+ * sync has run on this phone.
  */
-const LIVE = 15_000
-const STEADY = 60_000
 
-export const useMeQuery = () =>
-  useQuery({ queryKey: [...KEY, 'me'], queryFn: api.getMe, staleTime: 5 * 60_000 })
+const useLocal = <T>(query: () => Promise<T>, deps: unknown[] = []) => ({
+  data: useLiveQuery(query, deps),
+})
+
+/** Lists are only meaningful once this phone has synced MyPlate once. */
+async function ifSynced<T>(read: () => Promise<T>): Promise<T | undefined> {
+  return (await plateDb.getMeta('cursor')) ? read() : undefined
+}
+
+const byCreated = <T extends { created_at?: string }>(rows: T[]) =>
+  rows.sort((a, b) => (a.created_at ?? '').localeCompare(b.created_at ?? ''))
+
+export const useMeQuery = () => useLocal(() => plateDb.getMeta('me'))
+
 export const useKitchens = () =>
-  useQuery({ queryKey: [...KEY, 'kitchens'], queryFn: api.listKitchens, refetchInterval: LIVE })
-export const useSettings = () =>
-  useQuery({ queryKey: [...KEY, 'settings'], queryFn: api.getSettings })
-export const useInvites = () =>
-  useQuery({ queryKey: [...KEY, 'invites'], queryFn: api.listInvites, refetchInterval: STEADY })
-export const useContacts = () =>
-  useQuery({ queryKey: [...KEY, 'contacts'], queryFn: api.listContacts })
-export const useMeals = (from: string, to: string) =>
-  useQuery({
-    queryKey: [...KEY, 'meals', from, to],
-    queryFn: () => api.listMeals(from, to),
-    refetchInterval: LIVE,
-  })
-export const useGroceries = () =>
-  useQuery({ queryKey: [...KEY, 'groceries'], queryFn: api.listGroceries, refetchInterval: LIVE })
-export const useIdeas = () =>
-  useQuery({ queryKey: [...KEY, 'ideas'], queryFn: api.listIdeas, refetchInterval: STEADY })
+  useLocal(() =>
+    ifSynced(async () =>
+      (await plateDb.kitchens.toArray()).sort((a, b) => (a.position ?? 0) - (b.position ?? 0)),
+    ),
+  )
 
-/** Every write refreshes the MyPlate queries, so all screens agree with the server. */
-export function usePlateMutation<TArgs, TResult>(fn: (args: TArgs) => Promise<TResult>) {
-  const client = useQueryClient()
-  return useMutation({
-    mutationFn: fn,
-    onSettled: () => client.invalidateQueries({ queryKey: KEY }),
+export const useSettings = () => useLocal(() => plateDb.getMeta('settings'))
+
+export const useInvites = () => useLocal(() => ifSynced(() => plateDb.invites.toArray()))
+
+export const useContacts = () =>
+  useLocal(async () => {
+    const ids = await plateDb.getMeta('contact_ids')
+    if (!ids) return undefined
+    const people = await plateDb.people.bulkGet(ids)
+    return people
+      .filter((person): person is PlateUser => !!person)
+      .sort((a, b) => a.name.localeCompare(b.name))
   })
+
+export function useMeals(from: string, to: string) {
+  // Past weeks beyond what the phone keeps come from the server when opened.
+  useEffect(() => {
+    loadPastMeals(from, to).catch((error: unknown) =>
+      console.error('Unable to load past meals', error),
+    )
+  }, [from, to])
+  return useLocal(
+    () =>
+      ifSynced(async () =>
+        byCreated(await plateDb.meals.where('meal_date').between(from, to, true, true).toArray()),
+      ),
+    [from, to],
+  )
+}
+
+export const useGroceries = () =>
+  useLocal(() => ifSynced(async () => byCreated(await plateDb.grocery_items.toArray())))
+
+export const useIdeas = () =>
+  useLocal(() => ifSynced(async () => byCreated(await plateDb.ideas.toArray())))
+
+/**
+ * Runs a MyPlate change. Everyday changes save locally, so they never wait for the network
+ * (`networkMode: 'always'` keeps React Query from pausing them offline).
+ */
+export function usePlateMutation<TArgs, TResult>(fn: (args: TArgs) => Promise<TResult>) {
+  return useMutation({ mutationFn: fn, networkMode: 'always' })
 }
 
 /** My user id ('' until it has loaded). */
 export const useMe = (): UserId => useMeQuery().data?.id ?? ''
 
-/** People lookup: first names and pictures from the server. */
+/** People lookup: first names and pictures from the last sync. */
 export function usePeople() {
   const me = useMe()
-  const people = useQuery({ queryKey: [...KEY, 'people'], queryFn: api.listPeople })
+  const people = useLiveQuery(() => plateDb.people.toArray(), [])
   return useMemo(() => {
     const index = new Map<UserId, PlateUser>()
-    for (const person of people.data ?? []) index.set(person.id, person)
+    for (const person of people ?? []) index.set(person.id, person)
     const personOf = (id: UserId): PlateUser => index.get(id) ?? { id, name: 'Someone' }
     /** "You" for the current user, the first name for everyone else. */
     const nameOf = (id: UserId) => (id === me ? 'You' : personOf(id).name.split(' ')[0])
     return { personOf, nameOf }
-  }, [people.data, me])
+  }, [people, me])
 }
 
 /** Shared kitchens where I'm live as shopping right now. */
@@ -65,4 +100,30 @@ export function useMyShopping(): Kitchen[] {
   return (useKitchens().data ?? []).filter(
     (k) => !k.is_personal && !!me && k.shopping_now.includes(me),
   )
+}
+
+// ─── Background refresh ──────────────────────────────────────────────────────────────────
+
+/** Everyone: other members' changes arrive on open, on return, after my changes, and every minute. */
+const BASIC_REFRESH = 60_000
+/** Live layer: ticks, cart and "shopping now" from others within seconds. */
+const LIVE_REFRESH = 15_000
+
+/**
+ * Whether this user gets the live layer. Everyone does for now.
+ * TODO(plan-tier): gate on a `plate_live` entitlement when plans are introduced.
+ */
+export const hasLiveLayer = () => true
+
+/** While MyPlate is open: sync now, then keep refreshing while the app is visible. */
+export function usePlateAutoSync() {
+  const shared = (useKitchens().data ?? []).some((k) => !k.is_personal)
+  const every = shared && hasLiveLayer() ? LIVE_REFRESH : BASIC_REFRESH
+  useEffect(() => {
+    requestSync('plate')
+    const timer = setInterval(() => {
+      if (document.visibilityState === 'visible') requestSync('plate')
+    }, every)
+    return () => clearInterval(timer)
+  }, [every])
 }

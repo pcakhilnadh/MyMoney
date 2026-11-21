@@ -238,7 +238,7 @@ test('save meal persists the selected portion and opens the diary', async ({ pag
   await expect(page.getByRole('heading', { name: 'Diary' })).toBeVisible()
   await expect
     .poll(async () => {
-      const rows = await readMealLogs(page, 'exptracker-1')
+      const rows = await readMealLogs(page, 'myfood-1')
       const row = rows.find((item) => item.entry_date === '2026-10-23')
       return row && {
         entry_date: row.entry_date,
@@ -294,13 +294,13 @@ test('count portions require their total weight before saving', async ({ page })
   await page.getByRole('option', { name: 'Count', exact: true }).click()
   await page.getByRole('button', { name: 'Save meal · 1 item' }).click()
   await expect(page.getByRole('alert')).toContainText('weight in grams')
-  expect(await readMealLogs(page, 'exptracker-1')).toHaveLength(0)
+  expect(await readMealLogs(page, 'myfood-1')).toHaveLength(0)
   await page.getByLabel('Weight of Egg in grams').fill('55')
   await page.getByRole('button', { name: 'Save meal · 1 item' }).click()
   await expect(page.getByRole('heading', { name: 'Diary' })).toBeVisible()
   await expect
     .poll(async () => {
-      const rows = await readMealLogs(page, 'exptracker-1')
+      const rows = await readMealLogs(page, 'myfood-1')
       return rows.map((row) => ({ food_id: row.food_id, weight_g: row.weight_g }))
     })
     .toEqual([{ food_id: 'egg', weight_g: 55 }])
