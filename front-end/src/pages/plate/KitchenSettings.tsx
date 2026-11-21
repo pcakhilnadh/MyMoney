@@ -104,6 +104,37 @@ function Settings({ kitchen }: { kitchen: Kitchen }) {
         </div>
       </header>
 
+      {!kitchen.is_personal && (
+        <>
+          <section className="space-y-2">
+            <SectionLabel>People</SectionLabel>
+            <ul className="pl-card divide-y divide-white/[0.06]">
+              {kitchen.members.map((member) => (
+                <li key={member.user_id} className="flex items-center gap-3 px-4 py-3">
+                  <Avatar userId={member.user_id} size={32} />
+                  <span className="min-w-0 flex-1 truncate font-medium">
+                    {nameOf(member.user_id)}
+                  </span>
+                  <span className="text-xs text-muted-foreground capitalize">{member.role}</span>
+                </li>
+              ))}
+              {kitchen.invited.map((email) => (
+                <li key={email} className="flex items-center gap-3 px-4 py-3 opacity-60">
+                  <span className="pl-sunken flex size-8 shrink-0 items-center justify-center rounded-full">
+                    <Mail size={15} aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{email}</span>
+                  <span className="text-xs text-muted-foreground">Invited</span>
+                </li>
+              ))}
+            </ul>
+          </section>
+          <section className="pl-card p-4">
+            <InvitePanel kitchen={kitchen} />
+          </section>
+        </>
+      )}
+
       <section className="pl-card space-y-5 p-4">
         <div>
           <FieldLabel htmlFor="kitchen-name">Name</FieldLabel>
@@ -158,32 +189,6 @@ function Settings({ kitchen }: { kitchen: Kitchen }) {
         </section>
       ) : (
         <>
-          <section className="space-y-2">
-            <SectionLabel>People</SectionLabel>
-            <ul className="pl-card divide-y divide-white/[0.06]">
-              {kitchen.members.map((member) => (
-                <li key={member.user_id} className="flex items-center gap-3 px-4 py-3">
-                  <Avatar userId={member.user_id} size={32} />
-                  <span className="min-w-0 flex-1 truncate font-medium">
-                    {nameOf(member.user_id)}
-                  </span>
-                  <span className="text-xs text-muted-foreground capitalize">{member.role}</span>
-                </li>
-              ))}
-              {kitchen.invited.map((email) => (
-                <li key={email} className="flex items-center gap-3 px-4 py-3 opacity-60">
-                  <span className="pl-sunken flex size-8 shrink-0 items-center justify-center rounded-full">
-                    <Mail size={15} aria-hidden="true" />
-                  </span>
-                  <span className="min-w-0 flex-1 truncate font-medium">{email}</span>
-                  <span className="text-xs text-muted-foreground">Invited</span>
-                </li>
-              ))}
-            </ul>
-          </section>
-          <section className="pl-card p-4">
-            <InvitePanel kitchen={kitchen} />
-          </section>
           <div className="space-y-2">
             <button
               type="button"
