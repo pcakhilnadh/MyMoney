@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { Check, Copy, LayoutGrid, Search, Star } from 'lucide-react'
+import { Check, Copy, LayoutGrid, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import * as api from '../api'
 import { usePlate } from '../context'
@@ -40,7 +40,6 @@ export function SwitcherSheet({ mode }: { mode: 'plan' | 'cart' }) {
   const week = weekStart(todayKey())
   const meals = useMeals(week, addDays(week, 6)).data ?? []
   const items = leftToBuy(useGroceries().data ?? [])
-  const setDefault = usePlateMutation(api.updateSettings)
   const seen = usePlateMutation(api.markKitchenSeen)
   const [query, setQuery] = useState('')
 
@@ -66,8 +65,6 @@ export function SwitcherSheet({ mode }: { mode: 'plan' | 'cart' }) {
     if (next !== 'all') seen.mutate(next)
     close()
   }
-
-  const setAsDefault = (id: string | null) => setDefault.mutate({ default_group_id: id })
 
   return (
     <Sheet title="Switch kitchen" onClose={close}>
@@ -99,13 +96,6 @@ export function SwitcherSheet({ mode }: { mode: 'plan' | 'cart' }) {
             }
             title="All kitchens"
             subtitle={`${kitchens.length} kitchens · ${countLabel(count(null))}`}
-            star={
-              <DefaultStar
-                on={defaultId === null}
-                name="All kitchens"
-                onSet={() => setAsDefault(null)}
-              />
-            }
           />
         )}
         {shown.map((k) => (
@@ -120,9 +110,6 @@ export function SwitcherSheet({ mode }: { mode: 'plan' | 'cart' }) {
               !k.is_personal && (
                 <AvatarStack userIds={k.members.map((m) => m.user_id)} size={20} max={3} />
               )
-            }
-            star={
-              <DefaultStar on={defaultId === k.id} name={k.name} onSet={() => setAsDefault(k.id)} />
             }
           />
         ))}
@@ -149,7 +136,6 @@ export function SwitcherSheet({ mode }: { mode: 'plan' | 'cart' }) {
           Manage kitchens
         </button>
       </div>
-      <ErrorLine error={setDefault.error} />
     </Sheet>
   )
 }
@@ -161,7 +147,6 @@ function SwitcherRow({
   title,
   subtitle,
   trailing,
-  star,
 }: {
   active: boolean
   onChoose: () => void
@@ -169,7 +154,6 @@ function SwitcherRow({
   title: string
   subtitle: string
   trailing?: React.ReactNode
-  star: React.ReactNode
 }) {
   return (
     <li
@@ -192,22 +176,7 @@ function SwitcherRow({
       </button>
       {trailing}
       {active && <Check size={17} className="shrink-0 text-primary" aria-label="Selected" />}
-      {star}
     </li>
-  )
-}
-
-function DefaultStar({ on, name, onSet }: { on: boolean; name: string; onSet: () => void }) {
-  return (
-    <button
-      type="button"
-      aria-pressed={on}
-      aria-label={on ? `${name} is your default` : `Make ${name} your default`}
-      onClick={onSet}
-      className="flex size-9 shrink-0 items-center justify-center rounded-[10px] text-muted-foreground hover:bg-white/5"
-    >
-      <Star size={17} className={cn(on && 'fill-[#f5c542] text-[#f5c542]')} />
-    </button>
   )
 }
 
@@ -255,7 +224,7 @@ export function NewKitchenSheet() {
         }}
       >
         <p className="text-sm text-muted-foreground">
-          A shared kitchen has its own week, cart, ideas and people.
+          A shared kitchen has its own week, cart, cravings and people.
         </p>
         <div>
           <FieldLabel htmlFor="kitchen-name">Name</FieldLabel>

@@ -1,61 +1,32 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, CopyPlus, Lightbulb, Plus } from 'lucide-react'
-import { useDialog } from '@/components/DialogProvider'
+import { ChevronLeft, ChevronRight, Lightbulb, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import * as api from '@/plate/api'
 import { usePlate } from '@/plate/context'
 import { ContextLine, KitchenTitle, MealCard, SectionLabel } from '@/plate/components'
 import { addDays, formatDay, formatWeekTitle, todayKey, weekDays, weekStart } from '@/plate/dates'
-import { useIdeas, useKitchens, useMe, useMeals, usePlateMutation } from '@/plate/hooks'
-import { byDateThenSlot, cooksIt, inSelection, SLOT_LABEL, SLOT_ORDER } from '@/plate/logic'
+import { useIdeas, useKitchens, useMeals } from '@/plate/hooks'
+import { byDateThenSlot, inSelection, SLOT_LABEL, SLOT_ORDER } from '@/plate/logic'
 import type { MealSlot } from '@/plate/types'
-import { ErrorLine, Tabs } from '@/plate/ui'
-
-type View = 'all' | 'mine'
 
 export default function PlatePlan() {
-  const me = useMe()
-  const dialog = useDialog()
   const { selection, open } = usePlate()
   const today = todayKey()
   const [day, setDay] = useState(today)
-  const [view, setView] = useState<View>('all')
   const start = weekStart(day)
   const kitchens = useKitchens().data
   const meals = useMeals(start, addDays(start, 6)).data
   const ideas = inSelection(useIdeas().data ?? [], selection)
-  const copyLastWeek = usePlateMutation(api.copyWeek)
 
   const kitchen = kitchens?.find((k) => k.id === selection)
   const inKitchen = inSelection(meals ?? [], selection).sort(byDateThenSlot)
-  const shown = view === 'mine' ? inKitchen.filter((m) => cooksIt(m, me)) : inKitchen
+  const shown = inKitchen
   const slotSet = new Set<MealSlot>(
     (kitchen ? [kitchen] : (kitchens ?? [])).flatMap((k) => k.meal_slots),
   )
   const slots = SLOT_ORDER.filter((slot) => slotSet.has(slot))
   const kitchenOf = (id: string) => kitchens?.find((k) => k.id === id)
   const dayMeals = shown.filter((m) => m.meal_date === day)
-
-  async function onCopyLastWeek() {
-    if (!kitchen) return
-    const ok = await dialog.confirm({
-      title: 'Copy last week?',
-      message: `Last week's meals in ${kitchen.name} fill this week's empty slots. Nothing already planned changes.`,
-      confirmLabel: 'Copy',
-    })
-    if (!ok) return
-    const { copied } = await copyLastWeek.mutateAsync({
-      from_group_id: kitchen.id,
-      to_group_id: kitchen.id,
-      from_week: addDays(start, -7),
-      to_week: start,
-    })
-    await dialog.notify({
-      title: copied ? `Copied ${copied} meal${copied === 1 ? '' : 's'}` : 'Nothing to copy',
-      message: copied ? undefined : 'Last week had nothing to fill this week’s empty slots with.',
-    })
-  }
 
   return (
     <div className="space-y-4">
@@ -65,8 +36,8 @@ export default function PlatePlan() {
           mode="plan"
           trailing={
             <Link
-              to="/plate/ideas"
-              aria-label={`Ideas (${ideas.length})`}
+              to="/plate/cravings"
+              aria-label={`Cravings (${ideas.length})`}
               className="pl-sunken flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold"
             >
               <Lightbulb size={16} aria-hidden="true" />
@@ -100,28 +71,6 @@ export default function PlatePlan() {
         <WeekButton label="Next week" onClick={() => setDay(addDays(day, 7))}>
           <ChevronRight size={18} />
         </WeekButton>
-      </div>
-
-      <div className="flex items-center justify-between gap-2">
-        <Tabs<View>
-          label="Show"
-          value={view}
-          onChange={setView}
-          options={[
-            { value: 'all', label: 'All meals' },
-            { value: 'mine', label: 'My cooking' },
-          ]}
-        />
-        {kitchen && (
-          <button
-            type="button"
-            onClick={() => void onCopyLastWeek()}
-            disabled={copyLastWeek.isPending}
-            className="flex items-center gap-1.5 text-[13px] font-semibold text-[#ff6b78]"
-          >
-            <CopyPlus size={15} aria-hidden="true" /> Copy last week
-          </button>
-        )}
       </div>
 
       <div role="tablist" aria-label="Day" className="grid grid-cols-7 gap-1.5">
@@ -168,19 +117,13 @@ export default function PlatePlan() {
           )
         })}
       </div>
-      <ErrorLine error={copyLastWeek.error} />
 
       {!kitchens || !meals ? (
         <p className="text-sm text-muted-foreground">Loading the week…</p>
-      ) : view === 'mine' && dayMeals.length === 0 ? (
-        <p className="pl-card p-4 text-sm text-muted-foreground">
-          Nothing for you to cook on {formatDay(day, { weekday: 'long' })}.
-        </p>
       ) : (
         <div className="space-y-5">
           {slots.map((slot) => {
             const inSlot = dayMeals.filter((m) => m.meal_slot === slot)
-            if (view === 'mine' && inSlot.length === 0) return null
             const canAdd = !kitchen || inSlot.length === 0
             const add = () => open({ kind: 'meal', kitchenId: kitchen?.id, date: day, slot })
             return (

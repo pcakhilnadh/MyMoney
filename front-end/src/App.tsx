@@ -181,7 +181,8 @@ export default function App() {
               <Route path="/plate" element={<Navigate to="/plate/today" replace />} />
               <Route path="/plate/today" element={<PlateToday />} />
               <Route path="/plate/plan" element={<PlatePlan />} />
-              <Route path="/plate/ideas" element={<PlateIdeas />} />
+              <Route path="/plate/cravings" element={<PlateIdeas />} />
+              <Route path="/plate/ideas" element={<Navigate to="/plate/cravings" replace />} />
               <Route path="/plate/cart" element={<PlateCart />} />
               <Route path="/plate/kitchens" element={<PlateKitchens />} />
               <Route path="/plate/kitchens/:kitchenId" element={<PlateKitchenSettings />} />

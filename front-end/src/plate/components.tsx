@@ -1,10 +1,10 @@
 import type { ReactNode } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronDown, Heart, Settings, Star, ThumbsUp } from 'lucide-react'
+import { ChevronDown, Heart, Settings, ThumbsUp } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import * as api from './api'
 import { usePlate } from './context'
-import { useKitchens, useMe, usePeople, usePlateMutation, useSettings } from './hooks'
+import { useKitchens, useMe, usePeople, usePlateMutation } from './hooks'
 import { KITCHEN_TYPE_LABEL, orderKitchens, sidesText } from './logic'
 import type { Kitchen, Meal, Reaction } from './types'
 import { Avatar, AvatarStack, KitchenChip, KitchenDot } from './ui'
@@ -21,9 +21,7 @@ export function KitchenTitle({
 }) {
   const { selection, open } = usePlate()
   const kitchens = useKitchens().data ?? []
-  const defaultId = useSettings().data?.default_group_id ?? null
   const kitchen = kitchens.find((k) => k.id === selection)
-  const isDefault = kitchen ? kitchen.id === defaultId : defaultId === null
 
   return (
     <header className="flex items-center gap-2.5">
@@ -50,9 +48,6 @@ export function KitchenTitle({
           </span>
         )}
         <span className="truncate">{kitchen?.name ?? 'All kitchens'}</span>
-        {isDefault && (
-          <Star size={13} aria-label="Default" className="shrink-0 fill-[#f5c542] text-[#f5c542]" />
-        )}
         <ChevronDown size={15} aria-hidden="true" className="shrink-0 text-muted-foreground" />
       </button>
       {trailing && <div className="ml-auto shrink-0">{trailing}</div>}

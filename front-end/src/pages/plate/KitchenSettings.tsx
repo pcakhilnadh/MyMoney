@@ -72,7 +72,7 @@ function Settings({ kitchen }: { kitchen: Kitchen }) {
   async function onLeave() {
     const ok = await dialog.confirm({
       title: `Leave ${kitchen.name}?`,
-      message: "You'll stop seeing its week, cart and ideas. Someone can invite you back.",
+      message: "You'll stop seeing its week, cart and cravings. Someone can invite you back.",
       confirmLabel: 'Leave',
       tone: 'destructive',
     })
@@ -82,7 +82,7 @@ function Settings({ kitchen }: { kitchen: Kitchen }) {
   async function onDelete() {
     const ok = await dialog.confirm({
       title: `Delete ${kitchen.name}?`,
-      message: 'Its meals, cart and ideas are removed for everyone. This cannot be undone.',
+      message: 'Its meals, cart and cravings are removed for everyone. This cannot be undone.',
       confirmLabel: 'Delete kitchen',
       tone: 'destructive',
     })

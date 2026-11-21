@@ -30,21 +30,21 @@ export default function PlateIdeas() {
         <ArrowLeft size={17} /> Plan
       </Link>
       <div className="space-y-1">
-        <KitchenTitle title="Ideas" mode="plan" />
+        <KitchenTitle title="Cravings" mode="plan" />
         <ContextLine
           count={
             ideas.length === 0
               ? ''
               : kitchen?.is_personal
-                ? `${ideas.length} on your wishlist`
-                : `${ideas.length} idea${ideas.length === 1 ? '' : 's'}`
+                ? `${ideas.length} saved`
+                : `${ideas.length} craving${ideas.length === 1 ? '' : 's'}`
           }
         />
       </div>
       <p className="text-[13px] text-muted-foreground">
         {kitchen?.is_personal
-          ? 'A private wishlist. Nobody else sees it.'
-          : 'Vote for what you want to eat. The most-voted ideas come first.'}
+          ? 'What you’re craving. Only you see this list.'
+          : 'Vote for what you’re craving. The most-voted come first.'}
       </p>
 
       {all === undefined ? (
@@ -133,7 +133,7 @@ export default function PlateIdeas() {
           className="pl-btn pl-btn-primary w-full"
           onClick={() => open({ kind: 'idea', kitchenId: targetId })}
         >
-          {kitchen?.is_personal ? 'Add to wishlist' : 'Suggest an idea'}
+          {kitchen?.is_personal ? 'Add a craving' : 'Suggest a craving'}
         </button>
       )}
     </div>

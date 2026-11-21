@@ -42,7 +42,7 @@ export function usePlate(): PlateContextValue {
 }
 
 export function tabFromPath(pathname: string): PlateTab {
-  if (pathname.startsWith('/plate/plan') || pathname.startsWith('/plate/ideas')) return 'plan'
+  if (pathname.startsWith('/plate/plan') || pathname.startsWith('/plate/cravings')) return 'plan'
   if (pathname.startsWith('/plate/cart')) return 'cart'
   if (pathname.startsWith('/plate/kitchens')) return 'kitchens'
   return 'today'

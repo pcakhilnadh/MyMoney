@@ -8,13 +8,14 @@ import { AISLES, guessAisle, mealLabel, nextEmptySlot, orderKitchens } from '../
 import type { Aisle, Idea, Kitchen } from '../types'
 import { Checkbox, ErrorLine, FieldLabel, Sheet } from '../ui'
 
-type Action = 'meal' | 'import' | 'item' | 'idea' | 'invite'
+type Action = 'meal' | 'idea' | 'item' | 'invite' | 'newKitchen'
 
+/** Highlighted for the tab you're on; the list itself keeps one order. */
 const FIRST_ACTION: Record<PlateTab, Action> = {
   today: 'meal',
   plan: 'meal',
   cart: 'item',
-  kitchens: 'invite',
+  kitchens: 'newKitchen',
 }
 
 /** Kitchen picker used at the top of the create sheet: "Adding to [🏡 Home ▾]". */
@@ -71,51 +72,48 @@ export function CreateSheet({ tab }: { tab: PlateTab }) {
           : `Add to ${kitchen.name}'s week`,
         sheet: { kind: 'meal', kitchenId: kitchen.id, date: next?.date, slot: next?.slot },
       },
-      import: {
-        icon: '📲',
-        label: 'Import a recipe',
-        hint: 'Paste a link, ingredients pulled out',
-        sheet: { kind: 'import', kitchenId: kitchen.id },
-      },
       item: {
         icon: '🛒',
         label: 'Add to cart',
-        hint: 'Aisle is picked for you',
+        hint: 'For your next shop · aisle picked for you',
         sheet: { kind: 'item', kitchenId: kitchen.id },
       },
       idea: {
-        icon: '💡',
-        label: solo ? 'Save an idea' : 'Suggest an idea',
-        hint: solo ? 'Goes on your private wishlist' : 'The group votes on it',
+        icon: '😋',
+        label: 'Suggest a craving',
+        hint: solo ? 'Only you see it' : 'Everyone votes on it',
         sheet: { kind: 'idea', kitchenId: kitchen.id },
       },
-      invite: solo
-        ? {
-            icon: '👋',
-            label: 'New kitchen',
-            hint: 'Plan with others in a kitchen you share',
-            sheet: { kind: 'newKitchen' },
-          }
-        : {
-            icon: '👋',
-            label: 'Invite people',
-            hint: `Add people to ${kitchen.name}`,
-            sheet: { kind: 'invite', kitchenId: kitchen.id },
-          },
+      invite: {
+        icon: '👋',
+        label: 'Invite people',
+        hint: `By email or a code, to ${kitchen.name}`,
+        sheet: { kind: 'invite', kitchenId: kitchen.id },
+      },
+      newKitchen: {
+        icon: '🏡',
+        label: 'New kitchen',
+        hint: 'Plan with others in a kitchen you share',
+        sheet: { kind: 'newKitchen' },
+      },
     }
   const first = FIRST_ACTION[tab]
-  const rows = [
-    first,
-    ...(['meal', 'import', 'item', 'idea'] as Action[]).filter((a) => a !== first),
+  // My Kitchen can't be shared, so there's nobody to invite there.
+  const rows: Action[] = [
+    'meal',
+    'idea',
+    'item',
+    ...(solo ? [] : ['invite' as const]),
+    'newKitchen',
   ]
 
   return (
     <Sheet title="Create" onClose={close} bare>
       <AddingTo kitchens={kitchens} value={kitchen.id} onChange={setKitchenId} />
       <ul className="space-y-1">
-        {rows.map((action, index) => {
+        {rows.map((action) => {
           const { icon, label, hint, sheet } = actions[action]
-          const primary = index === 0
+          const primary = action === first
           return (
             <li key={action}>
               <button
@@ -144,24 +142,6 @@ export function CreateSheet({ tab }: { tab: PlateTab }) {
           )
         })}
       </ul>
-      <div className="flex gap-2 pt-1">
-        {first !== 'invite' && (
-          <button
-            type="button"
-            onClick={() => open(actions.invite.sheet)}
-            className="pl-btn pl-btn-secondary h-11 flex-1 px-3 text-sm"
-          >
-            <span aria-hidden="true">👋</span> {actions.invite.label}
-          </button>
-        )}
-        <button
-          type="button"
-          onClick={() => open({ kind: 'newKitchen' })}
-          className="pl-btn pl-btn-secondary h-11 flex-1 px-3 text-sm"
-        >
-          + New kitchen
-        </button>
-      </div>
     </Sheet>
   )
 }
@@ -296,7 +276,7 @@ export function IdeaSheet({ kitchenId }: { kitchenId: string }) {
   return (
     <Sheet
       eyebrow={eyebrowOf(kitchen)}
-      title={kitchen?.is_personal ? 'Save to your wishlist' : 'Suggest an idea'}
+      title={kitchen?.is_personal ? 'Add a craving' : 'Suggest a craving'}
       onClose={close}
       footer={
         <button
@@ -344,8 +324,8 @@ export function IdeaSheet({ kitchenId }: { kitchenId: string }) {
         </div>
         <p className="text-xs text-muted-foreground">
           {kitchen?.is_personal
-            ? 'Only you can see your wishlist.'
-            : 'Your vote is added. The most-voted ideas show first.'}
+            ? 'Only you can see your cravings.'
+            : 'Your vote is added. The most-voted cravings show first.'}
         </p>
         <ErrorLine error={save.error} />
       </form>
@@ -482,7 +462,7 @@ export function ImportSheet({ kitchenId }: { kitchenId: string }) {
               disabled={!title.trim() || busy}
               onClick={() => void finish('idea')}
             >
-              Save as idea
+              Save as craving
             </button>
             <button
               type="button"

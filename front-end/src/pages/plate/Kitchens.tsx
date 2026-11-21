@@ -43,8 +43,8 @@ export default function PlateKitchens() {
       <header>
         <h1 className="text-[28px] leading-tight font-bold">Kitchens</h1>
         <p className="mt-1 text-sm text-muted-foreground">
-          Each kitchen has its own week, cart and ideas. Plan and Cart can show one kitchen or all
-          of them.
+          Each kitchen has its own week, cart and cravings. Plan and Cart can show one kitchen or
+          all of them.
         </p>
       </header>
 
