@@ -204,8 +204,8 @@ describe('saving offline', () => {
     // A pull that left before the change was sent doesn't undo it.
     await mergePull(pulled())
     expect((await plateDb.kitchens.get('home'))?.meal_slots).toEqual(['B', 'D'])
-    await expect(api.updateKitchen('mine', { group_type: 'family' })).rejects.toThrow(
-      'My Kitchen can’t change type.',
+    await expect(api.updateKitchen('mine', { name: 'Mine' })).rejects.toThrow(
+      'My Kitchen can’t be changed.',
     )
   })
 

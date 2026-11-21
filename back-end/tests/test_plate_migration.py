@@ -12,6 +12,7 @@ tables = importlib.import_module("migrations.versions.f7a8b9c0d1e2_myplate_table
 sync = importlib.import_module("migrations.versions.g8b9c0d1e2f3_plate_sync")
 emails = importlib.import_module("migrations.versions.h9c0d1e2f3a4_plate_email_invites")
 shared = importlib.import_module("migrations.versions.i0a1b2c3d4e5_shared_memberships")
+all_meals = importlib.import_module("migrations.versions.j1b2c3d4e5f6_my_kitchen_all_meals")
 PLATE_TABLES = sorted(t for t in Base.metadata.tables if t.startswith("plate_"))
 
 
@@ -89,7 +90,10 @@ def test_migrations_match_the_models_and_reverse():
             "INSERT INTO plate_kitchen_invites (id, kitchen_id, invited_user_id, invited_by,"
             " created_at) VALUES ('i1', 'k1', 'p2', 'p1', '2026-11-03')"
         )
-    run(shared.upgrade)
+    run(shared.upgrade, all_meals.upgrade)
+    with engine.connect() as connection:
+        slots = connection.exec_driver_sql("SELECT meal_slots FROM plate_kitchens").scalar_one()
+    assert slots == '["B", "L", "S", "D"]'
     with engine.connect() as connection:
         rows = connection.exec_driver_sql(
             "SELECT id, email, status, user_id FROM plate_kitchen_members ORDER BY id"

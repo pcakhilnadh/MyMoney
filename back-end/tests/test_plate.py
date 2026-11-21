@@ -79,6 +79,10 @@ def test_my_kitchen_is_created_once_and_cannot_be_left(c):
     send(c, "alice", "DELETE", f"/kitchens/{mine['id']}/members/me", status=422)
     send(c, "alice", "DELETE", f"/kitchens/{mine['id']}", status=422)
     send(c, "alice", "PUT", "/live/presence", {"kitchen_ids": [mine["id"]], "shopping": True}, 422)
+    # My Kitchen plans every meal and can't be edited.
+    assert mine["meal_slots"] == ["B", "L", "S", "D"]
+    for patch in ({"name": "Mine"}, {"emoji": "🍳"}, {"meal_slots": ["D"]}):
+        send(c, "alice", "PATCH", f"/kitchens/{mine['id']}", patch, 422)
 
 
 def test_other_peoples_kitchens_are_hidden(c):

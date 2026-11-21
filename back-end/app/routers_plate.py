@@ -168,7 +168,7 @@ def _ensure_personal(db: Session, viewer: Viewer) -> PlateKitchen:
         is_personal=True,
         owner_id=viewer.id,
         color=KITCHEN_COLORS[0],
-        meal_slots=["B", "L", "D"],
+        meal_slots=list(SLOT_ORDER),  # every meal; My Kitchen can't be changed
     )
     kitchen.members.append(_new_member(viewer, "owner"))
     db.add(kitchen)
@@ -434,8 +434,8 @@ def update_kitchen(
     db: Session = Depends(get_db),
 ):
     kitchen = _require_kitchen(db, kitchen_id, viewer)
-    if body.group_type and kitchen.is_personal:
-        raise HTTPException(422, "My Kitchen can't change type.")
+    if kitchen.is_personal:
+        raise HTTPException(422, "My Kitchen can't be changed.")
     if body.name is not None:
         if not body.name.strip():
             raise HTTPException(422, "Name the kitchen.")

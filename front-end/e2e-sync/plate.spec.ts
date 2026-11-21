@@ -173,12 +173,30 @@ test('invite by email: the invite waits on their Kitchens page', async ({ browse
   await expect(b.getByText(/Carol invited you to/)).toHaveCount(0)
 })
 
-test('kitchen settings change at once, even while the server is slow', async ({ page }) => {
+test('My Kitchen is view-only; shared kitchen settings change at once', async ({ page }) => {
   const erin = { sub: 'g-plate-erin', email: 'erin.plate@gmail.com', name: 'Erin E' }
   await open(page, erin)
   await nav(page).getByRole('link', { name: 'Kitchens' }).click()
+
+  // My Kitchen: every meal, nothing to edit.
   await page
     .getByRole('link', { name: /My Kitchen/ })
+    .first()
+    .click()
+  const details = page.getByRole('region', { name: 'My Kitchen details' })
+  await expect(details).toContainText('Breakfast')
+  await expect(details).toContainText('Snacks')
+  await expect(page.getByRole('textbox', { name: 'Name' })).toHaveCount(0)
+  await expect(page.getByRole('button', { name: 'Snacks' })).toHaveCount(0)
+
+  await nav(page).getByRole('link', { name: 'Kitchens' }).click()
+  await page.getByRole('button', { name: '+ New kitchen' }).click()
+  await sheet(page).getByRole('textbox', { name: 'Name' }).fill('Studio')
+  await sheet(page).getByRole('button', { name: 'Create kitchen' }).click()
+  await sheet(page).getByRole('button', { name: 'Close' }).click()
+  await nav(page).getByRole('link', { name: 'Kitchens' }).click()
+  await page
+    .getByRole('link', { name: /Studio/ })
     .first()
     .click()
   const snacks = page.getByRole('button', { name: 'Snacks' })
@@ -202,7 +220,7 @@ test('kitchen settings change at once, even while the server is slow', async ({ 
   await open(other, erin)
   await nav(other).getByRole('link', { name: 'Kitchens' }).click()
   await other
-    .getByRole('link', { name: /My Kitchen/ })
+    .getByRole('link', { name: /Studio/ })
     .first()
     .click()
   await expect(other.getByRole('button', { name: 'Snacks' })).toHaveAttribute(

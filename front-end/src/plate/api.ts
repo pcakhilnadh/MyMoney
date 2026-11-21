@@ -114,8 +114,8 @@ export const createKitchen = (input: remote.KitchenInput) =>
 export const updateKitchen = (kitchenId: string, patch: remote.KitchenPatch) =>
   saveLocally(async () => {
     const kitchen = await kitchenOf(kitchenId)
+    if (kitchen.is_personal) throw new Error('My Kitchen can’t be changed.')
     if (patch.name !== undefined && !patch.name.trim()) throw new Error('Name the kitchen.')
-    if (patch.group_type && kitchen.is_personal) throw new Error('My Kitchen can’t change type.')
     if (patch.meal_slots && patch.meal_slots.length === 0)
       throw new Error('Pick at least one meal.')
     const next: Kitchen = {

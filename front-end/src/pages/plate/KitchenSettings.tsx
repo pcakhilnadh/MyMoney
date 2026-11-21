@@ -7,7 +7,7 @@ import * as api from '@/plate/api'
 import { usePlate } from '@/plate/context'
 import { SectionLabel } from '@/plate/components'
 import { useKitchens, useMe, usePeople, usePlateMutation, useSettings } from '@/plate/hooks'
-import { KITCHEN_EMOJI, KITCHEN_TYPE_LABEL } from '@/plate/logic'
+import { KITCHEN_EMOJI, KITCHEN_TYPE_LABEL, SLOT_LABEL } from '@/plate/logic'
 import { InvitePanel, KitchenTile, SlotPicker, TypePicker } from '@/plate/sheets/KitchenSheets'
 import type { Kitchen } from '@/plate/types'
 import { Avatar, EmojiPicker, ErrorLine, FieldLabel, Switch } from '@/plate/ui'
@@ -135,39 +135,53 @@ function Settings({ kitchen }: { kitchen: Kitchen }) {
         </>
       )}
 
-      <section className="pl-card space-y-5 p-4">
-        <div>
-          <FieldLabel htmlFor="kitchen-name">Name</FieldLabel>
-          <input
-            id="kitchen-name"
-            className="pl-input"
-            value={name}
-            maxLength={60}
-            onChange={(e) => setName(e.target.value)}
-            onBlur={() =>
-              name.trim() && name.trim() !== kitchen.name && update.mutate({ name: name.trim() })
-            }
+      {kitchen.is_personal ? (
+        // My Kitchen is fixed for now: view only.
+        <section aria-label="My Kitchen details" className="pl-card space-y-2 p-4">
+          <FieldLabel>Meals you plan</FieldLabel>
+          <div className="flex flex-wrap gap-2">
+            {kitchen.meal_slots.map((slot) => (
+              <span key={slot} className="pl-chip">
+                {SLOT_LABEL[slot]}
+              </span>
+            ))}
+          </div>
+        </section>
+      ) : (
+        <section className="pl-card space-y-5 p-4">
+          <div>
+            <FieldLabel htmlFor="kitchen-name">Name</FieldLabel>
+            <input
+              id="kitchen-name"
+              className="pl-input"
+              value={name}
+              maxLength={60}
+              onChange={(e) => setName(e.target.value)}
+              onBlur={() =>
+                name.trim() && name.trim() !== kitchen.name && update.mutate({ name: name.trim() })
+              }
+            />
+          </div>
+          <div>
+            <FieldLabel>Icon</FieldLabel>
+            <EmojiPicker
+              value={kitchen.emoji}
+              onChange={(emoji) => update.mutate({ emoji })}
+              choices={KITCHEN_EMOJI}
+            />
+          </div>
+          {kitchen.group_type !== 'personal' && (
+            <TypePicker
+              value={kitchen.group_type}
+              onChange={(group_type) => update.mutate({ group_type })}
+            />
+          )}
+          <SlotPicker
+            value={kitchen.meal_slots}
+            onChange={(meal_slots) => meal_slots.length > 0 && update.mutate({ meal_slots })}
           />
-        </div>
-        <div>
-          <FieldLabel>Icon</FieldLabel>
-          <EmojiPicker
-            value={kitchen.emoji}
-            onChange={(emoji) => update.mutate({ emoji })}
-            choices={KITCHEN_EMOJI}
-          />
-        </div>
-        {kitchen.group_type !== 'personal' && (
-          <TypePicker
-            value={kitchen.group_type}
-            onChange={(group_type) => update.mutate({ group_type })}
-          />
-        )}
-        <SlotPicker
-          value={kitchen.meal_slots}
-          onChange={(meal_slots) => meal_slots.length > 0 && update.mutate({ meal_slots })}
-        />
-      </section>
+        </section>
+      )}
 
       <section className="pl-card flex items-center justify-between gap-3 p-4">
         <div>
@@ -184,7 +198,8 @@ function Settings({ kitchen }: { kitchen: Kitchen }) {
       {kitchen.is_personal ? (
         <section className="pl-card space-y-3 p-4">
           <p className="text-sm text-muted-foreground">
-            My Kitchen is just for you. To plan with others, create a new kitchen.
+            My Kitchen is just for you and can't be changed. To plan with others, create a new
+            kitchen.
           </p>
         </section>
       ) : (
