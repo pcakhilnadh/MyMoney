@@ -37,8 +37,9 @@ export class AppDB extends Dexie {
   >
   groups!: EntityTable<GroupCache, 'id'>
   /**
-   * Legacy: My Food now has its own database (`food/db.ts`), which moves these rows out.
-   * TODO(remove-legacy-sync): drop these tables in a later version.
+   * Pre-1.0 installs kept My Food here. `food/db.ts` moves the rows into My Food's own
+   * database on first open, so these stay until no pre-1.0 installs remain.
+   * TODO(after-v1): drop these two tables in a later Dexie version.
    */
   meal_logs!: EntityTable<MealLog, 'id'>
   food_settings!: EntityTable<FoodSetting, 'key'>

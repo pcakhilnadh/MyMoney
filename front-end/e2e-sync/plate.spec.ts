@@ -126,7 +126,7 @@ test('local-first: changes save offline and a reload shows them before the serve
   await expect(phone.getByRole('region', { name: 'Dairy & Eggs' })).toContainText('Paneer (400g)')
 
   // With the server stalled, a reload still shows MyPlate from the phone's own copy.
-  await a.route('**/api/sync/plate/pull**', () => undefined)
+  await a.route('**/api/v1/sync/plate/pull**', () => undefined)
   await a.reload()
   await expect(dairy).toContainText('Paneer (400g)')
 })

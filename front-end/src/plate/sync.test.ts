@@ -184,15 +184,15 @@ describe('saving offline', () => {
 
 describe('sync', () => {
   it('replays changes in order, then pulls only what changed since last time', async () => {
-    const calls = serve((call) => (call.path.startsWith('/api/sync') ? pulled() : {}))
+    const calls = serve((call) => (call.path.startsWith('/api/v1/sync') ? pulled() : {}))
     const meal = await api.saveMeal(draft())
     await api.deleteMeal(meal.id)
 
     expect(await runPlateSync()).toEqual({ rejected: 0 })
     expect(calls.map((c) => `${c.method} ${c.path.split('?')[0]}`)).toEqual([
-      'POST /api/plate/meals',
-      `DELETE /api/plate/meals/${meal.id}`,
-      'GET /api/sync/plate/pull',
+      'POST /api/v1/plate/meals',
+      `DELETE /api/v1/plate/meals/${meal.id}`,
+      'GET /api/v1/sync/plate/pull',
     ])
     expect(calls[2].path).toContain('since=2026-11-21T10%3A00%3A00%2B00%3A00')
     expect(await plateDb.outbox.count()).toBe(0)
@@ -213,7 +213,7 @@ describe('sync', () => {
     await api.addGrocery({ group_id: 'home', name: 'Milk' })
 
     expect(await runPlateSync()).toEqual({ rejected: 1 })
-    expect(calls.at(-1)?.path).toBe('/api/sync/plate/pull')
+    expect(calls.at(-1)?.path).toBe('/api/v1/sync/plate/pull')
     expect(await plateDb.grocery_items.count()).toBe(0)
     expect(await plateDb.kitchens.count()).toBe(1)
   })

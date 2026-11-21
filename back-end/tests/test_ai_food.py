@@ -42,8 +42,8 @@ def test_food_analysis_uses_configured_provider_and_audits(client, monkeypatch):
     monkeypatch.setattr(settings, "expense_ai_provider", "deepseek")
     seen = []
     monkeypatch.setattr(NvidiaProvider, "send", lambda self, payload: seen.append(payload) or response(table))
-    assert client.post("/api/food/ai/food-analyse", json={"images": [image]}).status_code == 401
-    result = client.post("/api/food/ai/food-analyse", json={"images": [image]}, headers=H("alice"))
+    assert client.post("/api/v1/food/ai/food-analyse", json={"images": [image]}).status_code == 401
+    result = client.post("/api/v1/food/ai/food-analyse", json={"images": [image]}, headers=H("alice"))
     assert result.status_code == 200
     assert result.json()["items"][0] == {
         "name": "Rice puttu", "canonical_name": "rice puttu", "qty": 100,
@@ -74,7 +74,7 @@ def test_invalid_food_response_is_rejected_and_logged(client, monkeypatch, conte
     monkeypatch.setattr(settings, "deepseek_api_key", "test-key")
     monkeypatch.setattr(settings, "expense_ai_provider", "deepseek")
     monkeypatch.setattr(NvidiaProvider, "send", lambda self, payload: response(content))
-    result = client.post("/api/food/ai/food-analyse", json={"images": [image]}, headers=H("alice"))
+    result = client.post("/api/v1/food/ai/food-analyse", json={"images": [image]}, headers=H("alice"))
     assert result.status_code == 502
     with client.session_factory() as db:
         log = db.scalar(select(AICallLog))
@@ -95,7 +95,7 @@ def test_invalid_food_response_is_rejected_and_logged(client, monkeypatch, conte
 def test_empty_food_table_and_invalid_image(client, monkeypatch):
     assert parse_food_table("items[0]:").items == []
     monkeypatch.setattr(settings, "deepseek_api_key", "test-key")
-    result = client.post("/api/food/ai/food-analyse", json={
+    result = client.post("/api/v1/food/ai/food-analyse", json={
         "images": [{"mime_type": "image/png", "data": "aGVsbG8="}],
     }, headers=H("alice"))
     assert result.status_code == 422
@@ -105,7 +105,7 @@ def test_empty_food_table_and_invalid_image(client, monkeypatch):
 
 def test_create_food_with_validated_image(client):
     create_writable_catalog(client)
-    result = client.post("/api/food/catalog", headers=H("alice"), json={
+    result = client.post("/api/v1/food/catalog", headers=H("alice"), json={
         "base_food_name": "Puttu", "category": "grain", "food_type": "processed", "image": image,
     })
     assert result.status_code == 201
@@ -113,7 +113,7 @@ def test_create_food_with_validated_image(client):
         from app.food_search import catalog
         stored = db.execute(select(catalog.c.image_data).where(catalog.c.id == result.json()["id"])).scalar_one()
         assert base64.b64decode(stored.split(",", 1)[1]).startswith(b"\xff\xd8\xff")
-    invalid = client.post("/api/food/catalog", headers=H("alice"), json={
+    invalid = client.post("/api/v1/food/catalog", headers=H("alice"), json={
         "base_food_name": "Puttu", "category": "grain", "food_type": "processed",
         "image": {"mime_type": "image/png", "data": "aGVsbG8="},
     })

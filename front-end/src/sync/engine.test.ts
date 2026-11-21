@@ -61,7 +61,7 @@ describe('sync dependencies', () => {
     const fetchMock = vi.fn<typeof fetch>(async (input, init) => {
       const path = new URL(String(input)).pathname
       requestPaths.push(path)
-      if (path === '/api/sync/money/push') {
+      if (path === '/api/v1/sync/money/push') {
         const body = JSON.parse(String(init?.body)) as { categories: Category[] }
         pushedCategories = body.categories
         return new Response(JSON.stringify({ accepted: [], conflicts: [] }), {
@@ -96,7 +96,7 @@ describe('sync dependencies', () => {
             vi.fn<typeof fetch>(async (input) => {
               const path = new URL(String(input)).pathname
               const body =
-                path === '/api/sync/money/pull'
+                path === '/api/v1/sync/money/pull'
                   ? {
                       accounts: [
                         { ...oldAccount, is_default: false, version: 2 },
@@ -116,7 +116,7 @@ describe('sync dependencies', () => {
           expect((await db.accounts.get('new'))?.is_default).toBe(true)
         })
       }
-      if (path === '/api/sync/money/pull') {
+      if (path === '/api/v1/sync/money/pull') {
         return new Response(
           JSON.stringify({
             categories: [],
@@ -141,8 +141,8 @@ describe('sync dependencies', () => {
     await runSync(moneySync, 'token', 'user')
 
     expect(pushedCategories).toContainEqual(category)
-    expect(requestPaths.indexOf('/api/sync/money/pull')).toBeLessThan(
-      requestPaths.indexOf('/api/sync/money/push'),
+    expect(requestPaths.indexOf('/api/v1/sync/money/pull')).toBeLessThan(
+      requestPaths.indexOf('/api/v1/sync/money/push'),
     )
   })
 
@@ -154,7 +154,7 @@ describe('sync dependencies', () => {
     let pullCount = 0
     const fetchMock = vi.fn<typeof fetch>(async (input) => {
       const path = new URL(String(input)).pathname
-      if (path === '/api/sync/money/push') {
+      if (path === '/api/v1/sync/money/push') {
         return new Response(
           JSON.stringify({
             accepted: [
@@ -169,7 +169,7 @@ describe('sync dependencies', () => {
           { status: 200, headers: { 'Content-Type': 'application/json' } },
         )
       }
-      if (path === '/api/sync/money/pull') {
+      if (path === '/api/v1/sync/money/pull') {
         pullCount += 1
         return new Response(
           JSON.stringify({
@@ -217,7 +217,7 @@ describe('sync dependencies', () => {
     const fetchMock = vi.fn<typeof fetch>(async (input) => {
       const path = new URL(String(input)).pathname
       requestPaths.push(path)
-      if (path === '/api/sync/money/pull') {
+      if (path === '/api/v1/sync/money/pull') {
         pullCount += 1
         return new Response(
           JSON.stringify({
@@ -291,7 +291,7 @@ describe('sync dependencies', () => {
         const path = new URL(String(input)).pathname
         requestPaths.push(path)
         const body =
-          path === '/api/sync/food/push'
+          path === '/api/v1/sync/food/push'
             ? { accepted: [{ entity: 'meal_logs', id: log.id }], conflicts: [] }
             : { meal_logs: [], server_time: '2026-11-21T00:00:00.000Z' }
         return new Response(JSON.stringify(body), {
@@ -309,9 +309,9 @@ describe('sync dependencies', () => {
     await runSync(foodSync, 'token', 'alice')
 
     expect(requestPaths).toEqual([
-      '/api/sync/food/pull',
-      '/api/sync/food/push',
-      '/api/sync/food/pull',
+      '/api/v1/sync/food/pull',
+      '/api/v1/sync/food/push',
+      '/api/v1/sync/food/pull',
     ])
     expect((await foodDb.meal_logs.get(log.id))?.sync_state).toBe('synced')
     expect(storage.get('exptracker.sync.food.cursor.alice')).toBe('2026-11-21T00:00:00.000Z')

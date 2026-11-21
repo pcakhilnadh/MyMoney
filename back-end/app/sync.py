@@ -133,10 +133,6 @@ class FoodPushIn(BaseModel):
     meal_logs: list[MealLogRec] = []
 
 
-class PushIn(MoneyPushIn, FoodPushIn):
-    """Legacy combined payload."""
-
-
 MONEY = ("categories", "accounts", "merchants", "transactions", "budgets", "due_payments")
 FOOD = ("meal_logs",)
 
@@ -549,23 +545,3 @@ def pull_food(
     db: Session = Depends(get_db),
 ):
     return _pull(since, FOOD, False, user, db)
-
-
-# ─── Legacy combined sync ────────────────────────────────────────────────────────────────
-# TODO(remove-legacy-sync): delete /sync/push and /sync/pull (and PushIn) once installed
-# apps have updated to the per-app endpoints above. Clients cached before the split still
-# call these, so keep them until no requests have arrived for a few weeks.
-
-
-@router.post("/push")
-def push(body: PushIn, user: Profile = Depends(get_current_user), db: Session = Depends(get_db)):
-    return _push(body, MONEY + FOOD, user, db)
-
-
-@router.get("/pull")
-def pull(
-    since: datetime | None = None,
-    user: Profile = Depends(get_current_user),
-    db: Session = Depends(get_db),
-):
-    return _pull(since, MONEY + FOOD, True, user, db)

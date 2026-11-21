@@ -549,7 +549,6 @@ class PresenceIn(BaseModel):
 
 
 @router.put("/live/presence")
-@router.put("/presence")  # TODO(remove-legacy-sync): old clients; remove with /sync/pull.
 def set_presence(
     body: PresenceIn, viewer: Viewer = Depends(get_viewer), db: Session = Depends(get_db)
 ):

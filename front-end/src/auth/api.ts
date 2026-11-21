@@ -1,6 +1,12 @@
 import type { GoogleUser } from './jwt'
 
-const BASE = import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api'
+/**
+ * The API version this build speaks. The server keeps older versions mounted while
+ * installed apps update, so bump this only together with a new server version.
+ */
+export const API_VERSION = 'v1'
+const API_ROOT = (import.meta.env.VITE_API_URL ?? 'http://localhost:8000/api').replace(/\/+$/, '')
+const BASE = `${API_ROOT}/${API_VERSION}`
 export const AUTH_EXPIRED_EVENT = 'mymoney:auth-expired'
 
 export interface AuthResponse {

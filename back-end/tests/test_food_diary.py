@@ -65,21 +65,21 @@ def test_food_entries_snapshot_nutrition_and_are_private(client):
     body = {"entry_date": "2026-10-23", "meal": "breakfast", "items": [
         {"food_id": "egg", "weight_g": 50}, {"food_id": "unknown", "weight_g": 120},
     ]}
-    assert client.post("/api/food/entries", json=body).status_code == 401
-    response = client.post("/api/food/entries", json=body, headers=H("alice"))
+    assert client.post("/api/v1/food/entries", json=body).status_code == 401
+    response = client.post("/api/v1/food/entries", json=body, headers=H("alice"))
     assert response.status_code == 201
     egg, unknown = response.json()
     assert (egg["calories"], egg["protein"], egg["carbs"], egg["fat"]) == (75, 6, 0.5, 5)
     assert (egg["calories_100g"], egg["protein_100g"], egg["carbs_100g"], egg["fat_100g"]) == (150, 12, 1, 10)
     assert unknown["calories"] is None
     assert unknown["calories_100g"] is None
-    assert len(client.get("/api/food/entries", headers=H("alice")).json()) == 2
-    assert client.get("/api/food/entries", headers=H("bob")).json() == []
+    assert len(client.get("/api/v1/food/entries", headers=H("alice")).json()) == 2
+    assert client.get("/api/v1/food/entries", headers=H("bob")).json() == []
     with client.session_factory() as db:
         db.execute(catalog.update().where(catalog.c.id == "egg").values(calories_100g=200))
         db.commit()
-    assert next(item for item in client.get("/api/food/entries", headers=H("alice")).json() if item["food_id"] == "egg")["calories"] == 75
-    assert next(item for item in client.get("/api/food/entries", headers=H("alice")).json() if item["food_id"] == "egg")["calories_100g"] == 150
+    assert next(item for item in client.get("/api/v1/food/entries", headers=H("alice")).json() if item["food_id"] == "egg")["calories"] == 75
+    assert next(item for item in client.get("/api/v1/food/entries", headers=H("alice")).json() if item["food_id"] == "egg")["calories_100g"] == 150
 
 
 def test_food_entry_validation_is_atomic_and_goal_is_user_scoped(client):
@@ -87,14 +87,14 @@ def test_food_entry_validation_is_atomic_and_goal_is_user_scoped(client):
     with client.session_factory() as db:
         db.execute(insert(catalog).values(id="egg", base_food_name="Egg", calories_100g=150))
         db.commit()
-    url = "/api/food/entries"
+    url = "/api/v1/food/entries"
     body = {"entry_date": "2026-10-23", "meal": "lunch", "items": [{"food_id": "egg", "weight_g": 100}]}
     for bad in (0, -1, "NaN", 1000001):
         assert client.post(url, json={**body, "items": [{"food_id": "egg", "weight_g": bad}]}, headers=H("alice")).status_code == 422
     assert client.post(url, json={**body, "meal": "other"}, headers=H("alice")).status_code == 422
     assert client.post(url, json={**body, "items": body["items"] + [{"food_id": "missing", "weight_g": 1}]}, headers=H("alice")).status_code == 404
     assert client.get(url, headers=H("alice")).json() == []
-    goal = "/api/food/goal"
+    goal = "/api/v1/food/goal"
     assert client.get(goal, headers=H("alice")).json() == {"calories": None}
     assert client.put(goal, json={"calories": 0}, headers=H("alice")).status_code == 422
     assert client.put(goal, json={"calories": 2000}, headers=H("alice")).json() == {"calories": 2000}

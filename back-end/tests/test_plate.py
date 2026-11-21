@@ -16,13 +16,13 @@ def c(client, food_access):
 
 
 def get(c, user, path, **params):
-    response = c.get(f"/api/plate{path}", headers=H(user), params=params)
+    response = c.get(f"/api/v1/plate{path}", headers=H(user), params=params)
     assert response.status_code == 200, response.text
     return response.json()
 
 
 def send(c, user, method, path, body=None, status=None):
-    response = c.request(method, f"/api/plate{path}", headers=H(user), json=body)
+    response = c.request(method, f"/api/v1/plate{path}", headers=H(user), json=body)
     if status is not None:
         assert response.status_code == status, response.text
     return response
@@ -66,7 +66,7 @@ def meal_body(kitchen_id, **overrides):
 
 
 def test_needs_the_plate_feature(client):
-    assert client.get("/api/plate/kitchens", headers=H("alice")).status_code == 403
+    assert client.get("/api/v1/plate/kitchens", headers=H("alice")).status_code == 403
 
 
 def test_my_kitchen_is_created_once_and_cannot_be_left(c):
@@ -78,7 +78,7 @@ def test_my_kitchen_is_created_once_and_cannot_be_left(c):
     assert get(c, "alice", "/me")["name"] == "Alice"
     send(c, "alice", "DELETE", f"/kitchens/{mine['id']}/members/me", status=422)
     send(c, "alice", "DELETE", f"/kitchens/{mine['id']}", status=422)
-    send(c, "alice", "PUT", "/presence", {"kitchen_ids": [mine["id"]], "shopping": True}, 422)
+    send(c, "alice", "PUT", "/live/presence", {"kitchen_ids": [mine["id"]], "shopping": True}, 422)
 
 
 def test_other_peoples_kitchens_are_hidden(c):
@@ -298,7 +298,7 @@ def test_deleting_a_meal_unlinks_its_cart_items(c):
 def test_going_live_shows_on_the_kitchen_and_lapses(c):
     kitchen_id = shared_kitchen(c)
     alice = me(c, "alice")
-    out = send(c, "alice", "PUT", "/presence", {"kitchen_ids": [kitchen_id], "shopping": True}, 200)
+    out = send(c, "alice", "PUT", "/live/presence", {"kitchen_ids": [kitchen_id], "shopping": True}, 200)
     assert out.json()[0]["shopping_now"] == [alice]
     seen_by_bob = next(k for k in get(c, "bob", "/kitchens") if k["id"] == kitchen_id)
     assert seen_by_bob["shopping_now"] == [alice] and alice in seen_by_bob["shopping_since"]
@@ -312,7 +312,7 @@ def test_going_live_shows_on_the_kitchen_and_lapses(c):
         db.commit()
     assert next(k for k in get(c, "bob", "/kitchens") if k["id"] == kitchen_id)["shopping_now"] == []
 
-    send(c, "alice", "PUT", "/presence", {"kitchen_ids": [kitchen_id], "shopping": False}, 200)
+    send(c, "alice", "PUT", "/live/presence", {"kitchen_ids": [kitchen_id], "shopping": False}, 200)
 
 
 def test_new_activity_until_seen(c):

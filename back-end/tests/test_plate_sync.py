@@ -21,7 +21,7 @@ def c(client, food_access, monkeypatch):
 
 def pull(c, user, since=None):
     params = {"since": since} if since else {}
-    response = c.get("/api/sync/plate/pull", headers=H(user), params=params)
+    response = c.get("/api/v1/sync/plate/pull", headers=H(user), params=params)
     assert response.status_code == 200, response.text
     return response.json()
 
@@ -44,26 +44,23 @@ MEAL_LOG = {
 ACCOUNT = {"id": "bbbbbbbb-0000-0000-0000-000000000002", "version": 1, "name": "Cash"}
 
 
-def test_money_and_food_sync_separately_and_legacy_still_has_both(c):
-    money = c.post("/api/sync/money/push", json={"accounts": [ACCOUNT]}, headers=H("alice"))
-    food = c.post("/api/sync/food/push", json={"meal_logs": [MEAL_LOG]}, headers=H("alice"))
+def test_money_and_food_sync_separately(c):
+    money = c.post("/api/v1/sync/money/push", json={"accounts": [ACCOUNT]}, headers=H("alice"))
+    food = c.post("/api/v1/sync/food/push", json={"meal_logs": [MEAL_LOG]}, headers=H("alice"))
     assert money.status_code == food.status_code == 200
     assert food.json()["accepted"] == [{"entity": "meal_logs", "id": MEAL_LOG["id"]}]
 
-    money_pull = c.get("/api/sync/money/pull", headers=H("alice")).json()
+    money_pull = c.get("/api/v1/sync/money/pull", headers=H("alice")).json()
     assert ids(money_pull["accounts"]) == [ACCOUNT["id"]]
     assert "meal_logs" not in money_pull and "groups" in money_pull
-    food_pull = c.get("/api/sync/food/pull", headers=H("alice")).json()
+    food_pull = c.get("/api/v1/sync/food/pull", headers=H("alice")).json()
     assert ids(food_pull["meal_logs"]) == [MEAL_LOG["id"]]
     assert set(food_pull) == {"server_time", "meal_logs"}
 
-    legacy = c.get("/api/sync/pull", headers=H("alice")).json()
-    assert ids(legacy["meal_logs"]) == [MEAL_LOG["id"]] and ids(legacy["accounts"])
-
 
 def test_food_sync_needs_the_food_app(client):
-    assert client.get("/api/sync/food/pull", headers=H("alice")).status_code == 403
-    assert client.get("/api/sync/money/pull", headers=H("alice")).status_code == 200
+    assert client.get("/api/v1/sync/food/pull", headers=H("alice")).status_code == 403
+    assert client.get("/api/v1/sync/money/pull", headers=H("alice")).status_code == 200
 
 
 # ─── MyPlate ─────────────────────────────────────────────────────────────────────────────
@@ -167,7 +164,7 @@ def test_old_meals_stay_on_the_server_and_stale_cursors_get_everything(c):
 def test_presence_lives_under_live(c):
     kitchen = shared_kitchen(c)
     response = c.put(
-        "/api/plate/live/presence",
+        "/api/v1/plate/live/presence",
         headers=H("bob"),
         json={"kitchen_ids": [kitchen], "shopping": True},
     )

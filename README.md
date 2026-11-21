@@ -1,307 +1,178 @@
 # MyTracker
 
-An installable personal tracker for money and food, with MyPlate screens ready to be rebuilt.
-For a previously signed-in account, cached local data opens immediately, including offline. Changes are queued locally and sync to the server when the connection returns.
+A personal tracker you install on your phone, with three apps in one:
 
-- **Front-end:** React + TypeScript + Vite, Tailwind CSS 4, shadcn/ui, TanStack Query, Dexie (IndexedDB), vite-plugin-pwa
-- **Back-end:** FastAPI, SQLAlchemy 2, Alembic, Supabase PostgreSQL (used as a managed database only)
-- **Auth:** Google Sign-In only 
+- **My Money**: expenses, income, transfers, accounts, budgets and shared group expenses.
+- **My Food**: a food diary with a daily calorie goal and insights.
+- **MyPlate**: meal planning with the people you cook for.
 
-## Architecture
+Version **1.0.0** · API **v1**
+
+## Core features
+
+**My Money**
+- Add expenses, income, refunds and transfers; search or create categories as you go.
+- Payment accounts (cash, bank, cards, loans) with balances, due dates and a default account.
+- Monthly budgets by category, spending insights and a ledger.
+- Groups: split expenses with others, see who owes whom, and settle up.
+- Snap a bill and let AI fill in the transaction for you to review.
+
+**My Food**
+- Log meals from a shared food catalogue, or snap a photo and let AI find the foods.
+- A daily calorie goal, a diary by date, and insights such as averages and streaks.
+
+**MyPlate**
+- **Kitchens**: My Kitchen is just for you; shared kitchens are for a partner, family or flatmates.
+- **Plan**: a week of meals per kitchen, with who's cooking, who's eating, sides, leftovers, and copying last week.
+- **Today**: what's on your plate and tonight's prep for tomorrow (soak the rajma), ticked off together.
+- **Cart**: a shared grocery list sorted by aisle, with "go live" so others see you're shopping.
+- **Ideas**: a wishlist, plus voting in shared kitchens; import a recipe from a link.
+
+**Everywhere**
+- Works offline and opens instantly. Changes save on the phone first and sync in the background.
+- Sign in with Google. One sync status for all three apps on the profile page.
+
+## How it works
 
 ```
-┌────────────────────────── Browser (PWA) ──────────────────────────┐
-│ React UI ──> Repositories ──> IndexedDB (Dexie, per user and app)  │
-│     │                              ▲                              │
-│     │ groups / settlements         │ push & pull                  │
-│     ▼ (online only)                │                              │
-│   API client ──────── Sync engine ─┘                              │
-└─────────────┬─────────────────────────────────────────────────────┘
-              │ HTTPS + app access token; HttpOnly refresh cookie
-┌─────────────▼───────────── FastAPI (monolith) ────────────────────┐
-│ verify Google sign-in → issue renewable app session               │
-│ routes: /money/*, /food/*, /plate/*, /auth/*, /sync/<app>/*       │
-│ authorization + split/balance rules live here (app/splits.py)     │
-└─────────────┬─────────────────────────────────────────────────────┘
-              │ SQLAlchemy (server-side connection string)
-        Supabase PostgreSQL
+┌──────────────────────────── Phone / browser (PWA) ────────────────────────────┐
+│  Screens ──read/write──> local database (IndexedDB), one per app and account   │
+│                               │                                                │
+│                     sync in the background, per app                            │
+└───────────────────────────────┼────────────────────────────────────────────────┘
+                                │ HTTPS  /api/v1/...
+┌───────────────────────────────▼────────────── FastAPI ─────────────────────────┐
+│  /auth   /money   /food   /plate   /sync/money   /sync/food   /sync/plate      │
+│  Sign-in, access rules and business rules (splits, kitchens) live here.        │
+└───────────────────────────────┼────────────────────────────────────────────────┘
+                                │ SQLAlchemy
+                          PostgreSQL (Supabase)
 ```
 
-Key ideas
-- **Local-first, one sync per app.** Each app has its own IndexedDB database per user (`exptracker-<sub>` for
-  My Money, `myfood-<sub>`, `myplate-<sub>`) and syncs on its own, so one app's backlog or failure never holds up
-  another. Screens read only local data, so a reload or reopen shows everything at once, offline too.
-  - My Money and My Food records are written locally and marked `pending`, then pushed and pulled through
-    `POST /sync/money/push` + `GET /sync/money/pull` and `/sync/food/*`. Records have a client-generated UUID and
-    a `version`; the higher version wins.
-  - MyPlate saves meals, prep ticks, cart items, ideas, votes and settings locally and queues each change in an
-    outbox, replayed in order against the `/plate/*` routes (which keep every rule on the server). Then
-    `GET /sync/plate/pull?since=` brings what changed in my kitchens: kitchens, people, invites and settings whole;
-    meals, cart and ideas as changes plus tombstones (`plate_deletions`). A change the server refuses is dropped and
-    the server's copy restored. Kitchens, invites, going live and recipe import need a connection.
-  - The live layer (other members' ticks, cart and "shopping now" within ~15 s, presence at
-    `/plate/live/presence`) is kept separate from basic sync (every minute, on open and return) so it can move to
-    a paid plan later.
-  - One sync status for every app lives on the profile page, with a per-app breakdown.
-  - TODO(remove-legacy-sync): the combined `POST /sync/push` and `GET /sync/pull` (and `PUT /plate/presence`)
-    remain only for installed apps cached before the split; remove them, and the legacy `meal_logs` /
-    `food_settings` tables in My Money's local database, once no requests have arrived for a few weeks.
-- **Groups need the internet.** Group/family expenses, splits, balances and settlements go straight to the API.
-- **No Supabase Auth / RLS.** Google verifies the initial sign-in; FastAPI issues short-lived app access tokens and
-  renews them using a secure, HttpOnly refresh cookie. Sessions remain active for 30 days after the last use.
-- **Minimal personal data stored.** The server keeps `google_sub` and `email` per user, plus session metadata needed
-  to renew sign-in. A member's Google name is saved on `group_members.display_name` only when they join a group.
-- Money is stored as integer **minor units** (paise) everywhere.
+- **Local first.** Each app keeps its own local database per Google account (`exptracker-…` for My Money,
+  `myfood-…`, `myplate-…`). Screens read only from it, so nothing waits for the network.
+- **Each app syncs on its own.** A slow or failed sync in one app never holds up the others.
+  - My Money and My Food push changed records and pull what changed since the last sync. Every record has an
+    id made on the phone and a version number; the higher version wins.
+  - MyPlate queues each change and sends them in order to the `/plate` routes, so the server's rules always
+    apply. It then pulls what changed in your kitchens since the last sync. If the server refuses a change,
+    the phone undoes it and the profile says so.
+- **Some things need a connection:** group money, AI analysis, and MyPlate's kitchens, invites,
+  going live and recipe import.
+- **Live updates.** In shared kitchens, other people's ticks, cart changes and "shopping now" arrive within about
+  15 seconds; otherwise MyPlate refreshes every minute, on open, and when you come back to the app. The live layer
+  is kept separate so it can become part of a paid plan later.
+- **Access.** Roles (member, admin, owner) decide which apps someone can open; the server enforces it.
+- **Privacy.** The server stores your Google id and email, never your name or photo. Other members of a group or
+  kitchen only see your first name.
+- Money is stored as whole minor units (paise).
 
-## MyFood log
+### API versions
 
-The Food + button opens a food search against the shared `food_catalog_master`, matching names and
-aliases regardless of the catalogue row's `user_id`. The API returns up to 10 case-insensitive
-substring matches. Only when none are found, it returns up to 10 spelling-similar name or alias
-matches. Results are ordered by score descending, then by name case-insensitively for equal scores.
-Fuzzy matching requires at least four word characters and a minimum score of 0.9.
-Each result contains `id`, `name`, and a `score` from 0 to 1. Name substring matches score 1.0;
-alias-only substring matches score 0.9. Fuzzy scores are text-similarity ratios, not probabilities
-or calibrated confidence levels. Results also include the catalogue's optional per-100 g
-`calories_100g`, `protein_100g`, `carbs_100g` and `fat_100g` values, which the client uses to
-snapshot nutrition when a meal is saved.
-Fuzzy matching currently scans the catalogue in the API and does not use vector embeddings.
-For multiple foods, authenticated clients can send `POST /api/food/catalog/search-batch` with
-`{"queries": ["putt", "egg"]}`. It accepts 1–10 queries, each 1–100 characters, and returns
-`{"results": [{"query": "putt", "matches": [...]}, {"query": "egg", "matches": [...]}]}`.
-Each query uses the same rules and up-to-10 result limit as `GET /api/food/catalog?q=...`.
-Input order and duplicate queries are preserved; a whitespace-only query has an empty match list.
-The batch runs synchronously, and fuzzy searches can scan the catalogue once per query.
-The migration creates the catalogue table empty. Search requires
-an authenticated online session. Select search results to prepare portions in expandable cards.
-Authenticated users can also add a shared catalogue item with `POST /api/food/catalog`.
-Required body fields are `base_food_name` (1–100 characters, not blank), `category`, and
-`food_type`. Optional fields are `aliases` (comma-separated text), `description`, and
-`calories_100g`, `protein_100g`, `carbs_100g`, `fat_100g`, `fiber_100g` (non-negative numbers
-per 100 g). The server records the authenticated profile as `user_id` and generates the `id`.
-`category` must be one of `base_food`, `dairy`, `egg`, `fish`, `fruit`, `grain`,
-`ingredient`, `legume`, `meat`, `nut_seed`, `seafood`, or `vegetable`; `food_type` must be
-`processed` or `raw`. These values are based on the bundled catalogue data.
-The database columns remain text and are protected by `CHECK` and `NOT NULL` constraints.
-The migration fails if existing rows contain null or unsupported values; inspect and resolve such
-rows before running `uv run alembic upgrade head`. Back up the database before applying migrations.
-Created items are searchable by all users; `user_id` identifies their contributor, not their visibility.
-The optional `image` field on catalogue creation accepts `{"mime_type": "image/png", "data": "<base64>"}`;
-JPEG, PNG and WebP images are validated, compressed to JPEG and stored with the catalogue item.
-Apply the latest migration before using this field.
-
-The food diary is local-first like the money app. Meal items are written to the synced
-`meal_logs` store in My Food's own IndexedDB database immediately, then pushed to the server's `user_meal_log` table
-(renamed from `food_entries`) by the sync engine. Each row stores the catalogue's per-100 g
-nutrition values and portion-scaled totals as snapshots, so later catalogue edits do not change
-history. Values unavailable for older rows remain null. The `image` column is reserved for future
-meal photos and currently stays `null`.
-Opening the food screens reads IndexedDB instead of fetching the diary over HTTP, so previously
-synced meals appear instantly and remain visible offline. Meal saving works offline and syncs
-when the connection returns. The daily calorie goal is cached locally; setting a goal still
-requires an online session and is not part of the sync queue. On Home, set one daily calorie
-goal per user; the current goal is used for all dates. Meals can be saved to a chosen date and
-meal category from search or scan. For volume and count portions, enter the total weight in
-grams; no density or per-item weight is assumed. Missing catalogue nutrition remains unknown,
-not zero. Diary shows logged dates and meal details. Insights averages completed logged days
-with known calories, counts days at or below the goal, and measures streaks as consecutive dates
-with any logged food (a streak remains current through the following day).
-
-The food scanner captures or uploads one image, previews it, and sends it to
-`POST /api/food/ai/food-analyse` as `{"images": [{"mime_type": "image/jpeg", "data": "<base64>"}]}`.
-It uses the same configured provider and model as expense analysis and returns `{"items": [...]}`
-with estimated portions and calories. Review and remove recognized foods, search the shared
-catalogue, select or create matches, and confirm the draft. After searching starts, items can
-only be removed from the search or confirmation steps. A single catalogue result is selected
-automatically; multiple results require a choice from the six highest-scoring matches. Confirmation
-starts with the estimated quantity and unit, which can be adjusted. Catalogue creation is permanent.
-Scan and catalogue operations require an online session. Food photos sent for analysis, like bill photos,
-are stored in AI call logs; the audit and retention precautions below apply to them too.
-Mass units are g and kg; volume units are ml, litre, tsp (5 ml), tbsp (15 ml), and cup
-(250 ml). Count is separate for items such as eggs or glasses; no mass or volume conversion is
-assumed for a count, and mass is not converted to volume.
-
-## Adding a transaction
-
-Choose a transaction type, then enter its required details. Categories can be searched or created
-from the category dropdown; transfers default to Self Transfer when that category is visible.
-Expense transactions can be personal or shared with a group. Opening the form from a group
-preselects that group.
-In Settings → Payment Account, a new or edited active account can be marked as the default;
-choosing another replaces it. The default is preselected for expense, income and refund only
-when it is eligible for the account selector. Transfers do not use this default. Inactivating
-or deleting the default leaves no default until you choose another.
-
-The expense camera button captures or uploads up to three JPEG, PNG, or WebP images (3 MB total).
-Captured photos match the camera's mirror-preview setting and are sent in the same orientation.
-**Analyse with AI** sends them to the configured AI provider and suggests transaction fields.
-Review the suggestions and select an account before saving; analysis does not save a transaction.
-An internet connection is required. The provider has a three-minute read timeout, configured in
-`back-end/app/ai/provider.py`. The browser has a separate three-minute limit, configured in
-`front-end/src/components/kit/ImageCapture.tsx`; its countdown is not AI completion progress. Since
-the browser's limit includes upload and server processing, it can expire before the backend's read
-timeout. The server or provider may still finish processing, so wait before retrying. The server stores full AI requests (including receipt images)
-and responses in `ai_call_logs` for auditing, including failures and token usage when provided.
-Completed calls record elapsed time in milliseconds in `elapsed_ms`; pending and existing logs
-without a calculated duration have a null value.
-For transport and response-format failures, the `error` column contains JSON diagnostics such as
-exception-chain types, network error codes, timeout settings, and validation error types. Raw
-exception messages are excluded to avoid logging credentials or receipt data in that column.
-Response-format errors include traceback locations (without source or input data); food table
-format errors also include a specific reason, a fixed diagnostic message, and the row number
-where applicable. Transport and response-format errors include `traceback_text`, a readable
-traceback limited to 20 frames and 2,048 characters. Arbitrary exception messages are omitted.
-These logs contain sensitive financial information: restrict database access, secure backups, and
-establish a retention/deletion policy before deploying.
+All routes live under `/api/v1`. To make a breaking change, add `v2` in `back-end/app/versions.py`. Build it from
+v1's routers, replacing only what changes, and serve both versions until installed apps have updated. Then point the
+front-end at it (`API_VERSION` in `front-end/src/auth/api.ts`). New routes and new optional fields stay in the
+current version.
 
 ## Repository layout
 
 ```
-front-end/   React app (src/db = local DB + repositories, src/sync = sync engine, src/pages = screens)
-back-end/    FastAPI app (app/), Alembic migrations (migrations/), tests (tests/)
-
+front-end/            React + TypeScript + Vite PWA
+  src/db, src/food/db.ts, src/plate/store.ts   local databases
+  src/sync            sync engine and the per-app sync runners
+  src/plate           MyPlate (local-first API, sync, sheets)
+  src/pages           screens
+back-end/             FastAPI
+  app/versions.py     API versions
+  app/routers_*.py    routes per app; app/sync.py for money/food sync
+  migrations/         Alembic database migrations
+  tests/              pytest
 ```
 
-## Prerequisites
+**Tech:** React 19, TypeScript, Vite, Tailwind CSS 4, TanStack Query, Dexie (IndexedDB), vite-plugin-pwa ·
+FastAPI, SQLAlchemy 2, Alembic, PostgreSQL · Playwright and Vitest for front-end tests, pytest for the back-end.
 
-- **Node.js 20.19+** (22 LTS recommended) and npm
-- **Python 3.12+** and **[uv](https://docs.astral.sh/uv/)** (`curl -LsSf https://astral.sh/uv/install.sh | sh`)
-- A **Supabase** project (or any PostgreSQL) and a **Google OAuth Web client ID**
+## Run it locally
 
-## First-time setup on a new machine
+You need **Node.js 20.19+**, **Python 3.12+** with [uv](https://docs.astral.sh/uv/), a PostgreSQL database
+(Supabase works) and a **Google OAuth Web client ID** (Google Cloud Console → Credentials → OAuth client ID →
+Web application; add `http://localhost:5173` under Authorized JavaScript origins).
 
-### 1. Google OAuth client
-Google Cloud Console → APIs & Services → Credentials → *Create credentials* → *OAuth client ID* → **Web application**.
-Add `http://localhost:5173` (and your production URL later) under **Authorized JavaScript origins**.
-Copy the client ID (`…apps.googleusercontent.com`).
-
-### 2. Back-end
 ```bash
+# back-end
 cd back-end
-cp .env.example .env        # then edit .env (see "Configuration")
-uv python install 3.13 # install py version if not
-uv python pin 3.13  # pin version
-uv sync                     # creates .venv and installs dependencies
-uv run alembic upgrade head # creates/updates tables in the database
+cp .env.example .env              # fill in your own values
+uv sync
+uv run alembic upgrade head       # create or update the tables
 uv run uvicorn app.main:app --reload --port 8000
-```
-API: http://localhost:8000/api · interactive docs: http://localhost:8000/docs · health: `/health` (reports database connectivity; returns HTTP 503 when the database is unavailable)
 
-### 3. Front-end
-```bash
+# front-end (second terminal)
 cd front-end
-cp .env.example .env        # set VITE_GOOGLE_CLIENT_ID
+cp .env.example .env              # set VITE_GOOGLE_CLIENT_ID
 npm install
-npm run dev                 # http://localhost:5173
+npm run dev                       # http://localhost:5173
 ```
 
-Open http://localhost:5173 and sign in with Google.
+API docs: http://localhost:8000/docs · health check: http://localhost:8000/health
 
-## Configuration and sensitive credentials
+## Configuration
 
-| File | Variable | Secret? | Notes |
+Secrets go only in `back-end/.env` (git-ignored) or your host's environment settings. Never commit them, and never
+put them in `front-end/.env`: everything there ends up in the browser.
+
+| Variable | Where | Secret | What it is |
 |---|---|---|---|
-| `back-end/.env` | `DATABASE_URL` | **Yes** | `postgresql+psycopg://USER:PASSWORD@HOST:5432/postgres`. URL-encode special characters in the password (`@` → `%40`, `#` → `%23`, `/` → `%2F`) |
-| `back-end/.env` | `GOOGLE_CLIENT_ID` | No | Must match the front-end value |
-| `back-end/.env` | `CORS_ORIGINS` | No | JSON list, e.g. `["http://localhost:5173"]`. Set to your real front-end URL in production |
-| `back-end/.env` | `APP_URL` | No | Used in invite emails and to infer secure session-cookie settings |
-| `back-end/.env` | `SESSION_COOKIE_SECURE` | No | Optional override; defaults to secure for HTTPS requests |
-| `back-end/.env` | `SESSION_COOKIE_SAMESITE` | No | Defaults to `lax`; use `none` with HTTPS only for a separately hosted frontend/API |
-| `back-end/.env` | `SMTP_HOST/PORT/USER/PASSWORD/FROM` | **Yes** (password) | Optional. Without them, invite emails are skipped (a "mailto" link is offered in the UI) |
-| `back-end/.env` | `NVIDIA_API_KEY` | **Yes** | Required for bill analysis; never place it in the frontend or commit it |
-| `back-end/.env` | `EXPENSE_AI_PROVIDER` | No | Defaults to `nvidia` |
-| `back-end/.env` | `EXPENSE_AI_MODEL` | No | Defaults to `mistralai/mistral-large-4-1t-a52b`; must support image input |
-| `back-end/.env` | `MAX_IMAGE_UPLOAD_MB` | No | Max total bill image size accepted (before compression); defaults to `5` |
-| `front-end/.env` | `VITE_MAX_IMAGE_UPLOAD_MB` | No (public) | Frontend limit for bill images; defaults to `5`; keep in sync with the back-end value |
-| `back-end/.env` | `NVIDIA_BASE_URL` | No | Defaults to NVIDIA's chat completions endpoint |
-| `front-end/.env` | `VITE_GOOGLE_CLIENT_ID` | No (public) | Same client ID |
-| `front-end/.env` | `VITE_API_URL` | No | Defaults to `http://localhost:8000/api`; use `/api` for same-origin deployment |
+| `DATABASE_URL` | back-end | **yes** | `postgresql+psycopg://USER:PASSWORD@HOST:5432/postgres` |
+| `GOOGLE_CLIENT_ID` | back-end | no | Your Google OAuth client ID |
+| `CORS_ORIGINS` | back-end | no | JSON list of front-end origins, e.g. `["http://localhost:5173"]` |
+| `APP_URL` | back-end | no | The front-end's address, used in invite emails |
+| `EXPENSE_AI_PROVIDER`, `EXPENSE_AI_MODEL` | back-end | no | AI used for bill and food photos (default `deepseek`) |
+| `DEEPSEEK_API_KEY` / `NVIDIA_API_KEY` | back-end | **yes** | Key for the chosen AI provider |
+| `SMTP_HOST`, `SMTP_PORT`, `SMTP_USER`, `SMTP_PASSWORD`, `SMTP_FROM` | back-end | password | Optional invite emails |
+| `MAX_IMAGE_UPLOAD_MB` | back-end | no | Largest photo upload accepted (default 5) |
+| `VITE_GOOGLE_CLIENT_ID` | front-end | no (public) | Same Google client ID |
+| `VITE_API_URL` | front-end | no | API root without the version, e.g. `http://localhost:8000/api` or `/api` |
 
-- **Real secrets live only in `back-end/.env`** (database password, SMTP password). It is git-ignored; never commit it
-  or paste it in chat/tickets. Rotate the database password in Supabase (Project Settings → Database) if it is ever exposed.
-- Everything in `front-end/.env` ends up in the browser bundle, so it must **never** hold a secret.
-- The server never trusts browser-provided identity data: Google credentials are verified when establishing a session,
-  and API requests use server-issued, expiring access tokens.
+AI requests and responses, including photos, are stored in `ai_call_logs` for auditing, so restrict database access
+and set a retention policy.
 
-## Deploy to Vercel with Services
+## Deploy (Vercel)
 
-The repository-root `vercel.json` configures `front-end/` and `back-end/` as
-Services in one Vercel project. Import the repository root, select **Services**
-as the project framework, and set these variables under **Project Settings →
-Environment Variables**:
-
-| Variable | Value | Environment / sensitivity |
-|---|---|---|
-| `DATABASE_URL` | Your PostgreSQL URI | Development, Preview, Production; mark sensitive |
-| `GOOGLE_CLIENT_ID` | Your Google OAuth Web client ID | Development, Preview, Production |
-| `APP_URL` | `https://YOUR-PRODUCTION-DOMAIN` | Optional for initial deployment; set in Production after the first deployment |
-| `CORS_ORIGINS` | `[]` | Development, Preview, Production; same-origin `/api` calls do not need CORS |
-| `NVIDIA_API_KEY` | Your NVIDIA API key | Required for bill analysis; mark sensitive |
-| `EXPENSE_AI_MODEL` | Vision-capable NVIDIA model | Optional; defaults to `mistralai/mistral-large-4-1t-a52b` |
-| `VITE_GOOGLE_CLIENT_ID` | Same Google OAuth Web client ID | Development, Preview, Production; public build-time variable |
-| `VITE_API_URL` | `/api` | Development, Preview, Production; public build-time variable |
-
-Use the same `DATABASE_URL` for all three environments for now, as requested.
-This means Preview and Production will share data; switch to separate databases
-before using Preview for tests that modify data. Enter the real database URI
-and client ID directly in Vercel; do not commit them or paste them into source
-files. SMTP variables are optional and can be omitted.
-
-The frontend URL is not needed to configure API routing: requests use the
-same-origin `/api` path. You can leave `APP_URL` unset for the initial deploy
-when email is not configured. After Vercel assigns a URL, set `APP_URL` to that
-site's origin (for example, `https://your-project.vercel.app`) and redeploy.
-Add that exact origin in Google Cloud Console under the OAuth client's
-**Authorized JavaScript origins**. For Preview Google sign-in, also authorize
-the Preview origin or configure a stable preview domain.
-
-The backend retains its existing unprefixed routes for local development and
-also serves `/api`-prefixed routes for Vercel's shared-domain routing.
+`vercel.json` deploys `front-end/` and `back-end/` as two services in one project, with `/api/*` going to the
+API. Set the variables above in **Project Settings → Environment Variables**: mark the secret ones sensitive, use
+`VITE_API_URL=/api` and `CORS_ORIGINS=[]` (same origin). Add the site's address to the Google client's authorized
+origins. Run `uv run alembic upgrade head` against the database before deploying a new version.
 
 ## Tests
 
 ```bash
-# back-end (from back-end/)
-uv run pytest
+cd back-end && uv run pytest          # API and migrations
 
-# front-end (from front-end/)
-npm test                 # unit tests (Vitest)
-npx playwright install chromium   # one-time browser download
-npm run e2e              # personal flows, offline use
-npm run e2e:sync         # full stack: sync + two-user group flow (starts a test API with fake Google tokens on SQLite)
-npm run e2e:pwa          # production build: installable + reloads offline
+cd front-end
+npm test                              # unit tests
+npx playwright install chromium       # once
+npm run e2e                           # app flows and offline use
+npm run e2e:sync                      # full stack against a throwaway test API and SQLite database
+npm run e2e:pwa                       # installable and reloads offline
 ```
 
-The e2e suites use fake tokens against a **test-only** server (`back-end/tests/e2e_server.py`); they never touch
-your real database or Google.
-
-## Build and install as an app (PWA)
-
-```bash
-cd front-end && npm run build && npm run preview   # serves the production build with the service worker
-```
-- Chrome/Edge: use the install icon in the address bar, or **Personal → Install app**.
-- iPhone/iPad: Safari → Share → **Add to Home Screen**.
-- Installing requires **HTTPS** (except on `localhost`). For other people, deploy the front-end (e.g. Vercel) and the
-  API to a public HTTPS host, then add that front-end URL to the Google client's authorized origins and to `CORS_ORIGINS`.
+The browser tests use fake sign-ins against a test-only server; they never touch your real database or Google.
 
 ## Troubleshooting
 
 | Problem | Fix |
 |---|---|
-| `uv: command not found` | Install uv (see Prerequisites) and reopen the terminal |
-| Back-end can't connect to Supabase / hangs | The direct host (`db.<ref>.supabase.co`) may be IPv6-only. Use the **Session pooler** connection string from Supabase → Connect, keeping the `postgresql+psycopg://` prefix |
-| `password authentication failed` | Wrong password, or special characters not URL-encoded (`@` → `%40`) |
-| `invalid interpolation syntax` from Alembic | Already handled in `migrations/env.py` (escapes `%`). Make sure you did not edit it out |
-| `relation "…" does not exist` / missing column | Run `uv run alembic upgrade head` |
-| Google button shows *origin_mismatch* / doesn't render | Add `http://localhost:5173` to Authorized JavaScript origins; changes can take a few minutes. Check `VITE_GOOGLE_CLIENT_ID` is set and restart `npm run dev` |
-| Login page says "Set VITE_GOOGLE_CLIENT_ID…" | `front-end/.env` missing or the dev server wasn't restarted after editing it |
-| Browser shows CORS errors / sync status "Error: Failed to fetch" | Back-end not running, wrong `VITE_API_URL`, or your front-end URL missing from `CORS_ORIGINS` |
-| `Invalid Google token` (401) | `GOOGLE_CLIENT_ID` on the back-end differs from the front-end one, or the machine clock is wrong |
-| Asked to sign in again | App sessions renew automatically and stay active for 30 days after last use. Sign in again if you have not used the app for over 30 days, or explicitly signed out; local data is kept |
-| Port 5173/8000 already in use | Stop the other process, or run on another port (`npm run dev -- --port 5180`, `uvicorn … --port 8010`) and update `VITE_API_URL` / `CORS_ORIGINS` |
-| `npm install` fails on old Node | Upgrade to Node 20.19+ (check with `node -v`) |
-| Playwright: *Executable doesn't exist* | Run `npx playwright install chromium` (Linux may also need `npx playwright install-deps`) |
-| Changes not showing after a production build | The service worker caches the app. Reload twice, or DevTools → Application → Service Workers → Unregister |
-| Data from another Google account missing | Each account has its own local database in the browser; sign in with the original account |
-| Invite email not received | SMTP isn't configured or was rejected (check the API log). Use the **Invited · email** link on the member row instead |
+| Missing table or column | `uv run alembic upgrade head` |
+| Can't reach Supabase | Use the **Session pooler** connection string, keeping the `postgresql+psycopg://` prefix |
+| `password authentication failed` | URL-encode special characters in the password (`@` → `%40`) |
+| Google button doesn't show / *origin_mismatch* | Add your front-end address to Authorized JavaScript origins and restart `npm run dev` |
+| CORS errors or "Failed to fetch" | The API isn't running, `VITE_API_URL` is wrong, or your address is missing from `CORS_ORIGINS` |
+| Changes don't show after a production build | The service worker caches the app; reload twice |
+| Another account's data is missing | Each Google account has its own local data; sign in with that account |
+
+## Later
+
+- `TODO(after-v1)`: phones installed before 1.0 kept My Food inside My Money's local database. It moves out on
+  first open; drop the old tables (`front-end/src/db/db.ts`) once no pre-1.0 installs remain.
+- `TODO(plan-tier)`: gate MyPlate's live layer (`hasLiveLayer` in `front-end/src/plate/hooks.ts`) by plan.
+- MyPlate's prep reminder time is saved, but no notification is sent yet.

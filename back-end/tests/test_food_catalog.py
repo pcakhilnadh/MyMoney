@@ -31,7 +31,7 @@ def test_create_catalog_item_and_search_as_another_user(client):
         "calories_100g": 81.5, "protein_100g": 1.2, "carbs_100g": 11.8,
         "fat_100g": 3.1, "fiber_100g": 0.0,
     }
-    response = client.post("/api/food/catalog", json=body, headers=H("alice"))
+    response = client.post("/api/v1/food/catalog", json=body, headers=H("alice"))
     assert response.status_code == 201
     result = response.json()
     assert result["base_food_name"] == "Rice puttu"
@@ -47,13 +47,13 @@ def test_create_catalog_item_and_search_as_another_user(client):
             assert getattr(stored, key) == body[key]
         for key in ("calories_100g", "protein_100g", "carbs_100g", "fat_100g", "fiber_100g"):
             assert float(getattr(stored, key)) == body[key]
-    assert client.get("/api/food/catalog", params={"q": "putt"}, headers=H("bob")).json() == [
+    assert client.get("/api/v1/food/catalog", params={"q": "putt"}, headers=H("bob")).json() == [
         {
             "id": result["id"], "name": "Rice puttu", "score": 1.0,
             "calories_100g": 81.5, "protein_100g": 1.2, "carbs_100g": 11.8, "fat_100g": 3.1,
         },
     ]
-    assert client.get("/api/food/catalog", params={"q": "ari"}, headers=H("bob")).json() == [
+    assert client.get("/api/v1/food/catalog", params={"q": "ari"}, headers=H("bob")).json() == [
         {
             "id": result["id"], "name": "Rice puttu", "score": 0.9,
             "calories_100g": 81.5, "protein_100g": 1.2, "carbs_100g": 11.8, "fat_100g": 3.1,
@@ -63,7 +63,7 @@ def test_create_catalog_item_and_search_as_another_user(client):
 
 def test_create_catalog_item_requires_name_category_and_food_type(client):
     create_writable_catalog(client)
-    url = "/api/food/catalog"
+    url = "/api/v1/food/catalog"
     assert client.post(url, json={"base_food_name": "Food"}).status_code == 401
     valid = {"base_food_name": "Food", "category": "fruit", "food_type": "raw"}
     for body in (
@@ -106,7 +106,7 @@ def test_catalog_enums_match_dataset_and_accept_all_values(client):
     for category in FoodCategory:
         for food_type in FoodType:
             response = client.post(
-                "/api/food/catalog",
+                "/api/v1/food/catalog",
                 json={"base_food_name": "Food", "category": category.value, "food_type": food_type.value},
                 headers=H("alice"),
             )
@@ -120,8 +120,8 @@ def test_catalog_enums_match_dataset_and_accept_all_values(client):
 
 
 def test_search_catalog_is_shared_and_matches_names_and_aliases(client):
-    client.get("/api/auth/me", headers=H("alice"))
-    client.get("/api/auth/me", headers=H("bob"))
+    client.get("/api/v1/auth/me", headers=H("alice"))
+    client.get("/api/v1/auth/me", headers=H("bob"))
     with client.session_factory() as db:
         alice = db.query(Profile).filter_by(email="alice@gmail.com").one()
         bob = db.query(Profile).filter_by(email="bob@gmail.com").one()
@@ -137,23 +137,23 @@ def test_search_catalog_is_shared_and_matches_names_and_aliases(client):
         ])
         db.commit()
 
-    assert client.get("/api/food/catalog", params={"q": "egg"}).status_code == 401
-    response = client.get("/api/food/catalog", params={"q": " eGG "}, headers=H("alice"))
+    assert client.get("/api/v1/food/catalog", params={"q": "egg"}).status_code == 401
+    response = client.get("/api/v1/food/catalog", params={"q": " eGG "}, headers=H("alice"))
     assert response.status_code == 200
     assert response.json() == [
         {"id": "one", "name": "Egg", "score": 1.0},
         {"id": "two", "name": "Egg curry", "score": 1.0},
         {"id": "three", "name": "Egg omelette", "score": 1.0},
     ]
-    assert client.get("/api/food/catalog", params={"q": "egg"}, headers=H("bob")).json() == response.json()
-    assert client.get("/api/food/catalog", params={"q": "ANDA"}, headers=H("alice")).json() == [
+    assert client.get("/api/v1/food/catalog", params={"q": "egg"}, headers=H("bob")).json() == response.json()
+    assert client.get("/api/v1/food/catalog", params={"q": "ANDA"}, headers=H("alice")).json() == [
         {"id": "one", "name": "Egg", "score": 0.9}
     ]
-    assert client.get("/api/food/catalog", params={"q": "%"}, headers=H("alice")).json() == [
+    assert client.get("/api/v1/food/catalog", params={"q": "%"}, headers=H("alice")).json() == [
         {"id": "four", "name": "100% juice", "score": 1.0}
     ]
-    assert client.get("/api/food/catalog", params={"q": "   "}, headers=H("alice")).json() == []
-    assert client.get("/api/food/catalog", params={"q": ""}, headers=H("alice")).status_code == 422
+    assert client.get("/api/v1/food/catalog", params={"q": "   "}, headers=H("alice")).json() == []
+    assert client.get("/api/v1/food/catalog", params={"q": ""}, headers=H("alice")).status_code == 422
 
 
 def test_hybrid_search_on_catalogue_spellings_and_ranking(client):
@@ -174,13 +174,13 @@ def test_hybrid_search_on_catalogue_spellings_and_ranking(client):
         db.execute(insert(catalog), rows)
         db.commit()
 
-    response = client.get("/api/food/catalog", params={"q": "chapathi"}, headers=H("alice"))
+    response = client.get("/api/v1/food/catalog", params={"q": "chapathi"}, headers=H("alice"))
     assert response.status_code == 200
     results = response.json()
     assert results == [{"id": "test-exact", "name": "Chapathi test", "score": 1.0}]
     assert len(results) <= 10
     assert len({result["id"] for result in results}) == len(results)
-    assert client.get("/api/food/catalog", params={"q": "chapati"}, headers=H("bob")).json()[0] == {
+    assert client.get("/api/v1/food/catalog", params={"q": "chapati"}, headers=H("bob")).json()[0] == {
         "id": "indb-ASC096", "name": "Chapati/Roti", "score": 1.0
     }
 
@@ -199,15 +199,15 @@ def test_fuzzy_search_matches_aliases_and_is_bounded(client):
                      "user_id": None})
         db.execute(insert(catalog), rows)
         db.commit()
-    fuzzy = client.get("/api/food/catalog", params={"q": "chapathi"}, headers=H("alice")).json()
+    fuzzy = client.get("/api/v1/food/catalog", params={"q": "chapathi"}, headers=H("alice")).json()
     assert len(fuzzy) == 10
     assert all(item["score"] == fuzzy_score("chapathi", item["name"], None) for item in fuzzy)
-    alias = client.get("/api/food/catalog", params={"q": "beatan rice"}, headers=H("alice")).json()
+    alias = client.get("/api/v1/food/catalog", params={"q": "beatan rice"}, headers=H("alice")).json()
     assert alias == [{
         "id": "alias", "name": "Rice flakes",
         "score": fuzzy_score("beatan rice", "Rice flakes", "Beaten rice"),
     }]
-    exact = client.get("/api/food/catalog", params={"q": "chapati"}, headers=H("alice")).json()
+    exact = client.get("/api/v1/food/catalog", params={"q": "chapati"}, headers=H("alice")).json()
     assert len(exact) == 10
     assert all("chapati" in item["name"].lower() for item in exact)
 
@@ -224,7 +224,7 @@ def test_fuzzy_threshold_includes_boundary_and_excludes_lower_scores(client):
         ])
         db.commit()
     assert fuzzy_score("abcdefghij", "abcdefghiX", None) == 0.9
-    assert client.get("/api/food/catalog", params={"q": "abcdefghij"}, headers=H("alice")).json() == [
+    assert client.get("/api/v1/food/catalog", params={"q": "abcdefghij"}, headers=H("alice")).json() == [
         {"id": "boundary", "name": "abcdefghiX", "score": 0.9},
     ]
 
@@ -241,7 +241,7 @@ def test_fuzzy_results_return_similarity_scores_in_descending_order(client):
         ])
         db.commit()
 
-    response = client.get("/api/food/catalog", params={"q": "abcdefghijklmnopqrst"}, headers=H("alice"))
+    response = client.get("/api/v1/food/catalog", params={"q": "abcdefghijklmnopqrst"}, headers=H("alice"))
     assert response.json() == [
         {"id": "higher", "name": "abcdefghijklmnopqrsX", "score": 0.95},
         {"id": "lower", "name": "abcdefghijklmnopqrXY", "score": 0.9},
@@ -265,11 +265,11 @@ def test_equal_scores_are_ordered_by_name_before_limiting(client):
         db.commit()
 
     expected_names = sorted(names, key=str.lower)[:10]
-    exact = client.get("/api/food/catalog", params={"q": "test matching"}, headers=H("alice"))
+    exact = client.get("/api/v1/food/catalog", params={"q": "test matching"}, headers=H("alice"))
     assert [item["name"] for item in exact.json()] == expected_names
     assert all(item["score"] == 0.9 for item in exact.json())
 
-    fuzzy = client.get("/api/food/catalog", params={"q": "test matchinx"}, headers=H("alice"))
+    fuzzy = client.get("/api/v1/food/catalog", params={"q": "test matchinx"}, headers=H("alice"))
     assert [item["name"] for item in fuzzy.json()] == expected_names
     assert all(item["score"] == 12 / 13 for item in fuzzy.json())
 
@@ -292,7 +292,7 @@ def test_name_matches_rank_above_alias_matches_before_limit(client):
         db.execute(insert(catalog), rows)
         db.commit()
 
-    response = client.get("/api/food/catalog", params={"q": "PuTt"}, headers=H("alice"))
+    response = client.get("/api/v1/food/catalog", params={"q": "PuTt"}, headers=H("alice"))
     assert response.status_code == 200
     assert response.json() == [
         {"id": "name-only", "name": "Rice puttu", "score": 1.0},
@@ -320,13 +320,13 @@ def test_batch_search_matches_single_search_and_preserves_input_order(client):
 
     queries = [" putt ", "beatan rice", "missing food", "putt", "   ", "egg", "putt"]
     response = client.post(
-        "/api/food/catalog/search-batch", json={"queries": queries}, headers=H("alice"),
+        "/api/v1/food/catalog/search-batch", json={"queries": queries}, headers=H("alice"),
     )
     assert response.status_code == 200
     results = response.json()["results"]
     assert [item["query"] for item in results] == queries
     for query, item in zip(queries, results):
-        single = client.get("/api/food/catalog", params={"q": query}, headers=H("alice"))
+        single = client.get("/api/v1/food/catalog", params={"q": query}, headers=H("alice"))
         assert item["matches"] == single.json()
     assert results[0]["matches"] == [
         {"id": "puttu", "name": "Rice puttu", "score": 1.0},
@@ -341,7 +341,7 @@ def test_batch_search_matches_single_search_and_preserves_input_order(client):
 
 
 def test_batch_search_validates_request_and_requires_authentication(client):
-    url = "/api/food/catalog/search-batch"
+    url = "/api/v1/food/catalog/search-batch"
     assert client.post(url, json={"queries": ["egg"]}).status_code == 401
     for body in (
         {},
@@ -377,7 +377,7 @@ def test_batch_search_limits_each_query_independently(client):
         ])
         db.commit()
     response = client.post(
-        "/api/food/catalog/search-batch",
+        "/api/v1/food/catalog/search-batch",
         json={"queries": ["apple", "banana"]},
         headers=H("alice"),
     )

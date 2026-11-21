@@ -6,17 +6,11 @@ from sqlalchemy.exc import SQLAlchemyError
 
 from app.config import settings
 from app.db import engine
-from app.routers_auth import router as auth_router
-from app.routers_money import router as money_router
-from app.routers_feedback import router as feedback_router
-from app.routers_admin import router as admin_router
-from app.routers_food import router as food_router
-from app.routers_plate import router as plate_router, sync_router as plate_sync_router
-from app.sync import router as sync_router
-from app.ai.expense import router as ai_router
-from app.ai.food import router as food_ai_router
+from app.versions import CURRENT, VERSIONS
 
-app = FastAPI(title="MyTracker API")
+__version__ = "1.0.0"
+
+app = FastAPI(title="MyTracker API", version=__version__)
 app.add_middleware(
     CORSMiddleware,
     allow_origins=settings.cors_origins,
@@ -26,16 +20,9 @@ app.add_middleware(
 )
 
 
-app.include_router(auth_router, prefix="/api")
-app.include_router(sync_router, prefix="/api")
-app.include_router(money_router, prefix="/api")
-app.include_router(feedback_router, prefix="/api")
-app.include_router(admin_router, prefix="/api")
-app.include_router(food_router, prefix="/api")
-app.include_router(plate_router, prefix="/api")
-app.include_router(plate_sync_router, prefix="/api")
-app.include_router(ai_router, prefix="/api")
-app.include_router(food_ai_router, prefix="/api")
+# /api/v1/... ; see app/versions.py for adding a version without breaking older apps.
+for name, router in VERSIONS.items():
+    app.include_router(router, prefix=f"/api/{name}")
 
 
 @app.get("/health", response_model=None)
@@ -48,4 +35,4 @@ def health() -> dict[str, str] | JSONResponse:
             status_code=503,
             content={"status": "unhealthy", "database": "disconnected"},
         )
-    return {"status": "ok", "database": "connected"}
+    return {"status": "ok", "database": "connected", "version": __version__, "api": CURRENT}

@@ -22,7 +22,7 @@ export const foodDb = new FoodDB(`myfood-${DB_SUB ?? 'anon'}`)
 /**
  * My Food used to live in My Money's database. Move it once: unsynced rows always win, and
  * the rest only fill gaps, so nothing already pulled into the new database is overwritten.
- * TODO(remove-legacy-sync): drop the old tables from AppDB once everyone has moved.
+ * TODO(after-v1): remove this move with the old tables in AppDB.
  */
 export async function moveFoodData(source = db, target = foodDb): Promise<void> {
   const [logs, settings] = await Promise.all([
