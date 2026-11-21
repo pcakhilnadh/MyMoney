@@ -8,10 +8,11 @@ from app.models import AppRole, Profile, RoleEntitlement
 
 FEATURES = ("money", "food", "plate")
 
-# Used when the entitlement table has not been seeded. Members only get My Money.
+# Used when the entitlement table has not been seeded. Members only get My Money; admins
+# get My Money and My Plate; owners get everything.
 DEFAULT_ENTITLEMENTS: dict[str, tuple[str, ...]] = {
     AppRole.MEMBER.value: ("money",),
-    AppRole.ADMIN.value: FEATURES,
+    AppRole.ADMIN.value: ("money", "plate"),
     AppRole.OWNER.value: FEATURES,
 }
 

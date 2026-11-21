@@ -18,12 +18,18 @@ def test_member_only_gets_money(client):
     assert c.get("/api/v1/food/entries", headers=H("alice")).status_code == 403
 
 
-def test_admin_and_owner_get_everything(client):
+def test_admins_get_money_and_plate_and_owners_get_everything(client):
     c = client
     set_role(c, "bob", AppRole.ADMIN)
     set_role(c, "carol", AppRole.OWNER)
-    for u in ("bob", "carol"):
-        assert c.get("/api/v1/auth/me", headers=H(u)).json()["entitlements"] == ["money", "food", "plate"]
+    assert c.get("/api/v1/auth/me", headers=H("bob")).json()["entitlements"] == ["money", "plate"]
+    assert c.get("/api/v1/food/entries", headers=H("bob")).status_code == 403
+    assert c.get("/api/v1/plate/kitchens", headers=H("bob")).status_code == 200
+    assert c.get("/api/v1/auth/me", headers=H("carol")).json()["entitlements"] == [
+        "money",
+        "food",
+        "plate",
+    ]
 
 
 def test_owner_manages_members(client):
