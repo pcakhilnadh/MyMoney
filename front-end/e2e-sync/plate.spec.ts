@@ -36,9 +36,9 @@ test('solo: plan tomorrow with prep, tick it on Today, and fill the cart', async
     .click()
   await page.getByRole('button', { name: 'Add dinner' }).click()
   await sheet(page).getByRole('textbox', { name: 'Main dish' }).fill('Rajma chawal')
-  await sheet(page).getByRole('button', { name: '+ Add task' }).click()
-  await sheet(page).getByRole('textbox', { name: 'Prep task 1' }).fill('Soak rajma')
-  await sheet(page).getByRole('button', { name: 'Save', exact: true }).click()
+  await sheet(page).getByRole('button', { name: 'Add prep step' }).click()
+  await sheet(page).getByRole('textbox', { name: 'Prep step 1' }).fill('Soak rajma')
+  await sheet(page).getByRole('button', { name: 'Save meal' }).click()
   await expect(page.getByText('Rajma chawal')).toBeVisible()
 
   await nav(page).getByRole('link', { name: 'Today' }).click()
@@ -83,21 +83,26 @@ test('shared: create a kitchen, join by code, and see each other shopping', asyn
   await sheet(b).getByRole('button', { name: 'Join kitchen' }).click()
   await expect(b.getByRole('button', { name: /Kitchen: Home/ })).toBeVisible()
 
-  // Bob goes live in the cart; Alice sees it.
+  // Nothing to buy yet, so nobody is asked to go to the store.
   await nav(b).getByRole('link', { name: 'Cart' }).click()
-  await b.getByRole('region', { name: 'Go live' }).getByRole('button', { name: 'Go live' }).click()
-  await expect(b.getByRole('region', { name: "You're shopping" })).toContainText(
-    'Alice can see you',
-  )
+  await expect(b.getByRole('region', { name: 'Go live' })).toHaveCount(0)
 
+  // Alice adds something; Bob is offered "Go live" and goes; Alice sees it.
+  const live = { timeout: 25_000 }
   await nav(a).getByRole('link', { name: 'Cart' }).click()
-  await a.reload()
-  await expect(a.getByText(/Bob is shopping now/)).toBeVisible()
   await a.getByRole('textbox', { name: 'Add an item to Home' }).fill('Tomatoes')
   await a.keyboard.press('Enter')
+  await b
+    .getByRole('region', { name: 'Go live' })
+    .getByRole('button', { name: 'Go live' })
+    .click(live)
+  const shopping = b.getByRole('region', { name: "You're shopping" })
+  await expect(shopping).toBeVisible()
+  await expect(shopping).not.toContainText('can see you')
+  await a.reload()
+  await expect(a.getByText(/Bob is shopping now/)).toBeVisible()
 
   // Changes save on the phone at once and reach the others on the next live refresh.
-  const live = { timeout: 25_000 }
   await b.getByRole('checkbox', { name: 'Tomatoes' }).click(live)
   await expect(b.getByRole('region', { name: "You're shopping" })).toContainText('Done shopping?')
   await expect(a.getByRole('region', { name: 'In the basket' })).toContainText('Tomatoes', live)
@@ -139,9 +144,10 @@ test('the prep reminder lives on the Kitchens page, not on Today or in one kitch
 
   await nav(page).getByRole('link', { name: 'Kitchens' }).click()
   await expect(page.getByText('Pre-prep reminder')).toBeVisible()
-  await page.getByRole('combobox', { name: 'Reminder time' }).selectOption('21:00')
+  await page.getByRole('combobox', { name: 'Reminder time' }).click()
+  await page.getByRole('option', { name: '9:00 PM' }).click()
   await page.reload()
-  await expect(page.getByRole('combobox', { name: 'Reminder time' })).toHaveValue('21:00')
+  await expect(page.getByRole('combobox', { name: 'Reminder time' })).toContainText('9:00 PM')
 
   await page
     .getByRole('link', { name: /My Kitchen/ })
@@ -227,4 +233,51 @@ test('My Kitchen is view-only; shared kitchen settings change at once', async ({
     'aria-pressed',
     'true',
   )
+})
+
+test('one Save plans the meal with its prep and cart items; leftovers are a tick away', async ({
+  page,
+}) => {
+  const finn = { sub: 'g-plate-finn', email: 'finn.plate@gmail.com', name: 'Finn F' }
+  await open(page, finn)
+  await nav(page).getByRole('link', { name: 'Plan' }).click()
+  const today = new Date()
+  const dayTab = (d: Date) =>
+    page.getByRole('tab', {
+      name: d.toLocaleDateString('en-IN', { weekday: 'long', day: 'numeric', month: 'long' }),
+    })
+  await dayTab(today).click()
+
+  await page.getByRole('button', { name: 'Add breakfast' }).click()
+  const form = sheet(page)
+  await expect(form.getByRole('heading', { name: 'Plan a meal' })).toBeVisible()
+  await form.getByRole('textbox', { name: 'Main dish' }).fill('Paneer paratha')
+  await form.getByRole('button', { name: 'Add side dish' }).click()
+  await form.getByRole('textbox', { name: 'Side dish 1' }).fill('Curd')
+  await form.getByRole('button', { name: 'Add item to buy' }).click()
+  await form.getByRole('textbox', { name: 'Item to buy 1' }).fill('Paneer 400g')
+  await page.keyboard.press('Enter')
+  await form.getByRole('textbox', { name: 'Item to buy 2' }).fill('Atta')
+  await expect(form.getByText('Saves the meal · 2 to buy')).toBeVisible()
+  await form.getByRole('button', { name: 'Save meal' }).click()
+  await expect(form).toHaveCount(0)
+
+  // Both items are in the cart, linked to the meal, and the Cart tab counts them.
+  await expect(nav(page).getByRole('link', { name: /Cart/ })).toContainText('2')
+  await nav(page).getByRole('link', { name: /Cart/ }).click()
+  await expect(page.getByText('Paneer 400g')).toBeVisible()
+  await expect(page.getByText('Atta')).toBeVisible()
+
+  // Lunch: tick "Eat leftovers" and pick breakfast; nothing to cook or buy.
+  await nav(page).getByRole('link', { name: 'Plan' }).click()
+  await dayTab(today).click()
+  await page.getByRole('button', { name: 'Add lunch' }).click()
+  await form.getByRole('checkbox', { name: 'Eat leftovers' }).click()
+  await expect(form.getByRole('radio', { name: /Paneer paratha/ })).toHaveAttribute(
+    'aria-checked',
+    'true',
+  )
+  await expect(form.getByRole('region', { name: 'To buy' })).toHaveCount(0)
+  await form.getByRole('button', { name: 'Save meal' }).click()
+  await expect(page.getByText('Paneer paratha (leftovers)')).toBeVisible()
 })

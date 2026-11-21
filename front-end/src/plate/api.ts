@@ -296,29 +296,44 @@ async function addMeal(meal: Meal) {
   })
 }
 
+type MealInput = MealDraft & { id?: string }
+
 /** Creates the meal, or updates it when `id` is set. */
-export const saveMeal = ({ id: mealId, ...draft }: MealDraft & { id?: string }) =>
+export const saveMeal = (input: MealInput) => saveLocally(() => writeMeal(input))
+
+/**
+ * The meal sheet's one Save: the meal (with its prep) and the things to buy for it, saved
+ * together so nothing is half-saved. Each cart item is linked to the meal.
+ */
+export const saveMealWithCart = (input: MealInput, toBuy: string[]) =>
   saveLocally(async () => {
-    const [me, kitchen] = await Promise.all([myId(), kitchenOf(draft.group_id)])
-    const existing = mealId ? await plateDb.meals.get(mealId) : undefined
-    if (mealId && !existing) throw new Error('That meal was removed.')
-    if (existing && existing.group_id !== draft.group_id)
-      throw new Error('Meals can’t move between kitchens.')
-    const meal = buildMeal(mealId ?? newId(), draft, kitchen, me, existing)
-    if (!existing) {
-      await addMeal(meal)
-      return meal
-    }
-    await plateDb.meals.put(meal)
-    await queue({
-      method: 'PUT',
-      path: `/meals/${id(meal.id)}`,
-      body: mealBody(meal),
-      entity: 'meals',
-      entity_id: meal.id,
-    })
+    const meal = await writeMeal(input)
+    for (const name of toBuy.map((n) => n.trim()).filter(Boolean))
+      await writeGrocery({ group_id: meal.group_id, name, meal_plan_id: meal.id })
     return meal
   })
+
+async function writeMeal({ id: mealId, ...draft }: MealInput): Promise<Meal> {
+  const [me, kitchen] = await Promise.all([myId(), kitchenOf(draft.group_id)])
+  const existing = mealId ? await plateDb.meals.get(mealId) : undefined
+  if (mealId && !existing) throw new Error('That meal was removed.')
+  if (existing && existing.group_id !== draft.group_id)
+    throw new Error('Meals can’t move between kitchens.')
+  const meal = buildMeal(mealId ?? newId(), draft, kitchen, me, existing)
+  if (!existing) {
+    await addMeal(meal)
+    return meal
+  }
+  await plateDb.meals.put(meal)
+  await queue({
+    method: 'PUT',
+    path: `/meals/${id(meal.id)}`,
+    body: mealBody(meal),
+    entity: 'meals',
+    entity_id: meal.id,
+  })
+  return meal
+}
 
 export const deleteMeal = (mealId: string) =>
   saveLocally(async () => {
@@ -494,47 +509,50 @@ export const copyWeek = (input: {
 
 // ─── Cart ────────────────────────────────────────────────────────────────────────────────
 
-export const addGrocery = (input: {
+interface GroceryInput {
   group_id: string
   name: string
   quantity?: string
   /** Leave out to have the aisle picked from the name. */
   aisle?: Aisle
   meal_plan_id?: string | null
-}) =>
-  saveLocally(async () => {
-    const [me] = await Promise.all([myId(), kitchenOf(input.group_id)])
-    const name = input.name.trim()
-    if (!name) throw new Error('Name the item.')
-    const item: GroceryItem = {
-      id: newId(),
-      group_id: input.group_id,
-      name,
-      quantity: (input.quantity ?? '').trim(),
-      aisle: input.aisle ?? guessAisle(name),
-      meal_plan_id: input.meal_plan_id ?? null,
-      added_by: me,
-      checked_by: null,
-      checked_at: null,
-      created_at: now(),
-    }
-    await plateDb.grocery_items.put(item)
-    await queue({
-      method: 'POST',
-      path: '/grocery-items',
-      body: {
-        id: item.id,
-        group_id: item.group_id,
-        name: item.name,
-        quantity: item.quantity,
-        aisle: item.aisle,
-        meal_plan_id: item.meal_plan_id,
-      },
-      entity: 'grocery_items',
-      entity_id: item.id,
-    })
-    return item
+}
+
+export const addGrocery = (input: GroceryInput) => saveLocally(() => writeGrocery(input))
+
+async function writeGrocery(input: GroceryInput): Promise<GroceryItem> {
+  const [me] = await Promise.all([myId(), kitchenOf(input.group_id)])
+  const name = input.name.trim()
+  if (!name) throw new Error('Name the item.')
+  const item: GroceryItem = {
+    id: newId(),
+    group_id: input.group_id,
+    name,
+    quantity: (input.quantity ?? '').trim(),
+    aisle: input.aisle ?? guessAisle(name),
+    meal_plan_id: input.meal_plan_id ?? null,
+    added_by: me,
+    checked_by: null,
+    checked_at: null,
+    created_at: now(),
+  }
+  await plateDb.grocery_items.put(item)
+  await queue({
+    method: 'POST',
+    path: '/grocery-items',
+    body: {
+      id: item.id,
+      group_id: item.group_id,
+      name: item.name,
+      quantity: item.quantity,
+      aisle: item.aisle,
+      meal_plan_id: item.meal_plan_id,
+    },
+    entity: 'grocery_items',
+    entity_id: item.id,
   })
+  return item
+}
 
 export const setGroceryChecked = (itemId: string, checked: boolean) =>
   saveLocally(async () => {

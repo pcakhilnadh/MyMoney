@@ -18,7 +18,7 @@ import { KITCHEN_TYPE_LABEL, orderKitchens, shoppingLine } from '@/plate/logic'
 import { LiveDot } from '@/plate/shopping'
 import { KitchenTile } from '@/plate/sheets/KitchenSheets'
 import type { Kitchen } from '@/plate/types'
-import { AvatarStack, ErrorLine, Switch } from '@/plate/ui'
+import { AvatarStack, ErrorLine, PlateSelect, Switch } from '@/plate/ui'
 
 const REMINDER_TIMES = ['19:00', '19:30', '20:00', '20:30', '21:00', '21:30', '22:00']
 
@@ -157,19 +157,13 @@ function ReminderSetting() {
       {settings.reminder_enabled && (
         <div className="flex items-center justify-between gap-3">
           <p className="text-xs text-muted-foreground">Applies to all your kitchens.</p>
-          <select
-            aria-label="Reminder time"
+          <PlateSelect
+            label="Reminder time"
             value={settings.reminder_time}
-            onChange={(e) => update.mutate({ reminder_time: e.target.value })}
-            className="pl-input h-9 w-[6.5rem] rounded-full px-3 pr-7 text-[13px] font-semibold"
-            style={{ backgroundPosition: 'right 0.5rem center' }}
-          >
-            {REMINDER_TIMES.map((time) => (
-              <option key={time} value={time}>
-                {formatTime(time)}
-              </option>
-            ))}
-          </select>
+            onChange={(time) => update.mutate({ reminder_time: time })}
+            options={REMINDER_TIMES.map((time) => ({ value: time, label: formatTime(time) }))}
+            className="pl-select-sm w-[7.5rem]"
+          />
         </div>
       )}
       <ErrorLine error={update.error} />

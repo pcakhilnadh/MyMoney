@@ -17,7 +17,7 @@ import {
 } from '@/plate/logic'
 import { ShoppingPresence } from '@/plate/shopping'
 import type { Aisle, GroceryItem, Kitchen, Meal } from '@/plate/types'
-import { Avatar, ErrorLine, KitchenDot, RoundCheck, Tabs } from '@/plate/ui'
+import { Avatar, ErrorLine, KitchenDot, PlateSelect, RoundCheck, Tabs } from '@/plate/ui'
 
 type Grouping = 'aisle' | 'kitchen'
 
@@ -105,19 +105,16 @@ export default function PlateCart() {
             onChange={(e) => setDraft(e.target.value)}
             className="pl-input min-w-0 flex-1"
           />
-          <select
-            aria-label="Aisle"
+          <PlateSelect
+            label="Aisle"
             value={aisle}
-            onChange={(e) => setAisle(e.target.value as Aisle | 'auto')}
-            className="pl-input w-[6.25rem] shrink-0 px-3 text-sm"
-          >
-            <option value="auto">Auto</option>
-            {AISLES.map((a) => (
-              <option key={a} value={a}>
-                {a}
-              </option>
-            ))}
-          </select>
+            onChange={(next) => setAisle(next as Aisle | 'auto')}
+            options={[
+              { value: 'auto', label: 'Auto' },
+              ...AISLES.map((a) => ({ value: a, label: a })),
+            ]}
+            className="w-[6.75rem] shrink-0 text-sm"
+          />
           <button
             type="submit"
             aria-label="Add item"

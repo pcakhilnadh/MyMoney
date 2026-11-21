@@ -20,6 +20,7 @@ import { useEntitlements } from '@/account/entitlements'
 import { useAuth } from '@/auth/AuthContext'
 import { PlateIcon } from '@/components/PlateIcon'
 import { PlateAddButton } from '@/plate/PlateProvider'
+import { PlateNavBadge } from '@/plate/NavBadge'
 
 const tabs = [
   { to: '/money/home', label: 'Home', Icon: House },
@@ -176,7 +177,10 @@ export default function Layout({ app }: { app: 'money' | 'food' | 'plate' | 'sha
                     <Icon size={20} aria-hidden="true" />
                   </span>
                 ) : (
-                  <Icon size={21} className="text-primary" />
+                  <span className="relative">
+                    <Icon size={21} className="text-primary" />
+                    {selectedApp === 'plate' && <PlateNavBadge to={to} />}
+                  </span>
                 )}
                 {label}
               </NavLink>

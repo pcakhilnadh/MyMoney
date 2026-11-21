@@ -1,8 +1,9 @@
 import { useState } from 'react'
 import { Link } from 'react-router-dom'
-import { ChevronLeft, ChevronRight, Lightbulb, Plus } from 'lucide-react'
+import { ChevronLeft, ChevronRight, Cookie, Plus } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { usePlate } from '@/plate/context'
+import { CountBadge } from '@/plate/NavBadge'
 import { ContextLine, KitchenTitle, MealCard, SectionLabel } from '@/plate/components'
 import { addDays, formatDay, formatWeekTitle, todayKey, weekDays, weekStart } from '@/plate/dates'
 import { useIdeas, useKitchens, useMeals } from '@/plate/hooks'
@@ -37,13 +38,11 @@ export default function PlatePlan() {
           trailing={
             <Link
               to="/plate/cravings"
-              aria-label={`Cravings (${ideas.length})`}
-              className="pl-sunken flex h-9 items-center gap-1.5 rounded-full px-3 text-sm font-semibold"
+              aria-label={ideas.length ? `Cravings, ${ideas.length}` : 'Cravings'}
+              className="pl-raised relative flex size-10 items-center justify-center rounded-full"
             >
-              <Lightbulb size={16} aria-hidden="true" />
-              <span className="flex h-5 min-w-5 items-center justify-center rounded-full bg-primary px-1.5 text-[11px] text-white tabular-nums">
-                {ideas.length}
-              </span>
+              <Cookie size={18} aria-hidden="true" className="text-[#ff8a95]" />
+              <CountBadge count={ideas.length} label={`${ideas.length} cravings`} />
             </Link>
           }
         />

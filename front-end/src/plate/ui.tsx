@@ -1,9 +1,21 @@
-import { useEffect, useId, useRef, type ReactNode } from 'react'
+import {
+  createContext,
+  useContext,
+  useEffect,
+  useId,
+  useRef,
+  useState,
+  type ReactNode,
+} from 'react'
 import { createPortal } from 'react-dom'
 import { Check, X } from 'lucide-react'
+import { Select } from '@/components/kit'
 import { cn } from '@/lib/utils'
 import { usePeople } from './hooks'
 import type { Kitchen, UserId } from './types'
+
+/** The open sheet's root, so dropdowns inside it open within the MyPlate theme. */
+const SheetRoot = createContext<HTMLElement | null>(null)
 
 /** Bottom sheet. Portalled to <body>, so it re-applies the MyPlate theme itself. */
 export function Sheet({
@@ -24,6 +36,7 @@ export function Sheet({
 }) {
   const titleId = useId()
   const panelRef = useRef<HTMLDivElement>(null)
+  const [root, setRoot] = useState<HTMLDivElement | null>(null)
 
   useEffect(() => {
     const previouslyFocused = document.activeElement as HTMLElement | null
@@ -38,6 +51,7 @@ export function Sheet({
 
   return createPortal(
     <div
+      ref={setRoot}
       data-app="plate"
       style={{ background: 'none' }}
       className="fixed inset-0 z-50 flex items-end justify-center"
@@ -91,7 +105,7 @@ export function Sheet({
             bare && 'space-y-3 pt-4',
           )}
         >
-          {children}
+          <SheetRoot.Provider value={root}>{children}</SheetRoot.Provider>
         </div>
         {footer && (
           <div className="border-t border-white/[0.06] px-5 pt-3 pb-[max(1rem,env(safe-area-inset-bottom))]">
@@ -402,5 +416,40 @@ export function EmojiPicker({
         </button>
       ))}
     </div>
+  )
+}
+
+/**
+ * The app's shared dropdown, dressed for MyPlate. Inside a sheet the list opens within the
+ * sheet; on a page, within the MyPlate area, so it keeps the theme either way.
+ */
+export function PlateSelect({
+  value,
+  onChange,
+  options,
+  label,
+  className,
+}: {
+  value: string
+  onChange: (value: string) => void
+  options: readonly { value: string; label: ReactNode }[]
+  label: string
+  className?: string
+}) {
+  const sheet = useContext(SheetRoot)
+  const page =
+    typeof document === 'undefined'
+      ? null
+      : document.querySelector<HTMLElement>('[data-app="plate"]')
+  return (
+    <Select
+      aria-label={label}
+      value={value}
+      onValueChange={onChange}
+      options={options}
+      container={sheet ?? page}
+      className={cn('pl-select', className)}
+      contentClassName="pl-select-menu"
+    />
   )
 }

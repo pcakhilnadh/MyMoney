@@ -104,6 +104,8 @@ export function Select({
   required = false,
   className,
   alignItemWithTrigger = true,
+  container,
+  contentClassName,
   'aria-label': ariaLabel,
 }: {
   options: readonly { value: string; label: ReactNode; disabled?: boolean }[]
@@ -114,6 +116,9 @@ export function Select({
   required?: boolean
   className?: string
   alignItemWithTrigger?: boolean
+  /** Open the list inside this element (e.g. a themed sheet) instead of the page body. */
+  container?: HTMLElement | null
+  contentClassName?: string
   'aria-label'?: string
 }) {
   const items = options.map((option) => ({ value: option.value, label: option.label }))
@@ -129,7 +134,11 @@ export function Select({
       <SelectTrigger className={className} aria-label={ariaLabel}>
         <SelectValue placeholder={placeholder} />
       </SelectTrigger>
-      <SelectContent alignItemWithTrigger={alignItemWithTrigger}>
+      <SelectContent
+        alignItemWithTrigger={alignItemWithTrigger}
+        container={container}
+        className={contentClassName}
+      >
         {options.map((option) => (
           <SelectItem key={option.value} value={option.value} disabled={option.disabled}>
             {option.label}

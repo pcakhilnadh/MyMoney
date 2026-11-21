@@ -5,7 +5,7 @@ import { cn } from '@/lib/utils'
 import * as api from '../api'
 import { usePlate } from '../context'
 import { addDays, todayKey, weekStart } from '../dates'
-import { useGroceries, useKitchens, useMeals, usePlateMutation, useSettings } from '../hooks'
+import { useGroceries, useKitchens, useMeals, usePlateMutation } from '../hooks'
 import { KITCHEN_EMOJI, KITCHEN_TYPE_LABEL, leftToBuy, SLOT_LABEL, SLOT_ORDER } from '../logic'
 import type { Kitchen, KitchenType, MealSlot } from '../types'
 import { AvatarStack, Chip, EmojiPicker, ErrorLine, FieldLabel, Sheet } from '../ui'
@@ -36,27 +36,24 @@ export function SwitcherSheet({ mode }: { mode: 'plan' | 'cart' }) {
   const { selection, select, close, open } = usePlate()
   const navigate = useNavigate()
   const kitchens = useKitchens().data ?? []
-  const settings = useSettings().data
   const week = weekStart(todayKey())
   const meals = useMeals(week, addDays(week, 6)).data ?? []
   const items = leftToBuy(useGroceries().data ?? [])
   const seen = usePlateMutation(api.markKitchenSeen)
   const [query, setQuery] = useState('')
 
-  const defaultId = settings?.default_group_id ?? null
   const count = (id: string | null) =>
     mode === 'plan'
       ? meals.filter((m) => id === null || m.group_id === id).length
       : items.filter((i) => id === null || i.group_id === id).length
   const countLabel = (n: number) =>
     mode === 'plan' ? `${n} meal${n === 1 ? '' : 's'} this week` : `${n} to buy`
-  // Default first, then My Kitchen, then by name.
+  // After "All kitchens": My Kitchen, then shared kitchens A to Z.
   const shown = [...kitchens]
     .sort(
       (a, b) =>
-        Number(b.id === defaultId) - Number(a.id === defaultId) ||
         Number(b.is_personal) - Number(a.is_personal) ||
-        a.name.localeCompare(b.name),
+        a.name.localeCompare(b.name, undefined, { sensitivity: 'base' }),
     )
     .filter((k) => k.name.toLowerCase().includes(query.trim().toLowerCase()))
 

@@ -65,9 +65,9 @@ export function ShoppingPresence({
   if (shared.length === 0) return null
 
   const myLive = shared.filter((k) => k.shopping_now.includes(me))
-  // Going live from All covers the shared kitchens that still have something to buy.
-  const withItems = shared.filter((k) => (toBuyByKitchen[k.id] ?? 0) > 0)
-  const targets = withItems.length > 0 ? withItems : shared
+  // Going live covers the shared kitchens that still have something to buy; with nothing
+  // to buy there's no reason to go to the store, so the prompt stays hidden.
+  const targets = shared.filter((k) => (toBuyByKitchen[k.id] ?? 0) > 0)
   /** Everyone else in these kitchens, as "Maya" or "Maya, Rohan and 2 more". */
   const audience = (list: Kitchen[]) => {
     const ids = [
@@ -107,11 +107,11 @@ export function ShoppingPresence({
                 </span>
                 You're shopping · {since(startedAt, now)}
               </p>
-              <p className="mt-0.5 truncate text-xs text-[#8fcfaa]">
-                {allTicked
-                  ? "Everything's ticked. Done shopping?"
-                  : `${audience(myLive).names} can see you're at the store${where(myLive)}`}
-              </p>
+              {allTicked && (
+                <p className="mt-0.5 truncate text-xs text-[#8fcfaa]">
+                  Everything's ticked. Done shopping?
+                </p>
+              )}
             </div>
             <button
               type="button"
@@ -126,7 +126,7 @@ export function ShoppingPresence({
             </button>
           </div>
         </section>
-      ) : (
+      ) : targets.length === 0 ? null : (
         <section aria-label="Go live" className="pl-card flex items-center gap-3 p-3">
           <span
             aria-hidden="true"

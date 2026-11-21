@@ -6,7 +6,7 @@ import { addDays, todayKey, weekDays, weekStart } from '../dates'
 import { useKitchens, useMeals, usePlateMutation } from '../hooks'
 import { AISLES, guessAisle, mealLabel, nextEmptySlot, orderKitchens } from '../logic'
 import type { Aisle, Idea, Kitchen } from '../types'
-import { Checkbox, ErrorLine, FieldLabel, Sheet } from '../ui'
+import { Checkbox, ErrorLine, FieldLabel, PlateSelect, Sheet } from '../ui'
 
 type Action = 'meal' | 'idea' | 'item' | 'invite' | 'newKitchen'
 
@@ -29,21 +29,15 @@ function AddingTo({
   onChange: (id: string) => void
 }) {
   return (
-    <label className="pl-sunken flex items-center gap-3 rounded-[16px] py-1 pr-1 pl-4">
+    <div className="flex items-center gap-3">
       <span className="shrink-0 text-sm text-muted-foreground">Adding to</span>
-      <select
-        aria-label="Adding to kitchen"
+      <PlateSelect
+        label="Adding to kitchen"
         value={value}
-        onChange={(e) => onChange(e.target.value)}
-        className="pl-input border-transparent bg-transparent font-semibold focus:border-transparent"
-      >
-        {kitchens.map((k) => (
-          <option key={k.id} value={k.id}>
-            {k.emoji} {k.name}
-          </option>
-        ))}
-      </select>
-    </label>
+        onChange={onChange}
+        options={kitchens.map((k) => ({ value: k.id, label: `${k.emoji} ${k.name}` }))}
+      />
+    </div>
   )
 }
 
@@ -220,36 +214,28 @@ export function ItemSheet({ kitchenId }: { kitchenId: string }) {
         </div>
         <div className="grid grid-cols-2 gap-2">
           <div>
-            <FieldLabel htmlFor="item-aisle">Aisle</FieldLabel>
-            <select
-              id="item-aisle"
-              className="pl-input text-sm"
+            <FieldLabel>Aisle</FieldLabel>
+            <PlateSelect
+              label="Aisle"
               value={aisle}
-              onChange={(e) => setAisle(e.target.value as Aisle | 'auto')}
-            >
-              <option value="auto">Auto{name.trim() ? ` · ${picked}` : ''}</option>
-              {AISLES.map((a) => (
-                <option key={a} value={a}>
-                  {a}
-                </option>
-              ))}
-            </select>
+              onChange={(next) => setAisle(next as Aisle | 'auto')}
+              options={[
+                { value: 'auto', label: `Auto${name.trim() ? ` · ${picked}` : ''}` },
+                ...AISLES.map((a) => ({ value: a, label: a })),
+              ]}
+            />
           </div>
           <div>
-            <FieldLabel htmlFor="item-meal">For</FieldLabel>
-            <select
-              id="item-meal"
-              className="pl-input text-sm"
-              value={mealId}
-              onChange={(e) => setMealId(e.target.value)}
-            >
-              <option value="">Quick add</option>
-              {meals.map((m) => (
-                <option key={m.id} value={m.id}>
-                  {mealLabel(m)} · {m.title}
-                </option>
-              ))}
-            </select>
+            <FieldLabel>For</FieldLabel>
+            <PlateSelect
+              label="For"
+              value={mealId || 'quick'}
+              onChange={(next) => setMealId(next === 'quick' ? '' : next)}
+              options={[
+                { value: 'quick', label: 'Quick add' },
+                ...meals.map((m) => ({ value: m.id, label: `${mealLabel(m)} · ${m.title}` })),
+              ]}
+            />
           </div>
         </div>
         {added.length > 0 && (
