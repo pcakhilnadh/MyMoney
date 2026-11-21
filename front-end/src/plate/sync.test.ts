@@ -189,6 +189,26 @@ describe('saving offline', () => {
     expect((await plateDb.outbox.toArray()).at(-1)?.method).toBe('DELETE')
   })
 
+  it('saves kitchen settings at once and keeps them until they are sent', async () => {
+    const calls = serve()
+    const updated = await api.updateKitchen('home', { meal_slots: ['D', 'B'], name: ' Flat ' })
+    expect(calls).toEqual([])
+    expect(updated.meal_slots).toEqual(['B', 'D'])
+    expect((await plateDb.kitchens.get('home'))?.name).toBe('Flat')
+    expect((await plateDb.outbox.toArray()).at(-1)).toMatchObject({
+      method: 'PATCH',
+      path: '/kitchens/home',
+      entity_id: 'home',
+    })
+
+    // A pull that left before the change was sent doesn't undo it.
+    await mergePull(pulled())
+    expect((await plateDb.kitchens.get('home'))?.meal_slots).toEqual(['B', 'D'])
+    await expect(api.updateKitchen('mine', { group_type: 'family' })).rejects.toThrow(
+      'My Kitchen can’t change type.',
+    )
+  })
+
   it('adds cart items with a guessed aisle and keeps ideas votes', async () => {
     const item = await api.addGrocery({ group_id: 'home', name: 'Paneer' })
     expect(item.aisle).toBe('Dairy & Eggs')

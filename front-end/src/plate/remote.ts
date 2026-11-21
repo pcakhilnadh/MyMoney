@@ -73,9 +73,6 @@ export type KitchenPatch = Partial<Pick<Kitchen, 'name' | 'emoji' | 'meal_slots'
   group_type?: Exclude<KitchenType, 'personal'>
 }
 
-export const updateKitchen = (kitchenId: string, patch: KitchenPatch) =>
-  send<Kitchen>('PATCH', `/kitchens/${id(kitchenId)}`, patch)
-
 export const leaveKitchen = (kitchenId: string) =>
   send<void>('DELETE', `/kitchens/${id(kitchenId)}/members/me`)
 

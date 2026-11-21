@@ -110,11 +110,31 @@ export const createKitchen = (input: remote.KitchenInput) =>
     return kitchen
   })
 
+/** Name, icon, type and meal slots. Saved on the phone at once, sent in the background. */
 export const updateKitchen = (kitchenId: string, patch: remote.KitchenPatch) =>
-  online(async () => {
-    const kitchen = await remote.updateKitchen(kitchenId, patch)
-    await putKitchens([kitchen])
-    return kitchen
+  saveLocally(async () => {
+    const kitchen = await kitchenOf(kitchenId)
+    if (patch.name !== undefined && !patch.name.trim()) throw new Error('Name the kitchen.')
+    if (patch.group_type && kitchen.is_personal) throw new Error('My Kitchen can’t change type.')
+    if (patch.meal_slots && patch.meal_slots.length === 0)
+      throw new Error('Pick at least one meal.')
+    const next: Kitchen = {
+      ...kitchen,
+      ...patch,
+      ...(patch.name !== undefined && { name: patch.name.trim() }),
+      ...(patch.meal_slots && {
+        meal_slots: SLOT_ORDER.filter((slot) => patch.meal_slots!.includes(slot)),
+      }),
+    }
+    await plateDb.kitchens.put(next)
+    await queue({
+      method: 'PATCH',
+      path: `/kitchens/${id(kitchenId)}`,
+      body: patch,
+      entity: 'kitchens',
+      entity_id: kitchenId,
+    })
+    return next
   })
 
 /** Clears the "new activity" marker. Works offline. */

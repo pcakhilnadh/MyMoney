@@ -172,3 +172,41 @@ test('invite by email: the invite waits on their Kitchens page', async ({ browse
   await expect(b.getByRole('region', { name: 'Shared kitchens' })).toContainText('Flat')
   await expect(b.getByText(/Carol invited you to/)).toHaveCount(0)
 })
+
+test('kitchen settings change at once, even while the server is slow', async ({ page }) => {
+  const erin = { sub: 'g-plate-erin', email: 'erin.plate@gmail.com', name: 'Erin E' }
+  await open(page, erin)
+  await nav(page).getByRole('link', { name: 'Kitchens' }).click()
+  await page
+    .getByRole('link', { name: /My Kitchen/ })
+    .first()
+    .click()
+  const snacks = page.getByRole('button', { name: 'Snacks' })
+  await expect(snacks).toHaveAttribute('aria-pressed', 'false')
+
+  // Hold the save on the server; the screen doesn't wait for it.
+  let release: () => void = () => {}
+  const held = new Promise<void>((resolve) => (release = resolve))
+  await page.route('**/api/v1/plate/kitchens/*', async (route) => {
+    if (route.request().method() !== 'PATCH') return route.fallback()
+    await held
+    await route.fallback()
+  })
+  await snacks.click()
+  await expect(snacks).toHaveAttribute('aria-pressed', 'true', { timeout: 1000 })
+
+  release()
+  await page.unroute('**/api/v1/plate/kitchens/*')
+  // Once sent, a fresh device sees it too.
+  const other = await (await page.context().browser()!.newContext()).newPage()
+  await open(other, erin)
+  await nav(other).getByRole('link', { name: 'Kitchens' }).click()
+  await other
+    .getByRole('link', { name: /My Kitchen/ })
+    .first()
+    .click()
+  await expect(other.getByRole('button', { name: 'Snacks' })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+})

@@ -70,9 +70,22 @@ export async function mergePull(pulled: PlatePull): Promise<void> {
     await plateDb.setMeta('meals_from', pulled.meals_from)
     if (!settingsWaiting) await plateDb.setMeta('settings', pulled.settings)
 
-    const kitchens = ordered(pulled.kitchens).map((k) =>
-      pending.has(k.id) ? { ...k, has_new_activity: false } : k,
-    )
+    // A kitchen with edits still waiting keeps them; the rest (members, presence) is fresh.
+    const local = new Map((await plateDb.kitchens.toArray()).map((k) => [k.id, k]))
+    const kitchens = ordered(pulled.kitchens).map((k) => {
+      const mine = pending.has(k.id) ? local.get(k.id) : undefined
+      if (!pending.has(k.id)) return k
+      return {
+        ...k,
+        has_new_activity: false,
+        ...(mine && {
+          name: mine.name,
+          emoji: mine.emoji,
+          group_type: mine.group_type,
+          meal_slots: mine.meal_slots,
+        }),
+      }
+    })
     await plateDb.kitchens.clear()
     await plateDb.kitchens.bulkPut(kitchens)
     await plateDb.people.clear()
