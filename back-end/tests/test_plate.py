@@ -42,7 +42,7 @@ def shared_kitchen(c, owner="alice", joiner="bob", name="Home"):
         c, owner, "POST", "/kitchens", {"name": name, "group_type": "couple"}, 201
     ).json()
     code = send(c, owner, "POST", f"/kitchens/{kitchen['id']}/invite-code", status=200).json()
-    send(c, joiner, "POST", "/invites/join", {"code": code["code"].lower()}, 200)
+    send(c, joiner, "POST", "/invites/join", {"code": code["code"]}, 200)
     return kitchen["id"]
 
 
@@ -100,21 +100,69 @@ def test_join_with_code_and_see_each_others_first_names(c):
     send(c, "carol", "POST", "/invites/join", {"code": "NOPE1234"}, 404)
 
 
-def test_invites_go_to_known_people_only(c):
-    shared_kitchen(c)  # alice and bob now know each other
-    second = send(
+def test_join_codes_are_six_case_sensitive_characters(c):
+    kitchen = send(c, "alice", "POST", "/kitchens", {"name": "Home", "group_type": "couple"}, 201)
+    code = send(c, "alice", "POST", f"/kitchens/{kitchen.json()['id']}/invite-code", status=200)
+    code = code.json()["code"]
+    assert len(code) == 6 and code.isalnum() and code.isascii()
+    # The same code every time: it doesn't expire.
+    again = send(c, "alice", "POST", f"/kitchens/{kitchen.json()['id']}/invite-code", status=200)
+    assert again.json()["code"] == code
+    if code.swapcase() != code:
+        send(c, "bob", "POST", "/invites/join", {"code": code.swapcase()}, 404)
+    send(c, "bob", "POST", "/invites/join", {"code": f"  {code} "}, 200)
+
+
+def test_invite_by_email_reaches_whoever_signs_in_with_it(c):
+    kitchen = send(
         c, "alice", "POST", "/kitchens", {"name": "Flat", "group_type": "flatmates"}, 201
     ).json()
-    bob, carol = me(c, "bob"), me(c, "carol")
-    send(c, "alice", "POST", f"/kitchens/{second['id']}/invites", {"user_ids": [carol]}, 422)
-    out = send(c, "alice", "POST", f"/kitchens/{second['id']}/invites", {"user_ids": [bob]}, 200)
-    assert out.json()["invited"] == [bob]
+    path = f"/kitchens/{kitchen['id']}/invites"
+    send(c, "alice", "POST", path, {"emails": ["not-an-email"]}, 422)
+    # An address with no account yet is accepted the same way; nothing is revealed.
+    out = send(c, "alice", "POST", path, {"emails": [" Bob@Gmail.com ", "new@x.com"]}, 200)
+    assert out.json()["invited"] == ["bob@gmail.com", "new@x.com"]
+    # Members and repeats are skipped.
+    send(c, "alice", "POST", path, {"emails": ["alice@gmail.com", "bob@gmail.com"]}, 200)
+    flat = lambda: next(k for k in get(c, "alice", "/kitchens") if k["id"] == kitchen["id"])  # noqa: E731
+    assert flat()["invited"] == ["bob@gmail.com", "new@x.com"]
 
     invites = get(c, "bob", "/invites")
-    assert invites[0]["kitchen_name"] == "Flat"
+    assert [i["kitchen_name"] for i in invites] == ["Flat"]
+    assert "Alice" in {p["name"] for p in get(c, "bob", "/people")}
+    assert get(c, "carol", "/invites") == []
+    send(c, "carol", "POST", f"/invites/{invites[0]['id']}/accept", status=404)
     send(c, "bob", "POST", f"/invites/{invites[0]['id']}/accept", status=200)
     assert get(c, "bob", "/invites") == []
-    assert second["id"] in {k["id"] for k in get(c, "bob", "/kitchens")}
+    assert flat()["invited"] == ["new@x.com"]
+
+    personal = next(k for k in get(c, "alice", "/kitchens") if k["is_personal"])
+    send(c, "alice", "POST", f"/kitchens/{personal['id']}/invites", {"emails": ["x@y.z"]}, 422)
+
+
+def test_email_invite_and_code_both_get_people_in(c):
+    """Like a money group: invite by email, plus a code anyone can use. Both work together."""
+    kitchen = send(
+        c, "alice", "POST", "/kitchens", {"name": "Flat", "group_type": "flatmates"}, 201
+    ).json()
+    path = f"/kitchens/{kitchen['id']}"
+    send(c, "alice", "POST", f"{path}/invites", {"emails": ["bob@gmail.com"]}, 200)
+    code = send(c, "alice", "POST", f"{path}/invite-code", status=200).json()["code"]
+
+    # Bob was invited by email but uses the code: he's in, and his invite is gone.
+    send(c, "bob", "POST", "/invites/join", {"code": code}, 200)
+    assert get(c, "bob", "/invites") == []
+    # Carol was never invited; the code alone is enough.
+    send(c, "carol", "POST", "/invites/join", {"code": code}, 200)
+    # Joining twice changes nothing.
+    send(c, "carol", "POST", "/invites/join", {"code": code}, 200)
+
+    flat = next(k for k in get(c, "alice", "/kitchens") if k["id"] == kitchen["id"])
+    assert len(flat["members"]) == 3 and flat["invited"] == []
+
+
+def test_there_is_no_contacts_lookup(c):
+    assert c.get("/api/v1/plate/contacts", headers=H("alice")).status_code == 404
 
 
 def test_leaving_passes_ownership_and_clears_default(c):

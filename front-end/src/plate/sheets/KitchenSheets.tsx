@@ -5,18 +5,10 @@ import { cn } from '@/lib/utils'
 import * as api from '../api'
 import { usePlate } from '../context'
 import { addDays, todayKey, weekStart } from '../dates'
-import {
-  useContacts,
-  useGroceries,
-  useKitchens,
-  useMeals,
-  usePeople,
-  usePlateMutation,
-  useSettings,
-} from '../hooks'
+import { useGroceries, useKitchens, useMeals, usePlateMutation, useSettings } from '../hooks'
 import { KITCHEN_EMOJI, KITCHEN_TYPE_LABEL, leftToBuy, SLOT_LABEL, SLOT_ORDER } from '../logic'
 import type { Kitchen, KitchenType, MealSlot } from '../types'
-import { Avatar, AvatarStack, Chip, EmojiPicker, ErrorLine, FieldLabel, Sheet, Switch } from '../ui'
+import { AvatarStack, Chip, EmojiPicker, ErrorLine, FieldLabel, Sheet } from '../ui'
 
 const SHARED_TYPES: Exclude<KitchenType, 'personal'>[] = [
   'couple',
@@ -369,23 +361,26 @@ export function JoinSheet() {
         }}
       >
         <p className="text-sm text-muted-foreground">
-          Ask someone in the kitchen for its code. You'll see its week, cart and ideas right away.
+          Ask someone in the kitchen for its 6-character code. Capital letters matter.
         </p>
         <input
           aria-label="Invite code"
-          placeholder="e.g. OFFICE24"
+          placeholder="e.g. aB3x9Q"
           value={code}
-          onChange={(e) => setCode(e.target.value.toUpperCase())}
-          className="pl-input h-14 text-center text-lg font-bold tracking-[0.25em] uppercase"
+          onChange={(e) => setCode(e.target.value.replace(/\s/g, ''))}
+          className="pl-input h-14 text-center font-mono text-lg font-bold tracking-[0.2em]"
           autoFocus
-          autoCapitalize="characters"
+          autoCapitalize="off"
+          autoCorrect="off"
+          spellCheck={false}
           autoComplete="off"
+          maxLength={16}
         />
         <ErrorLine error={join.error} />
         <button
           type="submit"
           className="pl-btn pl-btn-primary w-full"
-          disabled={code.trim().length < 4 || join.isPending}
+          disabled={code.length < 6 || join.isPending}
         >
           Join kitchen
         </button>
@@ -407,92 +402,62 @@ export function InviteSheet({ kitchenId }: { kitchenId: string }) {
   )
 }
 
-/** Contacts already on the app, plus an open code. Shared by the sheet and kitchen settings. */
+/** Invite by email, or share the kitchen's code. Shared by the sheet and kitchen settings. */
 export function InvitePanel({ kitchen, onDone }: { kitchen: Kitchen; onDone?: () => void }) {
-  const contacts = useContacts().data ?? []
-  const [picked, setPicked] = useState<string[]>([])
+  const [email, setEmail] = useState('')
   const [code, setCode] = useState<string | null>(null)
   const [copied, setCopied] = useState(false)
-  const invite = usePlateMutation(({ ids }: { ids: string[] }) => api.inviteUsers(kitchen.id, ids))
+  const invite = usePlateMutation((address: string) => api.inviteByEmail(kitchen.id, [address]))
   const makeCode = usePlateMutation(() => api.getInviteCode(kitchen.id))
-  const members = new Set(kitchen.members.map((m) => m.user_id))
-  const candidates = contacts.filter((c) => !members.has(c.id))
+  const valid = /^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email.trim())
 
   return (
     <div className="space-y-5">
-      <div>
-        <FieldLabel>People on the app</FieldLabel>
-        {candidates.length === 0 ? (
-          <p className="text-sm text-muted-foreground">
-            {contacts.length === 0
-              ? 'People you share a money group or kitchen with show up here. Until then, share the code below.'
-              : 'Everyone you know is already here.'}
-          </p>
-        ) : (
-          <ul className="pl-card divide-y divide-white/[0.06]">
-            {candidates.map((person) => {
-              const invited = kitchen.invited.includes(person.id)
-              const on = picked.includes(person.id)
-              return (
-                <li key={person.id}>
-                  <button
-                    type="button"
-                    disabled={invited}
-                    aria-pressed={on}
-                    onClick={() =>
-                      setPicked(on ? picked.filter((p) => p !== person.id) : [...picked, person.id])
-                    }
-                    className="flex w-full items-center gap-3 px-3.5 py-2.5 text-left disabled:opacity-60"
-                  >
-                    <Avatar userId={person.id} size={32} />
-                    <span className="min-w-0 flex-1 truncate text-[15px] font-medium">
-                      {person.name}
-                    </span>
-                    {invited ? (
-                      <span className="text-xs text-muted-foreground">Invited</span>
-                    ) : (
-                      <span
-                        aria-hidden="true"
-                        className={cn(
-                          'flex size-[22px] items-center justify-center rounded-full border-[1.5px]',
-                          on ? 'border-primary bg-primary' : 'border-white/30',
-                        )}
-                      >
-                        {on && <Check size={13} strokeWidth={3} />}
-                      </span>
-                    )}
-                  </button>
-                </li>
-              )
-            })}
-          </ul>
-        )}
-        {picked.length > 0 && (
+      <form
+        onSubmit={(e) => {
+          e.preventDefault()
+          invite.mutate(email.trim(), {
+            onSuccess: () => {
+              setEmail('')
+              onDone?.()
+            },
+          })
+        }}
+      >
+        <FieldLabel htmlFor={`invite-email-${kitchen.id}`}>Invite by email</FieldLabel>
+        <div className="flex gap-2">
+          <input
+            id={`invite-email-${kitchen.id}`}
+            type="email"
+            inputMode="email"
+            autoComplete="off"
+            placeholder="name@example.com"
+            value={email}
+            onChange={(e) => setEmail(e.target.value)}
+            className="pl-input min-w-0 flex-1"
+          />
           <button
-            type="button"
-            className="pl-btn pl-btn-primary mt-3 w-full"
-            disabled={invite.isPending}
-            onClick={() =>
-              invite.mutate(
-                { ids: picked },
-                {
-                  onSuccess: () => {
-                    setPicked([])
-                    onDone?.()
-                  },
-                },
-              )
-            }
+            type="submit"
+            className="pl-btn pl-btn-primary shrink-0 px-4"
+            disabled={!valid || invite.isPending}
           >
-            Send {picked.length} invite{picked.length === 1 ? '' : 's'}
+            Invite
           </button>
-        )}
-      </div>
+        </div>
+        <p className="mt-2 text-xs text-muted-foreground">
+          They'll see it under Kitchens when they sign in with this email.
+        </p>
+      </form>
       <div>
         <FieldLabel>Or share a code</FieldLabel>
         {code ? (
           <div className="pl-sunken flex items-center gap-2 rounded-[16px] py-2 pr-2 pl-4">
-            <span className="flex-1 text-lg font-bold tracking-[0.25em] tabular-nums">{code}</span>
+            <span
+              data-testid="invite-code"
+              className="flex-1 font-mono text-lg font-bold tracking-[0.2em]"
+            >
+              {code}
+            </span>
             <button
               type="button"
               className="pl-btn pl-btn-secondary h-9 px-3 text-sm"
@@ -517,132 +482,11 @@ export function InvitePanel({ kitchen, onDone }: { kitchen: Kitchen; onDone?: ()
             Show invite code
           </button>
         )}
-        <p className="mt-2 text-xs text-muted-foreground">Anyone with the code can join.</p>
+        <p className="mt-2 text-xs text-muted-foreground">
+          Anyone with the code can join. Letters are case-sensitive.
+        </p>
       </div>
       <ErrorLine error={invite.error ?? makeCode.error} />
     </div>
-  )
-}
-
-// ─── Plan with someone ───────────────────────────────────────────────────────────────────
-
-/** From My Kitchen: start a shared kitchen and optionally copy this week into it. */
-export function PlanWithSomeoneSheet() {
-  const { close, open, select, personalId } = usePlate()
-  const navigate = useNavigate()
-  const { nameOf } = usePeople()
-  const contacts = useContacts().data ?? []
-  const week = weekStart(todayKey())
-  const personalMeals = (useMeals(week, addDays(week, 6)).data ?? []).filter(
-    (m) => m.group_id === personalId,
-  )
-  const [picked, setPicked] = useState<string[]>([])
-  const [name, setName] = useState('')
-  const [type, setType] = useState<Exclude<KitchenType, 'personal'>>('couple')
-  const [copy, setCopy] = useState(true)
-  const [error, setError] = useState<unknown>(null)
-  const [busy, setBusy] = useState(false)
-  const suggested = picked.length ? `Me & ${picked.map(nameOf).join(' & ')}` : ''
-  const finalName = name.trim() || suggested
-  const start = usePlateMutation(async () => {
-    if (!personalId) return null
-    const kitchen = await api.createKitchen({ name: finalName, emoji: '🏡', group_type: type })
-    await api.inviteUsers(kitchen.id, picked)
-    if (copy)
-      await api.copyWeek({
-        from_group_id: personalId,
-        to_group_id: kitchen.id,
-        from_week: week,
-        to_week: week,
-      })
-    return kitchen
-  })
-
-  async function onStart() {
-    setBusy(true)
-    setError(null)
-    try {
-      const kitchen = await start.mutateAsync()
-      if (!kitchen) return
-      select(kitchen.id)
-      navigate('/plate/plan')
-      // Nobody picked: hand over the invite code straight away.
-      if (picked.length === 0) open({ kind: 'invite', kitchenId: kitchen.id })
-      else close()
-    } catch (caught) {
-      setError(caught)
-    } finally {
-      setBusy(false)
-    }
-  }
-
-  return (
-    <Sheet
-      title="Plan with someone"
-      onClose={close}
-      footer={
-        <button
-          type="button"
-          className="pl-btn pl-btn-primary w-full"
-          disabled={!finalName || busy}
-          onClick={() => void onStart()}
-        >
-          Start shared kitchen
-        </button>
-      }
-    >
-      <p className="text-sm text-muted-foreground">
-        My Kitchen stays private. This starts a shared kitchen with its own week and cart.
-      </p>
-      <div>
-        <FieldLabel>With</FieldLabel>
-        {contacts.length === 0 && (
-          <p className="text-sm text-muted-foreground">
-            People you share a money group with show up here. You can also send an invite code once
-            the kitchen exists.
-          </p>
-        )}
-        <div className="flex flex-wrap gap-2">
-          {contacts.map((person) => {
-            const on = picked.includes(person.id)
-            return (
-              <Chip
-                key={person.id}
-                selected={on}
-                className="pl-1.5"
-                onClick={() =>
-                  setPicked(on ? picked.filter((p) => p !== person.id) : [...picked, person.id])
-                }
-              >
-                <Avatar userId={person.id} size={24} />
-                {person.name}
-              </Chip>
-            )
-          })}
-        </div>
-      </div>
-      <div>
-        <FieldLabel htmlFor="pws-name">Kitchen name</FieldLabel>
-        <input
-          id="pws-name"
-          className="pl-input"
-          placeholder={suggested || 'e.g. Home'}
-          value={name}
-          maxLength={60}
-          onChange={(e) => setName(e.target.value)}
-        />
-      </div>
-      <TypePicker value={type} onChange={setType} />
-      <div className="pl-card flex items-center justify-between gap-3 p-3.5">
-        <div>
-          <p className="text-sm font-semibold">Copy this week from My Kitchen</p>
-          <p className="text-xs text-muted-foreground">
-            {personalMeals.length} meals · fills empty slots only, your originals stay put
-          </p>
-        </div>
-        <Switch checked={copy} onChange={setCopy} label="Copy this week from My Kitchen" />
-      </div>
-      <ErrorLine error={error} />
-    </Sheet>
   )
 }

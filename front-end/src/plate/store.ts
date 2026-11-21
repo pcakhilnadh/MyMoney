@@ -28,7 +28,6 @@ export interface OutboxCommand {
 export interface PlateMeta {
   me: PlateUser
   settings: PlateSettings
-  contact_ids: string[]
   /** Server time of the last pull; the next pull asks for changes after it. */
   cursor: string
   /** Meals before this date stay on the server until a past week is opened. */

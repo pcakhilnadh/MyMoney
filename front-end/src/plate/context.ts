@@ -19,7 +19,6 @@ export type PlateSheet =
   | { kind: 'idea'; kitchenId: string }
   | { kind: 'import'; kitchenId: string }
   | { kind: 'invite'; kitchenId: string }
-  | { kind: 'planWithSomeone' }
   | { kind: 'newKitchen' }
   | { kind: 'join' }
 

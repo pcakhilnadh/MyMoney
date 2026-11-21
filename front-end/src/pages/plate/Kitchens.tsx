@@ -94,18 +94,9 @@ export default function PlateKitchens() {
           <section aria-label="Shared kitchens" className="space-y-2.5">
             <SectionLabel>Shared</SectionLabel>
             {shared.length === 0 ? (
-              <div className="pl-card space-y-3 p-5 text-center">
-                <p className="text-sm text-muted-foreground">
-                  Plan with a partner, family or flatmates. My Kitchen stays private.
-                </p>
-                <button
-                  type="button"
-                  className="pl-btn pl-btn-primary h-10 text-sm"
-                  onClick={() => open({ kind: 'planWithSomeone' })}
-                >
-                  Plan with someone
-                </button>
-              </div>
+              <p className="px-1 text-sm text-muted-foreground">
+                Create a kitchen to plan with others, or join one with a code.
+              </p>
             ) : (
               shared.map((k) => (
                 <KitchenRow

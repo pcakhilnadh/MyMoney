@@ -174,9 +174,9 @@ export const joinWithCode = (code: string) =>
     return kitchen
   })
 
-export const inviteUsers = (kitchenId: string, userIds: UserId[]) =>
+export const inviteByEmail = (kitchenId: string, emails: string[]) =>
   online(async () => {
-    const kitchen = await remote.inviteUsers(kitchenId, userIds)
+    const kitchen = await remote.inviteByEmail(kitchenId, emails)
     await putKitchens([kitchen])
     return kitchen
   })
@@ -411,8 +411,7 @@ const daysBetween = (from: string, to: string) =>
 
 /**
  * Copies one week into the empty slots of another week or kitchen; originals stay put.
- * "Plan with someone" copies My Kitchen into a new kitchen; "Copy last week" copies a
- * kitchen's previous week into this one. Same rules as the server's copy-week.
+ * "Copy last week" copies a kitchen's previous week into this one. Same rules as the server's copy-week.
  */
 export const copyWeek = (input: {
   from_group_id: string

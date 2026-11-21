@@ -92,9 +92,9 @@ export function CreateSheet({ tab }: { tab: PlateTab }) {
       invite: solo
         ? {
             icon: '👋',
-            label: 'Plan with someone',
-            hint: 'Start a shared kitchen from your week',
-            sheet: { kind: 'planWithSomeone' },
+            label: 'New kitchen',
+            hint: 'Plan with others in a kitchen you share',
+            sheet: { kind: 'newKitchen' },
           }
         : {
             icon: '👋',

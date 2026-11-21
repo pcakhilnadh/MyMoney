@@ -7,13 +7,7 @@ import type { KitchenSelection } from './types'
 import { MealSheet } from './sheets/MealSheet'
 import { LiveShoppingPill } from './shopping'
 import { CreateSheet, IdeaSheet, ImportSheet, ItemSheet } from './sheets/CreateSheets'
-import {
-  InviteSheet,
-  JoinSheet,
-  NewKitchenSheet,
-  PlanWithSomeoneSheet,
-  SwitcherSheet,
-} from './sheets/KitchenSheets'
+import { InviteSheet, JoinSheet, NewKitchenSheet, SwitcherSheet } from './sheets/KitchenSheets'
 
 /** Per device, so MyPlate reopens on the kitchen you left it on. */
 const SELECTION_KEY = 'myplate.selectedKitchen'
@@ -92,8 +86,6 @@ function ActiveSheet({ sheet }: { sheet: PlateSheet }) {
       return <ImportSheet kitchenId={sheet.kitchenId} />
     case 'invite':
       return <InviteSheet kitchenId={sheet.kitchenId} />
-    case 'planWithSomeone':
-      return <PlanWithSomeoneSheet />
     case 'newKitchen':
       return <NewKitchenSheet />
     case 'join':

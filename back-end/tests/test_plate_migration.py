@@ -10,6 +10,7 @@ from app.models import Profile
 
 tables = importlib.import_module("migrations.versions.f7a8b9c0d1e2_myplate_tables")
 sync = importlib.import_module("migrations.versions.g8b9c0d1e2f3_plate_sync")
+emails = importlib.import_module("migrations.versions.h9c0d1e2f3a4_plate_email_invites")
 PLATE_TABLES = sorted(t for t in Base.metadata.tables if t.startswith("plate_"))
 
 
@@ -21,6 +22,8 @@ def test_postgresql_sql_has_the_one_personal_kitchen_index_and_checks():
     with Operations.context(context):
         tables.upgrade()
         sync.upgrade()
+        emails.upgrade()
+        emails.downgrade()
         sync.downgrade()
         tables.downgrade()
     sql = output.getvalue()
@@ -30,6 +33,7 @@ def test_postgresql_sql_has_the_one_personal_kitchen_index_and_checks():
     assert "ON DELETE SET NULL" in sql and "ON DELETE CASCADE" in sql
     assert "UPDATE plate_ideas SET updated_at = created_at" in sql
     assert "CREATE INDEX ix_plate_meals_kitchen_updated" in sql
+    assert "ADD COLUMN invited_email VARCHAR(320)" in sql
     for table in PLATE_TABLES:
         assert f"DROP TABLE {table}" in sql
 
@@ -60,7 +64,7 @@ def test_migrations_match_the_models_and_reverse():
             "INSERT INTO plate_grocery_items (id, kitchen_id, name, quantity, aisle, added_by,"
             " created_at) VALUES ('g1', 'k1', 'Milk', '', 'Other', 'p1', '2026-11-02')"
         )
-    run(sync.upgrade)
+    run(sync.upgrade, emails.upgrade)
     with engine.connect() as connection:
         assert connection.exec_driver_sql(
             "SELECT updated_at FROM plate_grocery_items"
@@ -76,6 +80,10 @@ def test_migrations_match_the_models_and_reverse():
         modelled_indexes = {i.name for i in Base.metadata.tables[table].indexes}
         assert modelled_indexes <= migrated_indexes, table
 
+    run(emails.downgrade)
+    assert "invited_email" not in {
+        c["name"] for c in inspect(engine).get_columns("plate_kitchen_invites")
+    }
     run(sync.downgrade)
     assert "updated_at" not in {c["name"] for c in inspect(engine).get_columns("plate_ideas")}
     run(tables.downgrade)

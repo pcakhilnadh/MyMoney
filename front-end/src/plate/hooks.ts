@@ -37,16 +37,6 @@ export const useSettings = () => useLocal(() => plateDb.getMeta('settings'))
 
 export const useInvites = () => useLocal(() => ifSynced(() => plateDb.invites.toArray()))
 
-export const useContacts = () =>
-  useLocal(async () => {
-    const ids = await plateDb.getMeta('contact_ids')
-    if (!ids) return undefined
-    const people = await plateDb.people.bulkGet(ids)
-    return people
-      .filter((person): person is PlateUser => !!person)
-      .sort((a, b) => a.name.localeCompare(b.name))
-  })
-
 export function useMeals(from: string, to: string) {
   // Past weeks beyond what the phone keeps come from the server when opened.
   useEffect(() => {

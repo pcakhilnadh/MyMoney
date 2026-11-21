@@ -22,7 +22,8 @@ Version **1.0.0** · API **v1**
 - A daily calorie goal, a diary by date, and insights such as averages and streaks.
 
 **MyPlate**
-- **Kitchens**: My Kitchen is just for you; shared kitchens are for a partner, family or flatmates.
+- **Kitchens**: My Kitchen is just for you; shared kitchens are for a partner, family or flatmates. Invite
+  people by email, or share a 6-character join code.
 - **Plan**: a week of meals per kitchen, with who's cooking, who's eating, sides, leftovers, and copying last week.
 - **Today**: what's on your plate and tonight's prep for tomorrow (soak the rajma), ticked off together.
 - **Cart**: a shared grocery list sorted by aisle, with "go live" so others see you're shopping.

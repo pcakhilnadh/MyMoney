@@ -14,7 +14,6 @@ import type {
   MealSlot,
   PlateSettings,
   PlateUser,
-  UserId,
 } from './types'
 
 const id = (value: string) => encodeURIComponent(value)
@@ -36,7 +35,6 @@ export interface PlatePull {
   server_time: string
   me: PlateUser
   people: PlateUser[]
-  contact_ids: UserId[]
   kitchens: Kitchen[]
   invites: KitchenInvite[]
   settings: PlateSettings
@@ -99,8 +97,9 @@ export const declineInvite = (inviteId: string) =>
 export const joinWithCode = (code: string) =>
   send<Kitchen>('POST', '/invites/join', { code: code.trim() })
 
-export const inviteUsers = (kitchenId: string, userIds: UserId[]) =>
-  send<Kitchen>('POST', `/kitchens/${id(kitchenId)}/invites`, { user_ids: userIds })
+/** Whoever signs in with the address sees the invite on their Kitchens page. */
+export const inviteByEmail = (kitchenId: string, emails: string[]) =>
+  send<Kitchen>('POST', `/kitchens/${id(kitchenId)}/invites`, { emails })
 
 export const getInviteCode = async (kitchenId: string) =>
   (await send<{ code: string }>('POST', `/kitchens/${id(kitchenId)}/invite-code`)).code

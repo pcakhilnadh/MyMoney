@@ -71,15 +71,15 @@ test('shared: create a kitchen, join by code, and see each other shopping', asyn
   await sheet(a).getByRole('textbox', { name: 'Name' }).fill('Home')
   await sheet(a).getByRole('button', { name: 'Create kitchen' }).click()
   await sheet(a).getByRole('button', { name: 'Show invite code' }).click()
-  const code = (await sheet(a)
-    .getByText(/^[A-Z2-9]{8}$/)
-    .textContent())!.trim()
+  const code = sheet(a).getByTestId('invite-code')
+  await expect(code).toHaveText(/^[A-Za-z0-9]{6}$/)
+  const joinCode = (await code.textContent())!.trim()
   await sheet(a).getByRole('button', { name: 'Close' }).click()
 
   // Bob joins with the code.
   await nav(b).getByRole('link', { name: 'Kitchens' }).click()
   await b.getByRole('button', { name: 'Join with code' }).click()
-  await sheet(b).getByRole('textbox', { name: 'Invite code' }).fill(code.toLowerCase())
+  await sheet(b).getByRole('textbox', { name: 'Invite code' }).fill(joinCode)
   await sheet(b).getByRole('button', { name: 'Join kitchen' }).click()
   await expect(b.getByRole('button', { name: /Kitchen: Home/ })).toBeVisible()
 
@@ -148,4 +148,27 @@ test('the prep reminder lives on the Kitchens page, not on Today or in one kitch
     .first()
     .click()
   await expect(page.getByText('Pre-prep reminder')).toHaveCount(0)
+})
+
+test('invite by email: the invite waits on their Kitchens page', async ({ browser }) => {
+  const carol = { sub: 'g-plate-carol', email: 'carol.plate@gmail.com', name: 'Carol C' }
+  const dave = { sub: 'g-plate-dave', email: 'dave.plate@gmail.com', name: 'Dave D' }
+  const a = await (await browser.newContext()).newPage()
+  await open(a, carol)
+  await nav(a).getByRole('link', { name: 'Kitchens' }).click()
+  await expect(a.getByText('Plan with someone')).toHaveCount(0)
+  await a.getByRole('button', { name: '+ New kitchen' }).click()
+  await sheet(a).getByRole('textbox', { name: 'Name' }).fill('Flat')
+  await sheet(a).getByRole('button', { name: 'Create kitchen' }).click()
+  await sheet(a).getByRole('textbox', { name: 'Invite by email' }).fill('Dave.Plate@gmail.com')
+  await sheet(a).getByRole('button', { name: 'Invite', exact: true }).click()
+  await expect(sheet(a)).toHaveCount(0)
+
+  const b = await (await browser.newContext()).newPage()
+  await open(b, dave)
+  await nav(b).getByRole('link', { name: 'Kitchens' }).click()
+  await expect(b.getByText(/Carol invited you to/)).toBeVisible()
+  await b.getByRole('button', { name: 'Accept' }).click()
+  await expect(b.getByRole('region', { name: 'Shared kitchens' })).toContainText('Flat')
+  await expect(b.getByText(/Carol invited you to/)).toHaveCount(0)
 })

@@ -67,7 +67,6 @@ export async function mergePull(pulled: PlatePull): Promise<void> {
     const settingsWaiting = waiting.some((c) => c.entity === 'settings')
 
     await plateDb.setMeta('me', pulled.me)
-    await plateDb.setMeta('contact_ids', pulled.contact_ids)
     await plateDb.setMeta('meals_from', pulled.meals_from)
     if (!settingsWaiting) await plateDb.setMeta('settings', pulled.settings)
 

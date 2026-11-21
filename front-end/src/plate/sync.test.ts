@@ -41,7 +41,6 @@ function pulled(partial: Partial<PlatePull> = {}): PlatePull {
     server_time: '2026-11-21T10:00:00+00:00',
     me: { id: ME, name: 'Me' },
     people: [{ id: ME, name: 'Me' }],
-    contact_ids: [],
     kitchens: [mine, home],
     invites: [],
     settings: { default_group_id: null, reminder_enabled: true, reminder_time: '20:00' },

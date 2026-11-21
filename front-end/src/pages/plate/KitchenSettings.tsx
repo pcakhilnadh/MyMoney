@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
+import { ArrowLeft, Mail } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useDialog } from '@/components/DialogProvider'
 import * as api from '@/plate/api'
@@ -44,7 +44,7 @@ function Settings({ kitchen }: { kitchen: Kitchen }) {
   const dialog = useDialog()
   const navigate = useNavigate()
   const client = useQueryClient()
-  const { open, select, selection } = usePlate()
+  const { select, selection } = usePlate()
   const settings = useSettings().data
   const [name, setName] = useState(kitchen.name)
   const update = usePlateMutation((patch: Parameters<typeof api.updateKitchen>[1]) =>
@@ -153,16 +153,8 @@ function Settings({ kitchen }: { kitchen: Kitchen }) {
       {kitchen.is_personal ? (
         <section className="pl-card space-y-3 p-4">
           <p className="text-sm text-muted-foreground">
-            My Kitchen is just for you and can't be shared or left. To plan with others, start a
-            shared kitchen and copy your week into it.
+            My Kitchen is just for you. To plan with others, create a new kitchen.
           </p>
-          <button
-            type="button"
-            className="pl-btn pl-btn-primary w-full"
-            onClick={() => open({ kind: 'planWithSomeone' })}
-          >
-            Plan with someone
-          </button>
         </section>
       ) : (
         <>
@@ -178,10 +170,12 @@ function Settings({ kitchen }: { kitchen: Kitchen }) {
                   <span className="text-xs text-muted-foreground capitalize">{member.role}</span>
                 </li>
               ))}
-              {kitchen.invited.map((id) => (
-                <li key={id} className="flex items-center gap-3 px-4 py-3 opacity-60">
-                  <Avatar userId={id} size={32} />
-                  <span className="min-w-0 flex-1 truncate font-medium">{nameOf(id)}</span>
+              {kitchen.invited.map((email) => (
+                <li key={email} className="flex items-center gap-3 px-4 py-3 opacity-60">
+                  <span className="pl-sunken flex size-8 shrink-0 items-center justify-center rounded-full">
+                    <Mail size={15} aria-hidden="true" />
+                  </span>
+                  <span className="min-w-0 flex-1 truncate font-medium">{email}</span>
                   <span className="text-xs text-muted-foreground">Invited</span>
                 </li>
               ))}

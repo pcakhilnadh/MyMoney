@@ -41,8 +41,8 @@ export interface Kitchen {
   meal_slots: MealSlot[]
   timezone: string
   members: KitchenMember[]
-  /** Host-app users invited in-app who haven't accepted yet. */
-  invited: UserId[]
+  /** Email addresses invited who haven't joined yet. */
+  invited: string[]
   /** Members who went live as shopping (presence; shared kitchens only). */
   shopping_now: UserId[]
   /** When each shopper went live (ISO time), for "Live · 12 min". */

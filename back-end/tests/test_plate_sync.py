@@ -73,7 +73,7 @@ def test_first_pull_has_everything_to_show_myplate_offline(c):
     assert first["full_kitchens"] == ids(first["kitchens"])
     assert first["settings"]["reminder_time"] == "20:00"
     assert first["meals"] == first["grocery_items"] == first["ideas"] == []
-    assert first["invites"] == [] and first["contact_ids"] == []
+    assert first["invites"] == [] and "contact_ids" not in first
 
 
 def test_other_members_changes_arrive_as_deltas_with_deletions(c):

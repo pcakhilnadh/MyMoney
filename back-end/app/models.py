@@ -473,16 +473,22 @@ class PlateKitchenMember(Base):
 
 
 class PlateKitchenInvite(Base):
-    """A pending in-app invite to a host-app user. Removed when accepted or declined."""
+    """A pending invite by email. Whoever signs in with that address sees it, so an invite
+    never reveals whether the address has an account. Removed when accepted or declined."""
 
     __tablename__ = "plate_kitchen_invites"
     __table_args__ = (
         UniqueConstraint("kitchen_id", "invited_user_id", name="uq_plate_kitchen_invites"),
+        UniqueConstraint("kitchen_id", "invited_email", name="uq_plate_kitchen_invites_email"),
     )
 
     id: Mapped[uuid.UUID] = _pk()
     kitchen_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("plate_kitchens.id"), index=True)
-    invited_user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), index=True)
+    # Lower-cased. Invites made before email invites point at a user instead.
+    invited_email: Mapped[str | None] = mapped_column(String(320), index=True)
+    invited_user_id: Mapped[uuid.UUID | None] = mapped_column(
+        ForeignKey("profiles.id"), index=True
+    )
     invited_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"))
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
 
