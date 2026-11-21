@@ -5,6 +5,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Response
 from sqlalchemy import or_, select
 from sqlalchemy.orm import Session, selectinload
 
+from app import memberships
 from app import schemas as s
 from app.access import active_group, require_admin, require_member
 from app.auth import GoogleIdentity, get_current_user, get_identity
@@ -343,7 +344,7 @@ def my_invitations(user: Profile = Depends(get_current_user), db: Session = Depe
     return db.scalars(
         select(ExpenseGroup)
         .join(GroupMember)
-        .where(GroupMember.email == user.email, GroupMember.status == "invited")
+        .where(memberships.invites_for(db, GroupMember, user.email).whereclause)
     ).all()
 
 
@@ -378,26 +379,17 @@ def invite(
     if body.role not in ("admin", "member"):
         raise HTTPException(422, "Invalid role")
     group = active_group(db, group_id)
-    email = body.email.strip().lower()
-    m = db.scalar(
-        select(GroupMember).where(GroupMember.group_id == group_id, GroupMember.email == email)
+    email = memberships.normalize_email(body.email)
+    if not memberships.valid_email(email):
+        raise HTTPException(422, "Check the email address.")
+    member, outcome = memberships.invite(
+        db, GroupMember, {"group_id": group_id}, email, user.id, role=body.role
     )
-    if m is not None and m.status != "inactive":
+    if outcome != "invited":
         raise HTTPException(409, "Already invited or a member")
-    if m is None:
-        m = GroupMember(
-            group_id=group_id, email=email, role=body.role, status="invited", invited_by=user.id
-        )
-        db.add(m)
-    else:
-        m.role = body.role
-        m.status = "invited"
-        m.invited_by = user.id
-        m.joined_at = None
-    db.flush()
     db.commit()
     background.add_task(send_email, email, *invite_email(group.name, user.email))
-    return m
+    return member
 
 
 @router.post("/groups/{group_id}/join", response_model=s.MemberOut)
@@ -407,21 +399,56 @@ def join(
     identity: GoogleIdentity = Depends(get_identity),
     db: Session = Depends(get_db),
 ):
-    m = db.scalar(
-        select(GroupMember).where(
-            GroupMember.group_id == group_id,
-            GroupMember.email == user.email,
-            GroupMember.status == "invited",
+    """Accept the invite sent to my email."""
+    invite = db.scalar(
+        memberships.invites_for(db, GroupMember, user.email).where(
+            GroupMember.group_id == group_id
         )
     )
-    if m is None:
+    if invite is None:
         raise HTTPException(404, "No invitation found")
-    m.user_id = user.id
-    m.display_name = identity.name  # captured at join time only
-    m.status = "active"
-    m.joined_at = datetime.now(timezone.utc)
+    member = _join(db, group_id, user, identity)
     db.commit()
-    return m
+    return member
+
+
+def _join(db: Session, group_id: uuid.UUID, user: Profile, identity: GoogleIdentity) -> GroupMember:
+    return memberships.join(
+        db,
+        GroupMember,
+        {"group_id": group_id},
+        user.id,
+        user.email,
+        display_name=identity.name,  # captured at join time only
+    )
+
+
+@router.post("/groups/{group_id}/invite-code", response_model=s.JoinCodeOut)
+def group_join_code(
+    group_id: uuid.UUID, user: Profile = Depends(get_current_user), db: Session = Depends(get_db)
+):
+    """The group's join code (created once, no expiry). Admins share it, like invites."""
+    require_admin(db, group_id, user)
+    return {"code": memberships.join_code(db, active_group(db, group_id))}
+
+
+@router.post("/groups/join-with-code", response_model=s.GroupOut)
+def join_with_code(
+    body: s.JoinCodeIn,
+    user: Profile = Depends(get_current_user),
+    identity: GoogleIdentity = Depends(get_identity),
+    db: Session = Depends(get_db),
+):
+    """Anyone with the code joins as a member, invited or not; an invite to my email is
+    taken over, and someone who left comes back."""
+    group = memberships.find_by_code(db, ExpenseGroup, body.code)
+    if group is None or group.status != "active":
+        raise HTTPException(404, "That code doesn't match a group. Check it and try again.")
+    member = _join(db, group.id, user, identity)
+    if member.role not in ("owner", "admin"):
+        member.role = "member"
+    db.commit()
+    return group
 
 
 def _group_net(db: Session, group_id: uuid.UUID) -> dict[str, int]:

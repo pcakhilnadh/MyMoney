@@ -233,6 +233,8 @@ class ExpenseGroup(Base):
     created_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), index=True)
     currency: Mapped[str] = mapped_column(String, default="INR")
     status: Mapped[str] = mapped_column(String, default="active")
+    # Join code: 6 case-sensitive letters and digits, no expiry (app/memberships.py).
+    invite_code: Mapped[str | None] = mapped_column(String(16), unique=True)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
     updated_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now, onupdate=_now)
 
@@ -441,56 +443,54 @@ class PlateKitchen(Base):
         DateTime(timezone=True), default=_now, onupdate=_now
     )
 
+    # One table, Money-style: members are the active rows, invites the invited ones.
     members: Mapped[list["PlateKitchenMember"]] = relationship(
+        primaryjoin="and_(PlateKitchen.id == PlateKitchenMember.kitchen_id, "
+        "PlateKitchenMember.status == 'active')",
         back_populates="kitchen",
         cascade="all, delete-orphan",
         order_by="PlateKitchenMember.joined_at",
     )
-    invites: Mapped[list["PlateKitchenInvite"]] = relationship(cascade="all, delete-orphan")
+    invites: Mapped[list["PlateKitchenMember"]] = relationship(
+        primaryjoin="and_(PlateKitchen.id == PlateKitchenMember.kitchen_id, "
+        "PlateKitchenMember.status == 'invited')",
+        cascade="all, delete-orphan",
+        order_by="PlateKitchenMember.created_at",
+        overlaps="members,kitchen",
+    )
 
 
 class PlateKitchenMember(Base):
+    """Someone in a kitchen, or invited to it. Same shape as money `group_members`; see
+    `app/memberships.py`. Rows are removed when someone leaves or declines."""
+
     __tablename__ = "plate_kitchen_members"
     __table_args__ = (
         UniqueConstraint("kitchen_id", "user_id", name="uq_plate_kitchen_members"),
+        UniqueConstraint("kitchen_id", "email", name="uq_plate_kitchen_members_email"),
         _in("role", ("owner", "member"), "ck_plate_kitchen_members_role"),
+        _in("status", ("invited", "active"), "ck_plate_kitchen_members_status"),
     )
 
     id: Mapped[uuid.UUID] = _pk()
     kitchen_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("plate_kitchens.id"), index=True)
-    user_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"), index=True)
+    # Lower-cased. An invite has an email and no user until it's accepted.
+    email: Mapped[str | None] = mapped_column(String(320), index=True)
+    user_id: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("profiles.id"), index=True)
+    status: Mapped[str] = mapped_column(String(10), default="active")
+    invited_by: Mapped[uuid.UUID | None] = mapped_column(ForeignKey("profiles.id"))
     role: Mapped[str] = mapped_column(String(10), default="member")
-    color: Mapped[str] = mapped_column(String(9))
+    color: Mapped[str | None] = mapped_column(String(9))
     # First name and picture from the member's last visit, for when no session has them.
     display_name: Mapped[str | None] = mapped_column(String(60))
     avatar_url: Mapped[str | None] = mapped_column(String)
     last_seen_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
     # Set while the member is live as shopping; presence lapses after an hour.
     shopping_since: Mapped[datetime | None] = mapped_column(DateTime(timezone=True))
-    joined_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
-
-    kitchen: Mapped[PlateKitchen] = relationship(back_populates="members")
-
-
-class PlateKitchenInvite(Base):
-    """A pending invite by email. Whoever signs in with that address sees it, so an invite
-    never reveals whether the address has an account. Removed when accepted or declined."""
-
-    __tablename__ = "plate_kitchen_invites"
-    __table_args__ = (
-        UniqueConstraint("kitchen_id", "invited_user_id", name="uq_plate_kitchen_invites"),
-        UniqueConstraint("kitchen_id", "invited_email", name="uq_plate_kitchen_invites_email"),
-    )
-
-    id: Mapped[uuid.UUID] = _pk()
-    kitchen_id: Mapped[uuid.UUID] = mapped_column(ForeignKey("plate_kitchens.id"), index=True)
-    # Lower-cased. Invites made before email invites point at a user instead.
-    invited_email: Mapped[str | None] = mapped_column(String(320), index=True)
-    invited_user_id: Mapped[uuid.UUID | None] = mapped_column(
-        ForeignKey("profiles.id"), index=True
-    )
-    invited_by: Mapped[uuid.UUID] = mapped_column(ForeignKey("profiles.id"))
+    joined_at: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), default=_now)
     created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=_now)
+
+    kitchen: Mapped[PlateKitchen] = relationship(back_populates="members", overlaps="invites")
 
 
 class PlateMeal(Base):

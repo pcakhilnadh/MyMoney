@@ -14,7 +14,8 @@ Version **1.0.0** · API **v1**
 - Add expenses, income, refunds and transfers; search or create categories as you go.
 - Payment accounts (cash, bank, cards, loans) with balances, due dates and a default account.
 - Monthly budgets by category, spending insights and a ledger.
-- Groups: split expenses with others, see who owes whom, and settle up.
+- Groups: split expenses with others, see who owes whom, and settle up. Invite people by email, or share
+  a 6-character join code.
 - Snap a bill and let AI fill in the transaction for you to review.
 
 **My Food**
@@ -61,6 +62,7 @@ front-end/            React + TypeScript + Vite PWA
   src/pages           screens
 back-end/             FastAPI
   app/versions.py     API versions
+  app/memberships.py  joining a group or kitchen: email invites and join codes
   app/routers_*.py    routes per app; app/sync.py for money/food sync
   migrations/         Alembic database migrations
   tests/              pytest

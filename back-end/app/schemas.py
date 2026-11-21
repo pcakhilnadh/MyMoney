@@ -131,6 +131,14 @@ class InviteIn(BaseModel):
     role: str = "member"
 
 
+class JoinCodeOut(BaseModel):
+    code: str
+
+
+class JoinCodeIn(BaseModel):
+    code: str = Field(min_length=4, max_length=16)
+
+
 class SettlementIn(BaseModel):
     client_id: uuid.UUID | None = None
     group_id: uuid.UUID | None = None

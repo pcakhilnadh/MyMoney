@@ -13,6 +13,7 @@ import {
 } from '@/components/kit'
 import { db } from '@/db/db'
 import { useAction, useGroups, useInvitations } from '@/groups/hooks'
+import { JoinGroupWithCode } from '@/groups/JoinCode'
 import type { Group } from '@/groups/types'
 import { useSync } from '@/sync/SyncProvider'
 import { useCurrency } from '@/money/CurrencyContext'
@@ -123,6 +124,7 @@ export default function Groups() {
               <ListItem title={g.name} subtitle={g.group_type} />
             </Link>
           ))}
+          <JoinGroupWithCode />
         </>
       )}
       {showForm && (

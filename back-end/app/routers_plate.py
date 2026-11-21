@@ -5,9 +5,6 @@ with one member, created the first time MyPlate opens, so solo planning needs no
 Responses match the front end's types in `src/plate/types.ts`.
 """
 
-import re
-import secrets
-import string
 import uuid
 from dataclasses import dataclass
 from datetime import date, datetime, timedelta, timezone
@@ -29,7 +26,6 @@ from app.models import (
     PlateIdea,
     PlateIdeaVote,
     PlateKitchen,
-    PlateKitchenInvite,
     PlateKitchenMember,
     PlateMeal,
     PlateMealAttendee,
@@ -39,6 +35,7 @@ from app.models import (
     PlateSettings,
     Profile,
 )
+from app import memberships
 from app.plate_recipes import AISLES, RecipeImportError, guess_aisle, import_recipe
 
 router = APIRouter(
@@ -65,10 +62,6 @@ FULL_PULL_AFTER = timedelta(days=60)
 PAST_WEEKS = 8
 # Rows committed just before a pull may carry a slightly earlier time than its cursor.
 CURSOR_OVERLAP = timedelta(seconds=5)
-# Join codes: 6 case-sensitive letters and digits, no expiry.
-CODE_ALPHABET = string.ascii_letters + string.digits
-CODE_LENGTH = 6
-EMAIL = re.compile(r"^[^@\s]+@[^@\s]+\.[^@\s]+$")
 
 Slot = Literal["B", "L", "S", "D"]
 SharedType = Literal["couple", "family", "flatmates", "friends"]
@@ -127,14 +120,24 @@ def get_viewer(
     return Viewer(user=user, name=_first_name(identity.name), avatar=identity.picture)
 
 
+def _member_fields(viewer: Viewer, role: str) -> dict:
+    """What a row gets when I become an active member."""
+    return {
+        "role": role,
+        "color": _avatar_color(viewer.id),
+        "display_name": viewer.name,
+        "avatar_url": viewer.avatar,
+        "last_seen_at": _now(),
+    }
+
+
 def _new_member(viewer: Viewer, role: str) -> PlateKitchenMember:
     return PlateKitchenMember(
         user_id=viewer.id,
-        role=role,
-        color=_avatar_color(viewer.id),
-        display_name=viewer.name,
-        avatar_url=viewer.avatar,
-        last_seen_at=_now(),
+        email=memberships.normalize_email(viewer.user.email),
+        status="active",
+        joined_at=_now(),
+        **_member_fields(viewer, role),
     )
 
 
@@ -186,7 +189,9 @@ def _ensure_personal(db: Session, viewer: Viewer) -> PlateKitchen:
 def _membership(db: Session, kitchen_id: uuid.UUID, user_id: uuid.UUID) -> PlateKitchenMember | None:
     return db.scalar(
         select(PlateKitchenMember).where(
-            PlateKitchenMember.kitchen_id == kitchen_id, PlateKitchenMember.user_id == user_id
+            PlateKitchenMember.kitchen_id == kitchen_id,
+            PlateKitchenMember.user_id == user_id,
+            PlateKitchenMember.status == "active",
         )
     )
 
@@ -200,7 +205,9 @@ def _require_kitchen(db: Session, kitchen_id: uuid.UUID, viewer: Viewer) -> Plat
 
 
 def _my_kitchen_ids(viewer: Viewer):
-    return select(PlateKitchenMember.kitchen_id).where(PlateKitchenMember.user_id == viewer.id)
+    return select(PlateKitchenMember.kitchen_id).where(
+        PlateKitchenMember.user_id == viewer.id, PlateKitchenMember.status == "active"
+    )
 
 
 def _require_meal(db: Session, meal_id: uuid.UUID, viewer: Viewer) -> tuple[PlateMeal, PlateKitchen]:
@@ -308,9 +315,12 @@ def me(viewer: Viewer = Depends(get_viewer), db: Session = Depends(get_db)):
 def _people_ids(db: Session, viewer: Viewer) -> set[uuid.UUID]:
     """Everyone MyPlate may show me: people in my kitchens and whoever invited me."""
     kitchen_people = select(PlateKitchenMember.user_id).where(
-        PlateKitchenMember.kitchen_id.in_(_my_kitchen_ids(viewer))
+        PlateKitchenMember.kitchen_id.in_(_my_kitchen_ids(viewer)),
+        PlateKitchenMember.status == "active",
     )
-    inviters = select(PlateKitchenInvite.invited_by).where(_invited_me(viewer))
+    inviters = select(PlateKitchenMember.invited_by).where(
+        memberships.invites_for(db, PlateKitchenMember, viewer.user.email).whereclause
+    )
     return set(db.scalars(kitchen_people)) | set(db.scalars(inviters)) | {viewer.id}
 
 
@@ -347,7 +357,7 @@ def _kitchen_out(kitchen: PlateKitchen, viewer: Viewer) -> dict:
             for m in kitchen.members
         ],
         # Pending email invites; members see who's been asked.
-        "invited": [i.invited_email for i in kitchen.invites if i.invited_email],
+        "invited": [i.email for i in kitchen.invites if i.email],
         "shopping_now": [str(user) for user in shopping],
         "shopping_since": {str(user): since.isoformat() for user, since in shopping.items()},
         "has_new_activity": bool(
@@ -539,18 +549,6 @@ def set_presence(
 # ─── Invites ─────────────────────────────────────────────────────────────────────────────
 
 
-def _email(value: str) -> str:
-    return value.strip().lower()
-
-
-def _invited_me(viewer: Viewer):
-    """Invites addressed to my email, or to me (invites made before email invites)."""
-    return or_(
-        PlateKitchenInvite.invited_email == _email(viewer.user.email),
-        PlateKitchenInvite.invited_user_id == viewer.id,
-    )
-
-
 class InviteEmailsIn(BaseModel):
     emails: list[str] = Field(min_length=1, max_length=10)
 
@@ -563,24 +561,19 @@ def invite_by_email(
     db: Session = Depends(get_db),
 ):
     """Whoever signs in with the address sees the invite on their Kitchens page. The answer
-    is the same whether or not the address has an account."""
+    is the same whether or not the address has an account. Members and repeats are skipped."""
     kitchen = _require_kitchen(db, kitchen_id, viewer)
     if kitchen.is_personal:
         raise HTTPException(422, "My Kitchen is private. Start a shared kitchen.")
-    emails = list(dict.fromkeys(_email(e) for e in body.emails))
-    if any(len(e) > 320 or not EMAIL.match(e) for e in emails):
+    emails = list(dict.fromkeys(memberships.normalize_email(e) for e in body.emails))
+    if not all(memberships.valid_email(e) for e in emails):
         raise HTTPException(422, "Check the email address.")
-    member_emails = set(
-        db.scalars(
-            select(Profile.email).where(Profile.id.in_([m.user_id for m in kitchen.members]))
-        )
-    )
-    members = {_email(e) for e in member_emails}
-    pending = {i.invited_email for i in kitchen.invites}
     for email in emails:
-        if email not in members and email not in pending:
-            kitchen.invites.append(PlateKitchenInvite(invited_email=email, invited_by=viewer.id))
+        memberships.invite(
+            db, PlateKitchenMember, {"kitchen_id": kitchen.id}, email, viewer.id, role="member"
+        )
     db.commit()
+    db.refresh(kitchen)
     return _kitchen_out(kitchen, viewer)
 
 
@@ -591,30 +584,24 @@ def invite_code(
     kitchen = _require_kitchen(db, kitchen_id, viewer)
     if kitchen.is_personal:
         raise HTTPException(422, "My Kitchen is private.")
-    while kitchen.invite_code is None:
-        code = "".join(secrets.choice(CODE_ALPHABET) for _ in range(CODE_LENGTH))
-        if db.scalar(select(PlateKitchen.id).where(PlateKitchen.invite_code == code)) is None:
-            kitchen.invite_code = code
-            db.commit()
-    return {"code": kitchen.invite_code}
+    return {"code": memberships.join_code(db, kitchen)}
 
 
 def _invites_out(db: Session, viewer: Viewer) -> list[dict]:
-    rows = db.execute(
-        select(PlateKitchenInvite, PlateKitchen)
-        .join(PlateKitchen, PlateKitchen.id == PlateKitchenInvite.kitchen_id)
-        .where(_invited_me(viewer))
-        .order_by(PlateKitchenInvite.created_at)
+    invites = db.scalars(
+        memberships.invites_for(db, PlateKitchenMember, viewer.user.email).order_by(
+            PlateKitchenMember.created_at
+        )
     ).all()
     return [
         {
             "id": str(invite.id),
-            "group_id": str(kitchen.id),
-            "kitchen_name": kitchen.name,
-            "kitchen_emoji": kitchen.emoji,
-            "invited_by": str(invite.invited_by),
+            "group_id": str(invite.kitchen_id),
+            "kitchen_name": invite.kitchen.name,
+            "kitchen_emoji": invite.kitchen.emoji,
+            "invited_by": _sid(invite.invited_by),
         }
-        for invite, kitchen in rows
+        for invite in invites
     ]
 
 
@@ -623,23 +610,29 @@ def list_invites(viewer: Viewer = Depends(get_viewer), db: Session = Depends(get
     return _invites_out(db, viewer)
 
 
-def _join(db: Session, kitchen: PlateKitchen, viewer: Viewer) -> None:
-    if not any(m.user_id == viewer.id for m in kitchen.members):
-        kitchen.members.append(_new_member(viewer, "member"))
+def _join(db: Session, kitchen: PlateKitchen, viewer: Viewer) -> PlateKitchen:
+    """Join, taking over an invite to my email if there is one."""
+    already = _membership(db, kitchen.id, viewer.id) is not None
+    memberships.join(
+        db,
+        PlateKitchenMember,
+        {"kitchen_id": kitchen.id},
+        viewer.id,
+        viewer.user.email,
+        **_member_fields(viewer, "member"),
+    )
+    if not already:
         kitchen.last_activity_at = _now()
         kitchen.last_activity_by = viewer.id
-    mine = _email(viewer.user.email)
-    for invite in [
-        i for i in kitchen.invites if i.invited_email == mine or i.invited_user_id == viewer.id
-    ]:
-        kitchen.invites.remove(invite)
+    db.commit()
+    db.refresh(kitchen)
+    return kitchen
 
 
-def _my_invite(db: Session, invite_id: uuid.UUID, viewer: Viewer) -> PlateKitchenInvite:
-    invite = db.get(PlateKitchenInvite, invite_id)
-    if invite is None or not (
-        invite.invited_email == _email(viewer.user.email) or invite.invited_user_id == viewer.id
-    ):
+def _my_invite(db: Session, invite_id: uuid.UUID, viewer: Viewer) -> PlateKitchenMember:
+    invite = db.get(PlateKitchenMember, invite_id)
+    mine = memberships.normalize_email(viewer.user.email)
+    if invite is None or invite.status != "invited" or invite.email != mine:
         raise HTTPException(404, "This invite has expired.")
     return invite
 
@@ -649,10 +642,7 @@ def accept_invite(
     invite_id: uuid.UUID, viewer: Viewer = Depends(get_viewer), db: Session = Depends(get_db)
 ):
     invite = _my_invite(db, invite_id, viewer)
-    kitchen = db.get(PlateKitchen, invite.kitchen_id)
-    _join(db, kitchen, viewer)  # type: ignore[arg-type]
-    db.commit()
-    return _kitchen_out(kitchen, viewer)  # type: ignore[arg-type]
+    return _kitchen_out(_join(db, invite.kitchen, viewer), viewer)
 
 
 @router.post("/invites/{invite_id}/decline", status_code=204)
@@ -672,15 +662,11 @@ class JoinIn(BaseModel):
 def join_with_code(
     body: JoinIn, viewer: Viewer = Depends(get_viewer), db: Session = Depends(get_db)
 ):
-    kitchen = db.scalar(
-        # Case-sensitive: "aB3x9Q" and "AB3X9Q" are different codes.
-        select(PlateKitchen).where(PlateKitchen.invite_code == body.code.strip())
-    )
+    """Anyone with the code can join, invited or not."""
+    kitchen = memberships.find_by_code(db, PlateKitchen, body.code)
     if kitchen is None:
         raise HTTPException(404, "That code doesn't match a kitchen. Check it and try again.")
-    _join(db, kitchen, viewer)
-    db.commit()
-    return _kitchen_out(kitchen, viewer)
+    return _kitchen_out(_join(db, kitchen, viewer), viewer)
 
 
 # ─── Meals ───────────────────────────────────────────────────────────────────────────────
@@ -1390,7 +1376,11 @@ def pull(
     kitchens = _load_kitchens(db, viewer)
     joined = {
         m.kitchen_id: _aware(m.joined_at)
-        for m in db.scalars(select(PlateKitchenMember).where(PlateKitchenMember.user_id == viewer.id))
+        for m in db.scalars(
+            select(PlateKitchenMember).where(
+                PlateKitchenMember.user_id == viewer.id, PlateKitchenMember.status == "active"
+            )
+        )
     }
     full = [k.id for k in kitchens if cutoff is None or joined[k.id] > cutoff]
     delta = [k.id for k in kitchens if k.id not in full]

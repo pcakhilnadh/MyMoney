@@ -14,6 +14,7 @@ import {
 } from '@/components/kit'
 import { db } from '@/db/db'
 import { useAction, useBalances, useGroupTxs, useGroups, useMe, useMembers } from '@/groups/hooks'
+import { GroupJoinCode } from '@/groups/JoinCode'
 import { memberLabel, type Member } from '@/groups/types'
 import { formatMinor } from '@/lib/money'
 import { useSync } from '@/sync/SyncProvider'
@@ -297,6 +298,7 @@ export default function GroupDetail() {
             </p>
           )}
           {invite.error && <p className="text-sm text-destructive">{invite.error.message}</p>}
+          {(myRole === 'owner' || myRole === 'admin') && <GroupJoinCode groupId={groupId} />}
         </div>
       )}
     </div>
