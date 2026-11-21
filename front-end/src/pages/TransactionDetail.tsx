@@ -1,4 +1,6 @@
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { useParams } from 'react-router-dom'
+import { BackButton } from '@/nav/BackButton'
+import { useBack } from '@/nav/useBack'
 import { useDialog } from '@/components/DialogProvider'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { useState } from 'react'
@@ -74,8 +76,6 @@ export default function TransactionDetail() {
   const { confirm } = useDialog()
   const { currency } = useCurrency()
   const { transactionId = '' } = useParams()
-  const navigate = useNavigate()
-  const location = useLocation()
   const [deleteError, setDeleteError] = useState<string | null>(null)
   const [deleting, setDeleting] = useState(false)
   const [editing, setEditing] = useState(false)
@@ -89,33 +89,7 @@ export default function TransactionDetail() {
   const [editAccountId, setEditAccountId] = useState('')
   const [editTransferToAccountId, setEditTransferToAccountId] = useState('')
   const [editError, setEditError] = useState<string | null>(null)
-  const origin =
-    typeof location.state === 'object' &&
-    location.state !== null &&
-    'from' in location.state &&
-    typeof location.state.from === 'string'
-      ? location.state.from
-      : '/money/transactions'
-  // Opened from a list in the app, so going back returns to it as it was.
-  const fromApp =
-    typeof location.state === 'object' && location.state !== null && 'from' in location.state
-  const returnTo =
-    origin.startsWith('/money/accounts/') ||
-    origin.startsWith('/money/budgets/categories/') ||
-    origin.startsWith('/money/transactions')
-      ? origin
-      : '/money/transactions'
-  const returnLabel = returnTo.startsWith('/money/transactions')
-    ? '← Transactions'
-    : returnTo.startsWith('/money/budgets/categories/')
-      ? '← Category'
-      : '← Account'
-  /** Back the way you came, so the list keeps its month, filter and place. */
-  const goBack = (event?: React.MouseEvent) => {
-    event?.preventDefault()
-    if (fromApp && window.history.length > 1) navigate(-1)
-    else navigate(returnTo, { state: { restore: true } })
-  }
+  const back = useBack('/money/transactions')
   const transaction = useLiveQuery(() => transactionsRepo.get(transactionId), [transactionId])
   const categories = useLiveQuery(() => db.categories.toArray(), [])
   const accounts = useLiveQuery(() => db.accounts.toArray(), [])
@@ -124,9 +98,7 @@ export default function TransactionDetail() {
   if (transaction === undefined)
     return (
       <div className="space-y-4">
-        <Link to={returnTo} onClick={goBack} className="text-sm text-primary">
-          {returnLabel}
-        </Link>
+        <BackButton fallback="/money/transactions" />
         <p className="text-muted-foreground">Loading transaction…</p>
       </div>
     )
@@ -134,9 +106,7 @@ export default function TransactionDetail() {
   if (!transaction)
     return (
       <div className="space-y-4">
-        <Link to={returnTo} onClick={goBack} className="text-sm text-primary">
-          {returnLabel}
-        </Link>
+        <BackButton fallback="/money/transactions" />
         <p className="text-muted-foreground">Transaction not found.</p>
       </div>
     )
@@ -329,8 +299,7 @@ export default function TransactionDetail() {
     setDeleteError(null)
     try {
       await transactionsRepo.remove(selectedTransaction.id)
-      if (fromApp && window.history.length > 1) navigate(-1)
-      else navigate(returnTo, { replace: true })
+      back.go()
     } catch (error) {
       setDeleteError(error instanceof Error ? error.message : 'Unable to delete transaction.')
       setDeleting(false)
@@ -339,9 +308,7 @@ export default function TransactionDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to={returnTo} onClick={goBack} className="text-sm text-primary">
-        {returnLabel}
-      </Link>
+      <BackButton fallback="/money/transactions" />
       <PageHeader title={selectedTransaction.title} subtitle={displayKind.label} />
       <Card className="space-y-5">
         <div className="flex items-center gap-3">

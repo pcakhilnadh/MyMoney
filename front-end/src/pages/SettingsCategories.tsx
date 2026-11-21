@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useDialog } from '@/components/DialogProvider'
 import { useLiveQuery } from 'dexie-react-hooks'
-import { ArrowLeft, Eye, EyeOff, Trash2 } from 'lucide-react'
+import { Eye, EyeOff, Trash2 } from 'lucide-react'
 import {
   AddIconButton,
   Button,
@@ -12,6 +12,7 @@ import {
 } from '@/components/kit'
 import { categoriesRepo } from '@/db/repos'
 import type { CategoryType } from '@/db/types'
+import { BackButton } from '@/nav/BackButton'
 
 const CATEGORY_TYPES: { value: CategoryType; label: string }[] = [
   { value: 'expense', label: 'Expense' },
@@ -70,17 +71,12 @@ export default function SettingsCategories() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         {showForm ? (
-          <button
-            type="button"
+          <BackButton
             onClick={() => {
               setName('')
               setShowForm(false)
             }}
-            className="flex items-center gap-1 text-sm font-medium text-muted-foreground"
-          >
-            <ArrowLeft size={18} />
-            Back
-          </button>
+          />
         ) : (
           <PageHeader title="Categories" />
         )}

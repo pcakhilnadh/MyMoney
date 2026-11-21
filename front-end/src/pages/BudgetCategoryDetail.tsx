@@ -23,6 +23,7 @@ import { hideCategory, showCategory } from '@/lib/hide-category'
 import { formatMinor } from '@/lib/money'
 import { currentMonth } from '@/lib/summary'
 import { useCurrency } from '@/money/CurrencyContext'
+import { BackButton } from '@/nav/BackButton'
 
 const MONTH_LABELS = [
   'Jan',
@@ -54,9 +55,7 @@ export default function BudgetCategoryDetail() {
   if (category === undefined || budgets === undefined || transactions === undefined)
     return (
       <div className="space-y-4">
-        <Link to="/money/budgets" className="text-sm text-primary">
-          ← Budgets
-        </Link>
+        <BackButton fallback="/money/budgets" />
         <p className="text-muted-foreground">Loading category…</p>
       </div>
     )
@@ -72,9 +71,7 @@ export default function BudgetCategoryDetail() {
   if (!categoryName)
     return (
       <div className="space-y-4">
-        <Link to="/money/budgets" className="text-sm text-primary">
-          ← Budgets
-        </Link>
+        <BackButton fallback="/money/budgets" />
         <p className="text-muted-foreground">Category not found.</p>
       </div>
     )
@@ -169,9 +166,7 @@ export default function BudgetCategoryDetail() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between gap-3">
-        <Link to="/money/budgets" className="text-sm text-primary">
-          ← Budgets
-        </Link>
+        <BackButton fallback="/money/budgets" />
         {category && (
           <Button
             size="sm"

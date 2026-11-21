@@ -6,7 +6,7 @@ A personal tracker you install on your phone, with three apps in one:
 - **My Food**: a food diary with a daily calorie goal and insights.
 - **MyPlate**: meal planning with the people you cook for.
 
-Version **1.0.2** · API **v1**
+Version **1.1.0** · API **v1**
 
 ## Core features
 
@@ -141,6 +141,15 @@ The browser tests use fake sign-ins against a test-only server; they never touch
 
 
 ## Changelog
+
+### 1.1.0 (2026-11-21)
+
+- **One back button across the apps:** every screen's back button now goes to the screen you
+  actually came from and names it ("Transactions", "Account", "Kitchens"…). Coming back lands on
+  the row, card or link you opened, in the same place on screen, with a brief highlight. The
+  ledger keeps its month and filter. A screen opened directly (a shared link, a new tab) goes back
+  to its usual parent.
+- New screens open at the top instead of keeping the previous screen's scroll.
 
 ### 1.0.2 (2026-11-22)
 

@@ -1,7 +1,7 @@
 import { useEffect, useRef, useState, type FormEvent } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowLeft, Send } from 'lucide-react'
+import { Send } from 'lucide-react'
 import { useAction, useApi } from '@/groups/hooks'
+import { BackButton } from '@/nav/BackButton'
 
 const MAX_LENGTH = 500
 
@@ -54,14 +54,8 @@ export default function Feedback() {
 
   return (
     <div className="space-y-4 pb-60">
+      <BackButton fallback="/personal" />
       <div className="flex items-center gap-3">
-        <Link
-          to="/personal"
-          aria-label="Back to Personal"
-          className="rounded-lg p-2 text-muted-foreground hover:bg-muted/50"
-        >
-          <ArrowLeft size={18} aria-hidden="true" />
-        </Link>
         <div>
           <h1 className="text-lg font-semibold">Testimony &amp; feedback</h1>
           <p className="text-xs text-muted-foreground">

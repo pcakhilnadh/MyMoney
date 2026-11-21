@@ -19,6 +19,7 @@ import { memberLabel, type Member } from '@/groups/types'
 import { formatMinor } from '@/lib/money'
 import { useSync } from '@/sync/SyncProvider'
 import { useCurrency } from '@/money/CurrencyContext'
+import { BackButton } from '@/nav/BackButton'
 
 const TABS = ['Expenses', 'Balances', 'Members'] as const
 
@@ -113,9 +114,7 @@ export default function GroupDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to="/money/groups" className="text-sm text-primary">
-        ← Groups
-      </Link>
+      <BackButton fallback="/money/groups" />
       <PageHeader title={group?.name ?? 'Group'} />
       {myRole === 'owner' && (
         <Button

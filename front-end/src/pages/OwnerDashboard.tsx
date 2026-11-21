@@ -1,6 +1,5 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowLeft, Search } from 'lucide-react'
+import { Search } from 'lucide-react'
 import { useDialog } from '@/components/DialogProvider'
 import { Card, SectionTitle } from '@/components/kit'
 import { useAction, useApi } from '@/groups/hooks'
@@ -12,6 +11,7 @@ import {
   type Feature,
   type Plan,
 } from '@/account/membership'
+import { BackButton } from '@/nav/BackButton'
 
 interface AdminMember {
   id: string
@@ -58,14 +58,8 @@ export default function OwnerDashboard() {
 
   return (
     <div className="space-y-5 pb-10">
+      <BackButton fallback="/personal" />
       <div className="flex items-center gap-3">
-        <Link
-          to="/personal"
-          aria-label="Back to Personal"
-          className="rounded-lg p-2 text-muted-foreground hover:bg-muted/50"
-        >
-          <ArrowLeft size={18} aria-hidden="true" />
-        </Link>
         <div>
           <h1 className="text-lg font-semibold">Owner dashboard</h1>
           <p className="text-xs text-muted-foreground">Manage members and what they can use.</p>

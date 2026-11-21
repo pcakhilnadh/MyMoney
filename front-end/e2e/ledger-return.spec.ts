@@ -89,7 +89,7 @@ test('back from a transaction returns to its month and row, not the top of this 
   await expect(page).toHaveURL(/\/money\/transactions\/tx-6$/)
 
   // The back link keeps the month and brings the row back into view.
-  await page.getByRole('link', { name: '← Transactions' }).click()
+  await page.getByRole('link', { name: 'Back to Transactions' }).click()
   await expect(page).toHaveURL(new RegExp(`/money/transactions\\?month=${month}$`))
   await expect(row).toBeInViewport()
   await expect(row).toBeFocused()
@@ -99,6 +99,48 @@ test('back from a transaction returns to its month and row, not the top of this 
   await page.goBack()
   await expect(page).toHaveURL(new RegExp(`month=${month}`))
   await expect(row).toBeInViewport()
+})
+
+test('a transaction opened directly goes back to the ledger, opened at the top', async ({
+  page,
+}) => {
+  await page.route('**/auth/refresh', (route) => route.abort())
+  await page.route('**/auth/login', (route) => route.abort())
+  await fakeSignIn(page)
+  await page.goto('/money/transactions')
+  await seedLedger(page, previousMonth(), 3)
+
+  // A fresh tab straight onto a transaction: nothing to go back to, so the ledger it's in.
+  await page.goto('/money/transactions/tx-1')
+  await page.evaluate(() => sessionStorage.clear())
+  await page.reload()
+  await page.getByRole('link', { name: 'Back to Transactions' }).click()
+  await expect(page).toHaveURL(/\/money\/transactions$/)
+})
+
+test('opening a screen starts at its top; coming back lands where you were', async ({ page }) => {
+  await page.route('**/auth/refresh', (route) => route.abort())
+  await page.route('**/auth/login', (route) => route.abort())
+  await page.setViewportSize({ width: 390, height: 844 })
+  await fakeSignIn(page)
+  await page.goto('/money/transactions')
+  const month = previousMonth()
+  await seedLedger(page, month, 40)
+  await page.goto(`/money/transactions?month=${month}`)
+
+  const row = page.getByRole('button', { name: /Purchase 3,/ })
+  await row.scrollIntoViewIfNeeded()
+  const before = await row.evaluate((el) => Math.round(el.getBoundingClientRect().top))
+  await row.click()
+  await expect(page).toHaveURL(/\/money\/transactions\/tx-2$/)
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(0)
+
+  await page.getByRole('link', { name: 'Back to Transactions' }).click()
+  await expect(row).toBeFocused()
+  // Same place on screen as when it was tapped.
+  await expect
+    .poll(() => row.evaluate((el) => Math.round(el.getBoundingClientRect().top)))
+    .toBe(before)
 })
 
 test('Set budget opens the budget view when no monthly budget is set', async ({ page }) => {

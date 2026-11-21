@@ -93,7 +93,7 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await page.getByLabel('Merchant').fill('Amazon')
   await page.getByRole('button', { name: 'Save changes' }).click()
 
-  await page.getByRole('link', { name: '← Transactions' }).click()
+  await page.getByRole('link', { name: 'Back to Transactions' }).click()
   await page.getByRole('button', { name: 'Add transaction' }).click()
   await expect(page).toHaveURL(/\/money\/expenses\/new/)
   await page.getByLabel('Merchant').click()
@@ -154,7 +154,7 @@ test('add, list, budget, delete — works offline', async ({ page, context }) =>
   await expect(page.getByText('₹250.50').first()).toBeVisible()
   await page.getByRole('button', { name: /Expense: Lunch/ }).click()
   await expect(page.getByText('Amazon')).toBeVisible()
-  await page.getByRole('link', { name: '← Account' }).click()
+  await page.getByRole('link', { name: 'Back to Account' }).click()
 
   await page.getByRole('link', { name: 'Ledger' }).click()
   await page.getByRole('button', { name: /Expense: Lunch/ }).click()
@@ -214,7 +214,7 @@ test('capture income and transfers from the add-transaction flow', async ({ page
   await expect(page.getByRole('option')).toHaveText(['Checking', 'Savings', 'Visa'])
   await page.keyboard.press('Escape')
   await page.getByRole('button', { name: 'Cancel' }).click()
-  await page.getByRole('link', { name: '← Transactions' }).click()
+  await page.getByRole('link', { name: 'Back to Transactions' }).click()
 
   await page.getByRole('link', { name: 'Add expense' }).click()
   await page.getByRole('button', { name: 'Refund', exact: true }).click()

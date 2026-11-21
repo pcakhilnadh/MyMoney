@@ -1,6 +1,5 @@
 import { useState } from 'react'
 import { Link, useLocation } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
 import {
   AddIconButton,
   Button,
@@ -17,6 +16,7 @@ import { JoinGroupWithCode } from '@/groups/JoinCode'
 import type { Group } from '@/groups/types'
 import { useSync } from '@/sync/SyncProvider'
 import { useCurrency } from '@/money/CurrencyContext'
+import { BackButton } from '@/nav/BackButton'
 
 const TYPES = ['family', 'trip', 'roommates', 'friends', 'other']
 
@@ -64,18 +64,13 @@ export default function Groups() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         {showForm ? (
-          <button
-            type="button"
+          <BackButton
             onClick={() => {
               setName('')
               setType('friends')
               setShowForm(false)
             }}
-            className="flex items-center gap-1 text-sm font-medium text-muted-foreground"
-          >
-            <ArrowLeft size={18} />
-            Back
-          </button>
+          />
         ) : (
           <PageHeader title="Groups" />
         )}

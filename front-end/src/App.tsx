@@ -1,5 +1,6 @@
 import type { ReactNode } from 'react'
 import { Share, X } from 'lucide-react'
+import { NavMemory } from '@/nav/NavMemory'
 import { BrowserRouter, Navigate, Outlet, Route, Routes, useLocation } from 'react-router-dom'
 import { useAuth } from './auth/AuthContext'
 import AddExpense from './pages/AddExpense'
@@ -117,6 +118,7 @@ function LegacyMoneyRedirect() {
 export default function App() {
   return (
     <BrowserRouter>
+      <NavMemory />
       <CurrencyProvider>
         <InstallPrompt />
         <Routes>

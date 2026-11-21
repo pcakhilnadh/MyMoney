@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
-import { Link, useNavigate, useParams } from 'react-router-dom'
-import { ArrowLeft, Mail } from 'lucide-react'
+import { useNavigate, useParams } from 'react-router-dom'
+import { Mail } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import { useDialog } from '@/components/DialogProvider'
 import * as api from '@/plate/api'
@@ -11,6 +11,7 @@ import { KITCHEN_EMOJI, KITCHEN_TYPE_LABEL, SLOT_LABEL } from '@/plate/logic'
 import { InvitePanel, KitchenTile, SlotPicker, TypePicker } from '@/plate/sheets/KitchenSheets'
 import type { Kitchen } from '@/plate/types'
 import { Avatar, EmojiPicker, ErrorLine, FieldLabel, Switch } from '@/plate/ui'
+import { BackButton } from '@/nav/BackButton'
 
 export default function PlateKitchenSettings() {
   const { kitchenId } = useParams()
@@ -28,14 +29,7 @@ export default function PlateKitchenSettings() {
 }
 
 function BackLink() {
-  return (
-    <Link
-      to="/plate/kitchens"
-      className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
-    >
-      <ArrowLeft size={17} /> Kitchens
-    </Link>
-  )
+  return <BackButton fallback="/plate/kitchens" />
 }
 
 function Settings({ kitchen }: { kitchen: Kitchen }) {

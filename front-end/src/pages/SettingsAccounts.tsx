@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, ChevronDown, ChevronsUpDown, Eye, EyeOff, Search } from 'lucide-react'
+import { ChevronDown, ChevronsUpDown, Eye, EyeOff, Search } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import {
   Button,
@@ -16,6 +16,7 @@ import type { AccountType } from '@/db/types'
 import { summarizeAccount } from '@/lib/accounts'
 import { formatMinor } from '@/lib/money'
 import { useCurrency } from '@/money/CurrencyContext'
+import { BackButton } from '@/nav/BackButton'
 
 const TYPES: AccountType[] = [
   'bank',
@@ -145,17 +146,12 @@ export default function SettingsAccounts() {
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         {showForm ? (
-          <button
-            type="button"
+          <BackButton
             onClick={() => {
               resetForm()
               setShowForm(false)
             }}
-            className="flex items-center gap-1 text-sm font-medium text-muted-foreground"
-          >
-            <ArrowLeft size={16} />
-            Back
-          </button>
+          />
         ) : (
           <PageHeader
             title="Payment Accounts"

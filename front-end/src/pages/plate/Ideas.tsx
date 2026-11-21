@@ -1,5 +1,4 @@
-import { Link } from 'react-router-dom'
-import { ArrowLeft, ExternalLink, ThumbsUp, Trash2 } from 'lucide-react'
+import { ExternalLink, ThumbsUp, Trash2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import * as api from '@/plate/api'
 import { usePlate } from '@/plate/context'
@@ -7,6 +6,7 @@ import { ContextLine, KitchenTitle } from '@/plate/components'
 import { useIdeas, useKitchens, useMe, usePlateMutation } from '@/plate/hooks'
 import { inSelection, sortIdeas } from '@/plate/logic'
 import { AvatarStack, ErrorLine, KitchenChip } from '@/plate/ui'
+import { BackButton } from '@/nav/BackButton'
 
 export default function PlateIdeas() {
   const me = useMe()
@@ -23,12 +23,7 @@ export default function PlateIdeas() {
 
   return (
     <div className="space-y-4">
-      <Link
-        to="/plate/plan"
-        className="inline-flex items-center gap-1 text-sm font-medium text-muted-foreground hover:text-foreground"
-      >
-        <ArrowLeft size={17} /> Plan
-      </Link>
+      <BackButton fallback="/plate/plan" />
       <div className="space-y-1">
         <KitchenTitle title="Cravings" mode="plan" />
         <ContextLine

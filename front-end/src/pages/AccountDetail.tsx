@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useDialog } from '@/components/DialogProvider'
-import { Link, useNavigate, useParams } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Archive, ArrowLeft, Pencil, RotateCcw, Trash2 } from 'lucide-react'
 import {
@@ -18,6 +18,7 @@ import type { AccountType } from '@/db/types'
 import { interestPaid, summarizeAccount } from '@/lib/accounts'
 import { formatMinor } from '@/lib/money'
 import { useCurrency } from '@/money/CurrencyContext'
+import { BackButton } from '@/nav/BackButton'
 
 const ACCOUNT_TYPE_LABELS: Record<string, string> = {
   bank: 'Bank',
@@ -73,9 +74,7 @@ export default function AccountDetail() {
   if (account === undefined)
     return (
       <div className="space-y-4">
-        <Link to="/money/settings/accounts" className="text-sm text-primary">
-          ← Payment Account
-        </Link>
+        <BackButton fallback="/money/settings/accounts" />
         <p className="text-muted-foreground">Loading account…</p>
       </div>
     )
@@ -83,9 +82,7 @@ export default function AccountDetail() {
   if (!account)
     return (
       <div className="space-y-4">
-        <Link to="/money/settings/accounts" className="text-sm text-primary">
-          ← Payment Account
-        </Link>
+        <BackButton fallback="/money/settings/accounts" />
         <p className="text-muted-foreground">Account not found.</p>
       </div>
     )
@@ -187,9 +184,7 @@ export default function AccountDetail() {
 
   return (
     <div className="space-y-4">
-      <Link to="/money/settings/accounts" className="text-sm text-primary">
-        ← Payment Account
-      </Link>
+      <BackButton fallback="/money/settings/accounts" />
       <div className="flex items-start justify-between gap-3">
         <PageHeader
           title={account.name}

@@ -1,5 +1,5 @@
 import { useEffect, useRef, useState } from 'react'
-import { ArrowLeft, Loader2, Sparkles, X } from 'lucide-react'
+import { Loader2, Sparkles, X } from 'lucide-react'
 import { api } from '@/auth/api'
 import { useAuth } from '@/auth/AuthContext'
 import { Button } from '@/components/kit'
@@ -8,6 +8,7 @@ import type { Category, FoodType, Match } from './catalog'
 import { MealPortionCard } from './MealPortionCard'
 import { SaveMeal } from './SaveMeal'
 import { units, type Portion, type Unit } from './portions'
+import { BackButton } from '@/nav/BackButton'
 
 export interface ScanItem {
   name: string
@@ -170,15 +171,7 @@ export default function FoodReviewScan({
           </span>
         </p>
       )}
-      {step > 0 && (
-        <button
-          type="button"
-          onClick={() => setStep(step === 2 ? 1 : 0)}
-          className="flex items-center gap-1 text-sm text-primary"
-        >
-          <ArrowLeft size={16} /> Back
-        </button>
-      )}
+      {step > 0 && <BackButton onClick={() => setStep(step === 2 ? 1 : 0)} />}
       {items.length === 0 && (
         <p className="surface rounded-2xl p-4 text-sm text-muted-foreground">
           No items remain in this scan.

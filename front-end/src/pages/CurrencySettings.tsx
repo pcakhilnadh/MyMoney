@@ -1,9 +1,8 @@
 import { useState } from 'react'
-import { Link } from 'react-router-dom'
-import { ArrowLeft } from 'lucide-react'
 import { Card, PageHeader, Select } from '@/components/kit'
 import { CURRENCIES, currencySymbol, isCurrencyCode } from '@/lib/currency'
 import { useCurrency } from '@/money/CurrencyContext'
+import { BackButton } from '@/nav/BackButton'
 
 export default function CurrencySettings() {
   const { currency, loading, loadError, saveCurrency } = useCurrency()
@@ -25,13 +24,7 @@ export default function CurrencySettings() {
 
   return (
     <div className="space-y-4">
-      <Link
-        to="/money/settings"
-        className="flex items-center gap-1 text-sm font-medium text-muted-foreground"
-      >
-        <ArrowLeft size={18} />
-        My Money Settings
-      </Link>
+      <BackButton fallback="/money/settings" />
       <PageHeader title="Currency" subtitle="Choose your preferred currency" />
       <Card className="space-y-4">
         <label className="block space-y-1.5">

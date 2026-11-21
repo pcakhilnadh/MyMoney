@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { ArrowLeft, ChevronDown, Eraser, Eye, EyeOff, Pencil, Trash2 } from 'lucide-react'
+import { ChevronDown, Eraser, Eye, EyeOff, Pencil, Trash2 } from 'lucide-react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { Link } from 'react-router-dom'
 import {
@@ -30,6 +30,7 @@ import {
 import { findCategoryBudget, hideCategory, showCategory } from '@/lib/hide-category'
 import { currentMonth } from '@/lib/summary'
 import { useCurrency } from '@/money/CurrencyContext'
+import { BackButton } from '@/nav/BackButton'
 
 type BudgetView = 'budget' | 'allocate'
 const VIEW_KEY = 'budgets-view'
@@ -431,18 +432,7 @@ export default function Budgets() {
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        {showForm ? (
-          <button
-            type="button"
-            onClick={resetForm}
-            className="flex items-center gap-1 text-sm font-medium text-muted-foreground"
-          >
-            <ArrowLeft size={18} />
-            Back
-          </button>
-        ) : (
-          <PageHeader title="Budgets" />
-        )}
+        {showForm ? <BackButton onClick={resetForm} /> : <PageHeader title="Budgets" />}
         {showForm ? (
           <span className="text-sm font-medium text-muted-foreground">Monthly budget</span>
         ) : null}
