@@ -6,7 +6,7 @@ A personal tracker you install on your phone, with three apps in one:
 - **My Food**: a food diary with a daily calorie goal and insights.
 - **MyPlate**: meal planning with the people you cook for.
 
-Version **1.1.0** · API **v1**
+Version **1.2.0** · API **v1**
 
 ## Core features
 
@@ -141,6 +141,12 @@ The browser tests use fake sign-ins against a test-only server; they never touch
 
 
 ## Changelog
+
+### 1.2.0 (2026-11-21)
+
+- **App version on the profile:** a small line at the bottom of Personal shows this device's build
+  (version, build date, commit). When a newer version is deployed it also shows the server's version
+  and a "Reload to update" link. The server reports its build at `/api/version`.
 
 ### 1.1.0 (2026-11-21)
 

@@ -1,3 +1,5 @@
+import os
+
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
@@ -8,7 +10,7 @@ from app.config import settings
 from app.db import engine
 from app.versions import CURRENT, VERSIONS
 
-__version__ = "1.1.0"
+__version__ = "1.2.0"
 
 app = FastAPI(title="MyTracker API", version=__version__)
 app.add_middleware(
@@ -36,3 +38,16 @@ def health() -> dict[str, str] | JSONResponse:
             content={"status": "unhealthy", "database": "disconnected"},
         )
     return {"status": "ok", "database": "connected", "version": __version__, "api": CURRENT}
+
+
+@app.get("/api/version")
+def version() -> dict[str, str | list[str] | None]:
+    """What's deployed, for the app's profile to compare with its own build. Unversioned so
+    every installed app can read it; no database call."""
+    commit = os.environ.get("VERCEL_GIT_COMMIT_SHA") or os.environ.get("GIT_COMMIT") or ""
+    return {
+        "version": __version__,
+        "api": CURRENT,
+        "apis": list(VERSIONS),
+        "commit": commit[:7] or None,
+    }

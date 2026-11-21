@@ -16,6 +16,7 @@ import { useAuth } from '@/auth/AuthContext'
 import { PLAN_LABEL, ROLE_LABEL } from '@/account/membership'
 import { Button, Card, SectionTitle } from '@/components/kit'
 import { useMe } from '@/groups/hooks'
+import { AppVersion } from '@/components/AppVersion'
 import { PendingChangesBanner } from '@/sync/PendingChangesBanner'
 import { cachedAuthSessions, useSync } from '@/sync/SyncProvider'
 
@@ -326,6 +327,8 @@ export default function Personal() {
           )}
         </Card>
       </section>
+
+      <AppVersion />
 
       <div className="personal-fixed-action">
         <Button variant="outline" className="cyber-signout w-full" onClick={() => void signOut()}>

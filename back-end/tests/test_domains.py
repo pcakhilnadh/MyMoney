@@ -4,7 +4,9 @@ from tests.conftest import H
 
 def test_application_routes_use_api_prefix_only(client):
     paths = client.get("/openapi.json").json()["paths"]
-    assert all(path == "/health" or path.startswith("/api/v1/") for path in paths)
+    # /health and /api/version are unversioned on purpose: every installed app reads them.
+    unversioned = {"/health", "/api/version"}
+    assert all(path in unversioned or path.startswith("/api/v1/") for path in paths)
     # Unversioned and retired routes are gone, including the combined sync.
     for path in ("/auth/me", "/api/auth/me", "/api/v1/sync/pull", "/api/v1/sync/push",
                  "/api/v1/plate/presence", "/money/accounts", "/food/catalog"):
