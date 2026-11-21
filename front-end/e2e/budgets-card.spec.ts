@@ -84,4 +84,9 @@ test('the Budgets card lists every category spent in without a budget', async ({
   const card = page.getByRole('link', { name: 'Open budget breakdown' })
   for (const name of CATEGORIES)
     await expect(card.getByRole('group', { name: `${name} (test), no budget` })).toBeVisible()
+  // Most spent first.
+  const order = await card
+    .getByRole('group')
+    .evaluateAll((rows) => rows.map((row) => row.getAttribute('aria-label')))
+  expect(order).toEqual(CATEGORIES.map((name) => `${name} (test), no budget`))
 })

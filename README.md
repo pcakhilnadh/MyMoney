@@ -144,8 +144,9 @@ The browser tests use fake sign-ins against a test-only server; they never touch
 
 ### 1.0.2 (2026-11-22)
 
-- **Budgets card (My Money home):** lists every category you've spent in without a budget, each
-  with its own "Set budget", instead of only the first one.
+- **Budgets card (My Money home):** shows the month's top five categories by spend, most first,
+  whether or not they have a budget. Categories without one get their own "Set budget"; before,
+  only the first of them was shown.
 
 ### 1.0.1 (2026-11-22)
 

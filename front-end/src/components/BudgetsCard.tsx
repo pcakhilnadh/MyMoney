@@ -29,10 +29,6 @@ export function BudgetsCard({
   rows: CategoryBudgetRow[]
   currency: CurrencyCode
 }) {
-  const budgeted = rows.filter((r) => r.ratio !== null)
-  // Every category spent in without a budget, not just the first one.
-  const unbudgeted = rows.filter((r) => r.ratio === null)
-
   const navigate = useNavigate()
   const stop = (e: MouseEvent) => e.stopPropagation()
 
@@ -68,8 +64,30 @@ export function BudgetsCard({
           <p className="text-xs text-muted-foreground">Nothing spent this month yet.</p>
         )}
 
-        {budgeted.map((row) => {
-          const ratio = row.ratio ?? 0
+        {/* The month's top categories by spend, most first, budgeted or not. */}
+        {rows.map((row) => {
+          if (row.ratio === null)
+            return (
+              <div
+                key={row.categoryId ?? 'none'}
+                role="group"
+                aria-label={`${row.name}, no budget`}
+                className="flex items-center justify-between gap-3"
+              >
+                <p className="min-w-0 truncate text-xs text-muted-foreground">
+                  <span className="text-sm font-semibold text-foreground">{row.name}</span>{' '}
+                  <span className="money">{money(row.spent, currency)}</span> · no budget
+                </p>
+                <Link
+                  to="/money/budgets?view=budget"
+                  onClick={stop}
+                  className="shrink-0 rounded-xl bg-white/10 px-3 py-1.5 text-xs font-semibold"
+                >
+                  Set budget
+                </Link>
+              </div>
+            )
+          const ratio = row.ratio
           const color = tone(ratio)
           const pct = Math.round(ratio * 100)
           return (
@@ -116,27 +134,6 @@ export function BudgetsCard({
             </div>
           )
         })}
-
-        {unbudgeted.map((row) => (
-          <div
-            key={row.categoryId ?? 'none'}
-            role="group"
-            aria-label={`${row.name}, no budget`}
-            className="flex items-center justify-between gap-3"
-          >
-            <p className="min-w-0 truncate text-xs text-muted-foreground">
-              <span className="text-sm font-semibold text-foreground">{row.name}</span>{' '}
-              <span className="money">{money(row.spent, currency)}</span> · no budget
-            </p>
-            <Link
-              to="/money/budgets?view=budget"
-              onClick={stop}
-              className="shrink-0 rounded-xl bg-white/10 px-3 py-1.5 text-xs font-semibold"
-            >
-              Set budget
-            </Link>
-          </div>
-        ))}
       </Card>
     </div>
   )
