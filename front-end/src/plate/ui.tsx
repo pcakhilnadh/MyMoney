@@ -86,7 +86,8 @@ export function Sheet({
         )}
         <div
           className={cn(
-            'min-h-0 flex-1 space-y-5 overflow-y-auto px-5 pb-5',
+            // Scrolls by touch or wheel; no scrollbar is drawn down the side.
+            'min-h-0 flex-1 [scrollbar-width:none] space-y-5 overflow-y-auto px-5 pb-5 [&::-webkit-scrollbar]:hidden',
             bare && 'space-y-3 pt-4',
           )}
         >
