@@ -99,6 +99,24 @@ function PrepChecklist({
   const progress = prepProgress(meals)
   const kitchenOf = (id: string) => kitchens.find((k) => k.id === id)
 
+  if (progress.total === 0) {
+    // Nothing to do: a quiet, greyed-out line instead of a full card.
+    return (
+      <section
+        aria-labelledby="prep-title"
+        className="pl-card flex items-center justify-between gap-2 px-4 py-3 opacity-60"
+      >
+        <h2
+          id="prep-title"
+          className="text-xs font-bold tracking-[0.08em] text-muted-foreground uppercase"
+        >
+          Pre-prep checklist
+        </h2>
+        <p className="text-[13px] text-muted-foreground">Nothing to prep for tomorrow</p>
+      </section>
+    )
+  }
+
   return (
     <section aria-labelledby="prep-title" className="pl-card-accent p-4">
       <div className="flex items-center justify-between gap-2">
@@ -108,87 +126,77 @@ function PrepChecklist({
         >
           Pre-prep checklist
         </h2>
-        {progress.total > 0 && (
-          <span className="rounded-full bg-black/30 px-2.5 py-0.5 text-xs font-semibold tabular-nums">
-            {progress.done}/{progress.total} done
-          </span>
-        )}
+        <span className="rounded-full bg-black/30 px-2.5 py-0.5 text-xs font-semibold tabular-nums">
+          {progress.done}/{progress.total} done
+        </span>
       </div>
       <p className="mt-1 text-[13px] text-muted-foreground">
-        For tomorrow, {formatDay(tomorrow, { weekday: 'short', day: 'numeric' })} · from every
-        kitchen you cook in
+        Tomorrow, {formatDay(tomorrow, { weekday: 'short', day: 'numeric' })}
       </p>
 
-      {progress.total > 0 ? (
-        <>
+      <>
+        <div
+          role="progressbar"
+          aria-label="Prep done"
+          aria-valuemin={0}
+          aria-valuemax={progress.total}
+          aria-valuenow={progress.done}
+          className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/30"
+        >
           <div
-            role="progressbar"
-            aria-label="Prep done"
-            aria-valuemin={0}
-            aria-valuemax={progress.total}
-            aria-valuenow={progress.done}
-            className="mt-3 h-1.5 overflow-hidden rounded-full bg-black/30"
-          >
-            <div
-              className="h-full rounded-full bg-[#4cc38a] transition-[width] duration-300"
-              style={{ width: `${(progress.done / progress.total) * 100}%` }}
-            />
-          </div>
-          <div className="mt-4 space-y-4">
-            {meals.map((meal) => {
-              const kitchen = kitchenOf(meal.group_id)
-              const shared = kitchen && !kitchen.is_personal
-              return (
-                <div key={meal.id}>
-                  <button
-                    type="button"
-                    onClick={() => open({ kind: 'meal', meal })}
-                    className="flex w-full min-w-0 items-center gap-1.5 text-left text-[13px] text-muted-foreground"
-                  >
-                    {kitchen && <KitchenDot color={kitchen.color} />}
-                    <span className="min-w-0 truncate">
-                      {kitchen && `${kitchen.emoji} ${kitchen.name} · `}
-                      {SLOT_LABEL[meal.meal_slot]} ·{' '}
-                      <b className="font-semibold text-foreground">{meal.title}</b>
-                    </span>
-                    <ChevronRight size={15} className="shrink-0" aria-hidden="true" />
-                  </button>
-                  <ul className="mt-1">
-                    {meal.prep_tasks.map((task) => {
-                      const done = !!task.done_at
-                      return (
-                        <li key={task.id} className="flex min-h-11 items-center gap-3">
-                          <Checkbox
-                            checked={done}
-                            label={task.title}
-                            onChange={(next) => tick.mutate({ id: task.id, done: next })}
-                          />
-                          <span
-                            className={cn(
-                              'min-w-0 flex-1 text-[15px]',
-                              done && 'text-muted-foreground line-through',
-                            )}
-                          >
-                            {task.title}
-                          </span>
-                          {done && shared && task.done_by && (
-                            <Avatar userId={task.done_by} size={22} />
+            className="h-full rounded-full bg-[#4cc38a] transition-[width] duration-300"
+            style={{ width: `${(progress.done / progress.total) * 100}%` }}
+          />
+        </div>
+        <div className="mt-4 space-y-4">
+          {meals.map((meal) => {
+            const kitchen = kitchenOf(meal.group_id)
+            const shared = kitchen && !kitchen.is_personal
+            return (
+              <div key={meal.id}>
+                <button
+                  type="button"
+                  onClick={() => open({ kind: 'meal', meal })}
+                  className="flex w-full min-w-0 items-center gap-1.5 text-left text-[13px] text-muted-foreground"
+                >
+                  {kitchen && <KitchenDot color={kitchen.color} />}
+                  <span className="min-w-0 truncate">
+                    {kitchen && `${kitchen.emoji} ${kitchen.name} · `}
+                    {SLOT_LABEL[meal.meal_slot]} ·{' '}
+                    <b className="font-semibold text-foreground">{meal.title}</b>
+                  </span>
+                  <ChevronRight size={15} className="shrink-0" aria-hidden="true" />
+                </button>
+                <ul className="mt-1">
+                  {meal.prep_tasks.map((task) => {
+                    const done = !!task.done_at
+                    return (
+                      <li key={task.id} className="flex min-h-11 items-center gap-3">
+                        <Checkbox
+                          checked={done}
+                          label={task.title}
+                          onChange={(next) => tick.mutate({ id: task.id, done: next })}
+                        />
+                        <span
+                          className={cn(
+                            'min-w-0 flex-1 text-[15px]',
+                            done && 'text-muted-foreground line-through',
                           )}
-                        </li>
-                      )
-                    })}
-                  </ul>
-                </div>
-              )
-            })}
-          </div>
-        </>
-      ) : (
-        <p className="mt-3 text-sm text-foreground/80">
-          Nothing to prep for tomorrow. Add pre-prep to a meal, like soaking rajma, and it shows up
-          here the evening before.
-        </p>
-      )}
+                        >
+                          {task.title}
+                        </span>
+                        {done && shared && task.done_by && (
+                          <Avatar userId={task.done_by} size={22} />
+                        )}
+                      </li>
+                    )
+                  })}
+                </ul>
+              </div>
+            )
+          })}
+        </div>
+      </>
 
       <ErrorLine error={tick.error} />
     </section>
