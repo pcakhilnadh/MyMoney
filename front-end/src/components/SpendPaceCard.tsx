@@ -32,6 +32,8 @@ export function SpendPaceCard({
 }) {
   const { cumulative, spent, ahead, limitDay, limitReached, dailyRate } = pace
   const span = Math.max(daysInMonth - 1, 1)
+  // Spending per day is above what the budget allows per day.
+  const overPace = budget !== null && budget > 0 && dailyRate > budget / daysInMonth
   const x = (day: number) => PAD.left + ((day - 1) / span) * PLOT_W
   const yMax = budget !== null ? budget * 1.08 : Math.max(spent * 1.25, 1)
   const y = (value: number) =>
@@ -198,30 +200,46 @@ export function SpendPaceCard({
         </text>
       </svg>
 
-      <dl className="grid grid-cols-2 divide-x divide-white/10 border-t border-white/10 pt-3">
-        <div className="min-w-0 pr-3">
-          <dt className="text-[11px] text-muted-foreground">Daily average</dt>
-          <dd className="money mt-0.5 truncate text-base font-semibold">
+      <dl
+        className={`grid divide-x divide-white/10 border-t border-white/10 pt-3 ${budget === null ? 'grid-cols-2' : 'grid-cols-3'}`}
+      >
+        <div className="min-w-0 pr-2.5">
+          <dt className="text-[11px] text-muted-foreground">Spent / day</dt>
+          <dd
+            className="money mt-0.5 truncate text-[15px] font-semibold"
+            style={overPace ? { color: AMBER } : undefined}
+          >
             {formatCompactMinor(Math.round(dailyRate), currency)}
           </dd>
+          <dd className="text-[10px] text-muted-foreground">actual so far</dd>
         </div>
-        <div className="min-w-0 pl-4">
-          {budget === null ? (
+        {budget === null ? (
+          <div className="min-w-0 pl-4">
             <Link to="/money/budgets" className="text-xs font-semibold text-primary">
               Set a monthly budget to see your pace
             </Link>
-          ) : (
-            <>
-              <dt className="text-[11px] text-muted-foreground">Projected month end</dt>
+          </div>
+        ) : (
+          <>
+            <div className="min-w-0 px-2.5">
+              <dt className="text-[11px] text-muted-foreground">Budget / day</dt>
+              <dd className="money mt-0.5 truncate text-[15px] font-semibold">
+                {formatCompactMinor(Math.round(budget / daysInMonth), currency)}
+              </dd>
+              <dd className="text-[10px] text-muted-foreground">to stay within</dd>
+            </div>
+            <div className="min-w-0 pl-2.5">
+              <dt className="text-[11px] text-muted-foreground">Month end</dt>
               <dd
-                className="money mt-0.5 truncate text-base font-semibold"
+                className="money mt-0.5 truncate text-[15px] font-semibold"
                 style={limitDay !== null ? { color: AMBER } : undefined}
               >
                 {formatCompactMinor(Math.round(dailyRate * daysInMonth), currency)}
               </dd>
-            </>
-          )}
-        </div>
+              <dd className="text-[10px] text-muted-foreground">at this pace</dd>
+            </div>
+          </>
+        )}
       </dl>
     </Card>
   )
