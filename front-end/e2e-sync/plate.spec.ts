@@ -24,7 +24,7 @@ test('solo: plan tomorrow with prep, tick it on Today, and fill the cart', async
   await expect(page.getByRole('button', { name: /Kitchen: My Kitchen/ })).toBeVisible()
   const tomorrow = new Date()
   tomorrow.setDate(tomorrow.getDate() + 1)
-  if (tomorrow.getDay() === 1) await page.getByRole('button', { name: 'Next week' }).click()
+  if (tomorrow.getDay() === 0) await page.getByRole('button', { name: 'Next week' }).click()
   await page
     .getByRole('tab', {
       name: tomorrow.toLocaleDateString('en-IN', {

@@ -19,10 +19,9 @@ export function addDays(key: string, days: number): string {
 
 export const todayKey = () => dateKey(new Date())
 
-/** Monday of the week that contains `key`. */
+/** Sunday of the week that contains `key`. Weeks run Sunday to Saturday. */
 export function weekStart(key: string): string {
-  const day = parseDateKey(key).getDay()
-  return addDays(key, -((day + 6) % 7))
+  return addDays(key, -parseDateKey(key).getDay())
 }
 
 export function weekDays(start: string): string[] {

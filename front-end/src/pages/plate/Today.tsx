@@ -386,34 +386,10 @@ function WeekGlance({
     new Set(
       meals.filter((m) => m.meal_date === day && m.attendees.includes(me)).map((m) => m.meal_slot),
     )
-  const total = days.length * slots.length
-  const planned = days.reduce((sum, d) => sum + slots.filter((s) => taken(d).has(s)).length, 0)
-  const pct = total ? Math.round((planned / total) * 100) : 0
 
   return (
     <section aria-label="Your week" className="pl-raised space-y-3.5 p-4">
-      <div className="flex items-end justify-between gap-2">
-        <div>
-          <h2 className="text-[15px] font-bold">Your week</h2>
-          <p className="text-xs text-muted-foreground">
-            {planned} of {total} meals planned
-          </p>
-        </div>
-        <span className="text-[22px] font-bold tabular-nums">{pct}%</span>
-      </div>
-      <div
-        role="progressbar"
-        aria-label="Week planned"
-        aria-valuemin={0}
-        aria-valuemax={total}
-        aria-valuenow={planned}
-        className="h-1.5 overflow-hidden rounded-full bg-black/30"
-      >
-        <div
-          className="h-full rounded-full bg-primary transition-[width] duration-500"
-          style={{ width: `${pct}%` }}
-        />
-      </div>
+      <h2 className="text-[15px] font-bold">Your week</h2>
       <div className="grid grid-cols-7 gap-1.5">
         {days.map((day) => {
           const have = taken(day)

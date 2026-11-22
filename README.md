@@ -6,7 +6,7 @@ A personal tracker you install on your phone, with three apps in one:
 - **My Food**: a food diary with a daily calorie goal and insights.
 - **MyPlate**: meal planning with the people you cook for.
 
-Version **1.2.2** · API **v1**
+Version **1.2.3** · API **v1**
 
 ## Core features
 
@@ -141,6 +141,13 @@ The browser tests use fake sign-ins against a test-only server; they never touch
 
 
 ## Changelog
+
+### 1.2.3 (2026-11-22)
+
+- **My Plate weeks start on Sunday** (Sunday to Saturday) in Plan, Today, the cart and the meal
+  sheet, instead of Monday.
+- **Today, "Your week":** just the week with a dot per planned meal; the "N of M meals planned"
+  count, percentage and progress bar are gone.
 
 ### 1.2.2 (2026-11-22)
 
