@@ -56,6 +56,17 @@ export function AppVersion() {
           </button>
         </>
       )}
+      <span>
+        by{' '}
+        <a
+          href="https://www.akhilnadhpc.in/"
+          target="_blank"
+          rel="noopener noreferrer"
+          className="underline-offset-2 hover:text-primary hover:underline"
+        >
+          Akhilnadh PC
+        </a>
+      </span>
     </p>
   )
 }
