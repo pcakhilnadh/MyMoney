@@ -11,19 +11,24 @@ def set_role(c, user, role):
         return str(p.id)
 
 
-def test_member_only_gets_money(client):
+def test_member_gets_money_and_plate_but_not_food(client):
     c = client
     me = c.get("/api/v1/auth/me", headers=H("alice")).json()
-    assert me["entitlements"] == ["money"]
+    assert me["entitlements"] == ["money", "plate"]
     assert c.get("/api/v1/food/entries", headers=H("alice")).status_code == 403
+    assert c.get("/api/v1/plate/kitchens", headers=H("alice")).status_code == 200
 
 
-def test_admins_get_money_and_plate_and_owners_get_everything(client):
+def test_admins_and_owners_get_everything(client):
     c = client
     set_role(c, "bob", AppRole.ADMIN)
     set_role(c, "carol", AppRole.OWNER)
-    assert c.get("/api/v1/auth/me", headers=H("bob")).json()["entitlements"] == ["money", "plate"]
-    assert c.get("/api/v1/food/entries", headers=H("bob")).status_code == 403
+    assert c.get("/api/v1/auth/me", headers=H("bob")).json()["entitlements"] == [
+        "money",
+        "food",
+        "plate",
+    ]
+    assert c.get("/api/v1/food/entries", headers=H("bob")).status_code == 200
     assert c.get("/api/v1/plate/kitchens", headers=H("bob")).status_code == 200
     assert c.get("/api/v1/auth/me", headers=H("carol")).json()["entitlements"] == [
         "money",

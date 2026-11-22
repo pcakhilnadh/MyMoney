@@ -49,7 +49,7 @@ export function useEntitlements() {
   // The request is not running at all when there is no token (e.g. offline); don't wait for it.
   const idle = me.fetchStatus === 'idle' && me.isPending
   const ready = !!access || me.isSuccess || me.isError || idle
-  const list: Feature[] = access?.entitlements ?? ['money']
+  const list: Feature[] = access?.entitlements ?? ['money', 'plate']
   return {
     ready,
     role: access?.role,

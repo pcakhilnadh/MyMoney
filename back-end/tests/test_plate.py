@@ -65,7 +65,10 @@ def meal_body(kitchen_id, **overrides):
 # ─── Access and My Kitchen ─────────────────────────────────────────────────────────────
 
 
-def test_needs_the_plate_feature(client):
+def test_needs_the_plate_feature(client, monkeypatch):
+    from app import entitlements
+
+    monkeypatch.setitem(entitlements.DEFAULT_ENTITLEMENTS, "member", ("money",))
     assert client.get("/api/v1/plate/kitchens", headers=H("alice")).status_code == 403
 
 
