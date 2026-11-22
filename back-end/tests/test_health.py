@@ -10,7 +10,7 @@ def test_health_when_database_is_connected(monkeypatch):
 
     r = TestClient(main_module.app).get("/health")
     assert r.status_code == 200
-    assert r.json() == {"status": "ok", "database": "connected", "version": "1.2.1", "api": "v1"}
+    assert r.json() == {"status": "ok", "database": "connected", "version": "1.2.2", "api": "v1"}
 
 
 def test_health_when_database_is_unavailable(monkeypatch):
@@ -29,7 +29,7 @@ def test_version_reports_the_deployed_build(monkeypatch):
 
     r = TestClient(main_module.app).get("/api/version")
     assert r.status_code == 200
-    assert r.json() == {"version": "1.2.1", "api": "v1", "apis": ["v1"], "commit": "abcdef1"}
+    assert r.json() == {"version": "1.2.2", "api": "v1", "apis": ["v1"], "commit": "abcdef1"}
 
 
 def test_version_without_a_known_commit(monkeypatch):

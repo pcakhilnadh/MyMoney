@@ -12,6 +12,8 @@ const PLOT_H = H - PAD.top - PAD.bottom
 
 const LINE = '#8aa8ff'
 const AMBER = '#f5ae4b'
+// The amber of the limit line, faded so the figures sit back into the card.
+const SOFT_AMBER = 'rgba(245,174,75,0.72)'
 const IDEAL = 'rgba(180,190,230,0.45)'
 
 export function SpendPaceCard({
@@ -204,14 +206,14 @@ export function SpendPaceCard({
         className={`grid divide-x divide-white/10 border-t border-white/10 pt-3 ${budget === null ? 'grid-cols-2' : 'grid-cols-3'}`}
       >
         <div className="min-w-0 pr-2.5">
-          <dt className="text-[11px] text-muted-foreground">Spent / day</dt>
+          <dt className="text-[11px] text-muted-foreground/80">Spent / day</dt>
           <dd
-            className="money mt-0.5 truncate text-[15px] font-semibold"
-            style={overPace ? { color: AMBER } : undefined}
+            className="money mt-0.5 truncate text-sm font-medium text-foreground/70"
+            style={overPace ? { color: SOFT_AMBER } : undefined}
           >
             {formatCompactMinor(Math.round(dailyRate), currency)}
           </dd>
-          <dd className="text-[10px] text-muted-foreground">actual so far</dd>
+          <dd className="text-[10px] text-muted-foreground/60">actual so far</dd>
         </div>
         {budget === null ? (
           <div className="min-w-0 pl-4">
@@ -223,20 +225,20 @@ export function SpendPaceCard({
           <>
             <div className="min-w-0 px-2.5">
               <dt className="text-[11px] text-muted-foreground">Budget / day</dt>
-              <dd className="money mt-0.5 truncate text-[15px] font-semibold">
+              <dd className="money mt-0.5 truncate text-sm font-medium text-foreground/70">
                 {formatCompactMinor(Math.round(budget / daysInMonth), currency)}
               </dd>
-              <dd className="text-[10px] text-muted-foreground">to stay within</dd>
+              <dd className="text-[10px] text-muted-foreground/60">to stay within</dd>
             </div>
             <div className="min-w-0 pl-2.5">
               <dt className="text-[11px] text-muted-foreground">Month end</dt>
               <dd
-                className="money mt-0.5 truncate text-[15px] font-semibold"
-                style={limitDay !== null ? { color: AMBER } : undefined}
+                className="money mt-0.5 truncate text-sm font-medium text-foreground/70"
+                style={limitDay !== null ? { color: SOFT_AMBER } : undefined}
               >
                 {formatCompactMinor(Math.round(dailyRate * daysInMonth), currency)}
               </dd>
-              <dd className="text-[10px] text-muted-foreground">at this pace</dd>
+              <dd className="text-[10px] text-muted-foreground/60">at this pace</dd>
             </div>
           </>
         )}

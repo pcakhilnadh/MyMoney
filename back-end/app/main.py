@@ -10,7 +10,7 @@ from app.config import settings
 from app.db import engine
 from app.versions import CURRENT, VERSIONS
 
-__version__ = "1.2.1"
+__version__ = "1.2.2"
 
 app = FastAPI(title="MyTracker API", version=__version__)
 app.add_middleware(
