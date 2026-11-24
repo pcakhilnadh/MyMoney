@@ -136,6 +136,7 @@ export default function Home() {
       <BarChartCard
         title="Last 6 months"
         data={monthlySeries(txs, period.month).map((p) => ({ ...p, value: p.value / 100 }))}
+        budget={budgetMinor === null ? null : budgetMinor / 100}
       />
       <DueAlerts />
       <RecentLedger />

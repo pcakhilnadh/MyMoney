@@ -1,6 +1,17 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Check, ChevronDown, Plus } from 'lucide-react'
-import { Bar, BarChart, Cell, Pie, PieChart, ResponsiveContainer, Tooltip, XAxis } from 'recharts'
+import {
+  Bar,
+  BarChart,
+  Cell,
+  Pie,
+  PieChart,
+  ReferenceLine,
+  ResponsiveContainer,
+  Tooltip,
+  XAxis,
+  YAxis,
+} from 'recharts'
 import { cn } from '@/lib/utils'
 import { currencySymbol } from '@/lib/currency'
 import { formatMinor, normalizeMoneyInput, toMinor } from '@/lib/money'
@@ -474,11 +485,34 @@ const TIP = {
   cursor: { fill: 'rgba(255,255,255,0.04)' },
 }
 
-export function BarChartCard({ title, data }: { title: string; data: ChartPoint[] }) {
+/**
+ * Bar chart of monthly values. When `budget` (same units as `data`) is given, a dashed
+ * budget line is drawn and months that went over it are highlighted.
+ */
+export function BarChartCard({
+  title,
+  data,
+  budget,
+}: {
+  title: string
+  data: ChartPoint[]
+  budget?: number | null
+}) {
   const { currency } = useCurrency()
+  const hasBudget = budget != null && budget > 0
+  const overCount = hasBudget ? data.filter((p) => p.value > budget).length : 0
   return (
     <Card>
-      <div className="label mb-3">{title}</div>
+      <div className="mb-3 flex items-center justify-between gap-3">
+        <div className="label">{title}</div>
+        {hasBudget && (
+          <div className="text-[11px] text-muted-foreground">
+            {overCount === 0
+              ? 'Within budget every month'
+              : `Over budget ${overCount} of ${data.length} months`}
+          </div>
+        )}
+      </div>
       <ResponsiveContainer width="100%" height={160}>
         <BarChart data={data}>
           <defs>
@@ -488,11 +522,26 @@ export function BarChartCard({ title, data }: { title: string; data: ChartPoint[
             </linearGradient>
           </defs>
           <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} stroke="#8e8ea0" />
+          <YAxis hide domain={[0, 'auto']} />
           <Tooltip
             {...TIP}
             formatter={(value) => formatMinor(Math.round(Number(value) * 100), currency)}
           />
-          <Bar dataKey="value" fill="url(#bar)" radius={[8, 8, 3, 3]} />
+          {hasBudget && (
+            <ReferenceLine
+              y={budget}
+              ifOverflow="extendDomain"
+              stroke="#e6c879"
+              strokeDasharray="5 4"
+              label={{ value: 'Budget', fill: '#e6c879', fontSize: 10, position: 'insideTopRight' }}
+            />
+          )}
+          <Bar dataKey="value" fill="url(#bar)" radius={[8, 8, 3, 3]}>
+            {hasBudget &&
+              data.map((p) => (
+                <Cell key={p.name} fill={p.value > budget ? 'var(--destructive)' : 'url(#bar)'} />
+              ))}
+          </Bar>
         </BarChart>
       </ResponsiveContainer>
     </Card>
