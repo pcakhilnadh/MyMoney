@@ -113,6 +113,12 @@ export default function Home() {
                 <p className="money mt-0.5 truncate text-xl leading-tight font-bold tracking-tight text-white">
                   {formatCompactMinor(total, currency)}
                 </p>
+                {budgetMinor !== null && (
+                  <p className="mt-0.5 truncate text-[11px] text-white/60">
+                    of {formatCompactMinor(budgetMinor, currency)} budget
+                    {budgetMinor > 0 && ` · ${Math.round((total / budgetMinor) * 100)}%`}
+                  </p>
+                )}
               </div>
             </div>
           </div>

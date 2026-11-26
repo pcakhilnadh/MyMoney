@@ -1,20 +1,9 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
 import { Check, ChevronDown, Plus } from 'lucide-react'
-import {
-  Bar,
-  BarChart,
-  Cell,
-  Pie,
-  PieChart,
-  ReferenceLine,
-  ResponsiveContainer,
-  Tooltip,
-  XAxis,
-  YAxis,
-} from 'recharts'
+import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { cn } from '@/lib/utils'
 import { currencySymbol } from '@/lib/currency'
-import { formatMinor, normalizeMoneyInput, toMinor } from '@/lib/money'
+import { formatCompactMinor, formatMinor, normalizeMoneyInput, toMinor } from '@/lib/money'
 import { useCurrency } from '@/money/CurrencyContext'
 import {
   Select as SelectRoot,
@@ -485,9 +474,12 @@ const TIP = {
   cursor: { fill: 'rgba(255,255,255,0.04)' },
 }
 
+const BAR_OVER = '#d9797f'
+
 /**
- * Bar chart of monthly values. When `budget` (same units as `data`) is given, a dashed
- * budget line is drawn and months that went over it are highlighted.
+ * Bar chart of monthly values. When `budget` (same units as `data`) is given, a faint
+ * budget line is drawn and months that went over it are tinted. Tapping a month shows
+ * its amount in the header; the latest month is shown first.
  */
 export function BarChartCard({
   title,
@@ -499,51 +491,101 @@ export function BarChartCard({
   budget?: number | null
 }) {
   const { currency } = useCurrency()
+  const [selected, setSelected] = useState(data.length - 1)
   const hasBudget = budget != null && budget > 0
   const overCount = hasBudget ? data.filter((p) => p.value > budget).length : 0
+  const max = Math.max(...data.map((p) => p.value), hasBudget ? budget : 0) * 1.08 || 1
+  const active = data[Math.min(selected, data.length - 1)]
+  const fmt = (value: number) => formatCompactMinor(Math.round(value * 100), currency)
+  const activeOver = hasBudget && active && active.value > budget
+
   return (
-    <Card>
-      <div className="mb-3 flex items-center justify-between gap-3">
-        <div className="label">{title}</div>
+    <Card className="space-y-3">
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="label">{title}</div>
+          {active && (
+            <p className="mt-1 text-sm">
+              <span className="text-muted-foreground">{active.name} </span>
+              <span className="money font-semibold">{fmt(active.value)}</span>
+              {hasBudget && active.value > 0 && (
+                <span
+                  className="text-xs"
+                  style={{ color: activeOver ? '#f2a0a6' : 'var(--muted-foreground)' }}
+                >
+                  {' · '}
+                  {fmt(Math.abs(active.value - budget))} {activeOver ? 'over' : 'under'}
+                </span>
+              )}
+            </p>
+          )}
+        </div>
         {hasBudget && (
-          <div className="text-[11px] text-muted-foreground">
+          <div className="shrink-0 pt-0.5 text-[11px] text-muted-foreground">
             {overCount === 0
               ? 'Within budget every month'
-              : `Over budget ${overCount} of ${data.length} months`}
+              : `Over in ${overCount} of ${data.length}`}
           </div>
         )}
       </div>
-      <ResponsiveContainer width="100%" height={160}>
-        <BarChart data={data}>
-          <defs>
-            <linearGradient id="bar" x1="0" y1="0" x2="0" y2="1">
-              <stop offset="0%" stopColor="var(--primary)" />
-              <stop offset="100%" stopColor="color-mix(in srgb, var(--primary) 65%, #0a0a0f)" />
-            </linearGradient>
-          </defs>
-          <XAxis dataKey="name" tickLine={false} axisLine={false} fontSize={11} stroke="#8e8ea0" />
-          <YAxis hide domain={[0, 'auto']} />
-          <Tooltip
-            {...TIP}
-            formatter={(value) => formatMinor(Math.round(Number(value) * 100), currency)}
-          />
+
+      <div role="group" aria-label={`${title} spending by month`}>
+        <div className="relative h-32">
           {hasBudget && (
-            <ReferenceLine
-              y={budget}
-              ifOverflow="extendDomain"
-              stroke="#e6c879"
-              strokeDasharray="5 4"
-              label={{ value: 'Budget', fill: '#e6c879', fontSize: 10, position: 'insideTopRight' }}
-            />
+            <div
+              aria-hidden="true"
+              className="pointer-events-none absolute inset-x-0 border-t border-dashed border-[#e6c879]/45"
+              style={{ bottom: `${(budget / max) * 100}%` }}
+            >
+              <span className="absolute right-0 bottom-0.5 text-[10px] text-[#e6c879]/80">
+                Budget {fmt(budget)}
+              </span>
+            </div>
           )}
-          <Bar dataKey="value" fill="url(#bar)" radius={[8, 8, 3, 3]}>
-            {hasBudget &&
-              data.map((p) => (
-                <Cell key={p.name} fill={p.value > budget ? 'var(--destructive)' : 'url(#bar)'} />
-              ))}
-          </Bar>
-        </BarChart>
-      </ResponsiveContainer>
+          <div className="flex h-full items-end gap-3">
+            {data.map((point, i) => {
+              const isActive = point === active
+              const over = hasBudget && point.value > budget
+              const color = over ? BAR_OVER : 'var(--primary)'
+              return (
+                <button
+                  key={point.name}
+                  type="button"
+                  aria-label={`${point.name}: ${fmt(point.value)}${over ? ', over budget' : ''}`}
+                  aria-pressed={isActive}
+                  onClick={() => setSelected(i)}
+                  onMouseEnter={() => setSelected(i)}
+                  className="flex h-full flex-1 items-end justify-center rounded-md outline-none focus-visible:ring-1 focus-visible:ring-white/30"
+                >
+                  {point.value > 0 && (
+                    <span
+                      className="block w-full max-w-7 rounded-t-[4px] transition-opacity"
+                      style={{
+                        height: `${Math.max((point.value / max) * 100, 2)}%`,
+                        background: color,
+                        opacity: isActive ? 1 : 0.4,
+                      }}
+                    />
+                  )}
+                </button>
+              )
+            })}
+          </div>
+        </div>
+        <div aria-hidden="true" className="mt-1.5 flex gap-3">
+          {data.map((point) => (
+            <span
+              key={point.name}
+              className={cn(
+                'flex-1 text-center text-[11px]',
+                point === active ? 'font-semibold text-foreground' : 'text-muted-foreground',
+              )}
+            >
+              {point.name}
+            </span>
+          ))}
+        </div>
+      </div>
     </Card>
   )
 }

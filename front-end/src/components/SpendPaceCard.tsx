@@ -1,3 +1,4 @@
+import { CircleCheck, OctagonAlert, TriangleAlert } from 'lucide-react'
 import { Link } from 'react-router-dom'
 import { Card } from '@/components/kit'
 import type { CurrencyCode } from '@/lib/currency'
@@ -14,6 +15,11 @@ const LINE = '#8aa8ff'
 const AMBER = '#f5ae4b'
 // The amber of the limit line, faded so the figures sit back into the card.
 const SOFT_AMBER = 'rgba(245,174,75,0.72)'
+const CRITICAL = '#f2878f'
+const CAUTION = '#e6c879'
+const GOOD = '#7fd8a6'
+/** Share of the budget spent that counts as near the limit. */
+const NEAR_SHARE = 0.85
 const IDEAL = 'rgba(180,190,230,0.45)'
 
 export function SpendPaceCard({
@@ -65,16 +71,21 @@ export function SpendPaceCard({
     }
   }
 
-  const headline =
+  // One status, worst first: already over, will run out, close to it, or fine.
+  const status: { label: string; color: string; Icon: typeof CircleCheck } | null =
     budget === null
       ? null
       : limitReached && limitDay !== null
-        ? `Limit hit on ${dateLabel(limitDay)}`
+        ? { label: `Limit hit on ${dateLabel(limitDay)}`, color: CRITICAL, Icon: OctagonAlert }
         : limitDay !== null
-          ? `Limit hit on ${dateLabel(limitDay)}`
-          : 'Within budget'
-
-  const statusColor = limitDay !== null ? AMBER : '#7fd8a6'
+          ? { label: `Limit by ${dateLabel(limitDay)}`, color: AMBER, Icon: TriangleAlert }
+          : budget > 0 && spent >= budget * NEAR_SHARE
+            ? {
+                label: `Near limit · ${Math.round((spent / budget) * 100)}%`,
+                color: CAUTION,
+                Icon: TriangleAlert,
+              }
+            : { label: 'On track', color: GOOD, Icon: CircleCheck }
 
   const youLabel =
     ahead === null
@@ -87,17 +98,13 @@ export function SpendPaceCard({
     <Card className="space-y-3">
       <div className="flex items-center justify-between gap-3">
         <div className="label whitespace-nowrap">Spend vs. pace</div>
-        {headline && (
+        {status && (
           <span
             className="flex items-center gap-1.5 rounded-full px-2.5 py-1 text-[11px] font-semibold"
-            style={{ color: statusColor, backgroundColor: `${statusColor}24` }}
+            style={{ color: status.color, backgroundColor: `${status.color}1f` }}
           >
-            <span
-              aria-hidden="true"
-              className="size-1.5 rounded-full"
-              style={{ backgroundColor: statusColor }}
-            />
-            {headline}
+            <status.Icon size={12} aria-hidden="true" />
+            {status.label}
           </span>
         )}
       </div>

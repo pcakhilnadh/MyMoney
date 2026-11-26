@@ -86,10 +86,15 @@ export function BudgetRing({ ring, currency }: { ring: BudgetRingData; currency:
             >
               {formatCompactMinor(safeToday ?? 0, currency)}
             </p>
-            <p className="text-[9px] text-white/60">
+            <p
+              className={`text-[9px] leading-tight ${overBudget ? 'font-semibold text-[#ffb3b8]' : 'text-white/60'}`}
+            >
               {overBudget
-                ? `${formatCompactMinor(spent - budget, currency)} over`
-                : `of ${formatCompactMinor(budget, currency)}`}
+                ? `${formatCompactMinor(spent - budget, currency)} over budget`
+                : `${formatCompactMinor(Math.max(budget - spent, 0), currency)} left`}
+            </p>
+            <p className="mt-0.5 text-[9px] leading-tight text-white/50">
+              Budget {formatCompactMinor(budget, currency)}
             </p>
           </>
         )}

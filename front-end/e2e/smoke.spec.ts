@@ -197,11 +197,7 @@ test('signed-in shell shows tabs and settings', async ({ page }) => {
   await expect(spendingOverview.locator('.money')).toHaveCount(2)
   await expect(spendingOverview.locator('.rounded-2xl')).toHaveCount(0)
   await expect(spendingOverview).toHaveCSS('background-image', /color\(srgb/)
-  await expect(page.locator('.recharts-responsive-container svg').first()).toBeVisible()
-  await expect(page.locator('.recharts-responsive-container svg stop').first()).toHaveCSS(
-    'stop-color',
-    'rgb(75, 139, 255)',
-  )
+  await expect(page.getByRole('group', { name: 'Last 6 months spending by month' })).toBeVisible()
   await expect(page.getByRole('link', { name: 'Home' })).toHaveAttribute('aria-current', 'page')
   await expect(page.getByRole('link', { name: 'Home' })).toHaveCSS('color', 'rgb(75, 139, 255)')
   await expect(page.getByRole('navigation').locator('svg').first()).toHaveCSS(

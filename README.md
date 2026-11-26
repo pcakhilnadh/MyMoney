@@ -6,7 +6,7 @@ A personal tracker you install on your phone, with three apps in one:
 - **My Food**: a food diary with a daily calorie goal and insights.
 - **MyPlate**: meal planning with the people you cook for.
 
-Version **1.2.3** · API **v1**
+Version **1.2.4** · API **v1**
 
 ## Core features
 
@@ -141,6 +141,20 @@ The browser tests use fake sign-ins against a test-only server; they never touch
 
 
 ## Changelog
+
+### 1.2.4 (2026-11-26)
+
+- **Spending overview:** the ring shows what's left (or how much you're over) and the monthly
+  budget; "Spent this month" adds "of ₹40K budget · 85%".
+- **Spend vs pace:** the status tag is colour-coded with an icon: red "Limit hit on …", amber
+  "Limit by …" (projected), yellow "Near limit" (85%+), green "On track".
+- **Budgets card:** redesigned to be compact and calm: spent / budget per category, a thin muted
+  bar, and "₹X left", "At limit" or "₹X over" instead of "+%". Over-budget bars mark where the
+  budget ends; the header counts categories over or near their limit.
+- **Last 6 months:** a simpler chart with flat bars, a faint budget line and over-budget months in
+  soft coral; no hover background or tap outline. Tap a month to see its total against the budget.
+- **Access:** members get My Plate by default; admins and owners keep My Food.
+- **Profile:** the creator is linked next to the app version.
 
 ### 1.2.3 (2026-11-22)
 
