@@ -32,6 +32,17 @@ export function formatCompactMinor(minor: number, currency: CurrencyCode = 'INR'
   return formatter(currency).format(minor / 100 / (unit?.threshold ?? 1)) + (unit?.suffix ?? '')
 }
 
+/**
+ * Compact amount without trailing zeros or paise: ₹1.00K → ₹1K, ₹26.40K → ₹26.4K,
+ * ₹866.67 → ₹867. For short labels where exact paise are noise.
+ */
+export function formatShortMinor(minor: number, currency: CurrencyCode = 'INR'): string {
+  const rounded = Math.abs(minor) < 100_000 ? Math.round(minor / 100) * 100 : minor
+  return formatCompactMinor(rounded, currency).replace(/\.(\d*?)0+(?=[A-Za-z]*$)/, (_, d) =>
+    d ? `.${d}` : '',
+  )
+}
+
 export const DEFAULT_CATEGORIES = {
   expense: [
     'Food & Dining',

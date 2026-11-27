@@ -14,11 +14,12 @@ import {
 } from '@/components/kit'
 import { AllocationInput } from '@/components/AllocationInput'
 import { useDialog } from '@/components/DialogProvider'
-import { BudgetOverview, type AllocationRow } from '@/components/BudgetOverview'
+import { BudgetOverview } from '@/components/BudgetOverview'
 import { db } from '@/db/db'
 import { budgetsRepo, categoriesRepo, transactionsRepo } from '@/db/repos'
 import type { Budget, Category } from '@/db/types'
-import { formatMinor } from '@/lib/money'
+import { formatMinor, formatShortMinor } from '@/lib/money'
+import { computeBudgetInsights } from '@/lib/budget-insights'
 import {
   TOTAL_BUDGET_NAME,
   allocationError,
@@ -41,7 +42,16 @@ export default function Budgets() {
   const allBudgets = useLiveQuery(() => budgetsRepo.list(), []) ?? []
   const totalBudget = findTotalBudget(allBudgets)
   const budgets = categoryBudgets(allBudgets)
-  const txs = useLiveQuery(() => transactionsRepo.list(), []) ?? []
+  const now = new Date()
+  const month = currentMonth(now)
+  const prevMonth = currentMonth(new Date(now.getFullYear(), now.getMonth() - 1, 1))
+  const nextMonth = currentMonth(new Date(now.getFullYear(), now.getMonth() + 1, 1))
+  // Only this month and last month (for comparison) are needed: read them from the date index.
+  const txs =
+    useLiveQuery(
+      () => transactionsRepo.listByDateRange(`${prevMonth}-01`, `${nextMonth}-01`),
+      [prevMonth, nextMonth],
+    ) ?? []
   const cats = useLiveQuery(() => db.categories.toArray(), []) ?? []
   // The monthly-budget form replaces the list; category allocations are edited inline in the list.
   const [view, setView] = useState<BudgetView>(() => {
@@ -59,7 +69,6 @@ export default function Budgets() {
   // Which category card has its inline allocation form open: a budget id, or `new:<categoryId>`.
   const [inlineKey, setInlineKey] = useState<string | null>(null)
   const [inlineAmount, setInlineAmount] = useState(0)
-  const month = currentMonth()
   const allocated = totalAllocated(allBudgets)
   const formError = showForm && amount > 0 ? totalBudgetError(allBudgets, amount) : null
   const monthlyTransactions = txs.filter(
@@ -89,14 +98,17 @@ export default function Budgets() {
     (a, b) => spent(b.id) - spent(a.id) || a.name.localeCompare(b.name),
   )
 
-  const allocationRows: AllocationRow[] = budgets.map((b) => {
-    const category = cats.find((item) => item.id === b.category_id)
-    return {
-      id: b.id,
-      name: category?.name ?? b.name,
-      amount: b.amount_minor,
-      categoryId: category?.id ?? null,
-    }
+  const dayOfMonth = now.getDate()
+  const daysInMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0).getDate()
+  const insights = computeBudgetInsights({
+    txs,
+    cats,
+    budgets: allBudgets,
+    month,
+    prevMonth,
+    dayOfMonth,
+    daysInMonth,
+    fmt: (minor) => formatShortMinor(minor, currency),
   })
 
   function changeView(next: BudgetView) {
@@ -472,10 +484,10 @@ export default function Budgets() {
           />
           {view === 'budget' && (
             <BudgetOverview
-              total={totalBudget?.amount_minor ?? null}
-              allocated={allocated}
-              spent={spent(null)}
-              rows={allocationRows}
+              data={insights}
+              monthLabel={now.toLocaleString('en-IN', { month: 'long', year: 'numeric' })}
+              dayOfMonth={dayOfMonth}
+              daysInMonth={daysInMonth}
               currency={currency}
               onEdit={editTotal}
               onAllocate={() => changeView('allocate')}

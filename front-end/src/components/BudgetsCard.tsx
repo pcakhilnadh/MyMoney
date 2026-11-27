@@ -2,35 +2,21 @@ import type { MouseEvent } from 'react'
 import { Link, useNavigate } from 'react-router-dom'
 import { Card } from '@/components/kit'
 import type { CurrencyCode } from '@/lib/currency'
-import { formatCompactMinor } from '@/lib/money'
+import { BudgetBar } from '@/components/BudgetBar'
+import { TEXT_TONES } from '@/lib/budget-tones'
+import { NEAR_SHARE } from '@/lib/budget-insights'
+import { formatShortMinor as money } from '@/lib/money'
 import type { CategoryBudgetRow } from '@/lib/budget-overview'
 
-// Muted tones so the bars sit back; only the status text carries emphasis.
-const OK = 'color-mix(in srgb, var(--primary) 55%, transparent)'
-const NEAR = '#c9a45f'
-const OVER = '#d9797f'
-const NEAR_TEXT = '#e6c879'
-const OVER_TEXT = '#f2a0a6'
-/** Share of a budget spent that counts as near the limit. */
-const NEAR_SHARE = 0.85
-
-/** Compact amount without trailing zeros: ₹1.00K → ₹1K, ₹26.40K → ₹26.4K. */
-function money(minor: number, currency: CurrencyCode) {
-  return formatCompactMinor(minor, currency).replace(/\.(\d*?)0+(?=[A-Za-z]*$)/, (_, d) =>
-    d ? `.${d}` : '',
-  )
-}
+const NEAR_TEXT = TEXT_TONES.near
+const OVER_TEXT = TEXT_TONES.over
 
 function BudgetRow({ row, currency }: { row: CategoryBudgetRow; currency: CurrencyCode }) {
   const budget = row.budget ?? 0
   const ratio = row.ratio ?? 0
   const over = ratio > 1
   const near = !over && ratio >= NEAR_SHARE
-  const pct = Math.round(ratio * 100)
   const diff = Math.abs(budget - row.spent)
-  // Over budget the bar is the spend: the tick marks the budget, past it is the overrun.
-  const budgetMark = over ? (budget / row.spent) * 100 : 100
-  const fill = over ? 100 : ratio * 100
 
   return (
     <div
@@ -47,28 +33,12 @@ function BudgetRow({ row, currency }: { row: CategoryBudgetRow; currency: Curren
         </span>
       </div>
       <div className="mt-1.5 flex items-center gap-2.5">
-        <div
-          role="progressbar"
-          aria-label={`${row.name} budget used`}
-          aria-valuemin={0}
-          aria-valuemax={100}
-          aria-valuenow={Math.min(pct, 100)}
-          className="relative h-1 flex-1 overflow-hidden rounded-full bg-white/[0.07]"
-        >
-          <div
-            className="absolute inset-y-0 left-0 rounded-full"
-            style={{
-              width: `${Math.min(fill, budgetMark)}%`,
-              background: over ? OK : near ? NEAR : OK,
-            }}
-          />
-          {over && (
-            <div
-              className="absolute inset-y-0 right-0 rounded-r-full"
-              style={{ left: `calc(${budgetMark}% + 2px)`, background: OVER }}
-            />
-          )}
-        </div>
+        <BudgetBar
+          spent={row.spent}
+          limit={budget}
+          label={`${row.name} budget used`}
+          className="h-1 flex-1"
+        />
         <span
           className="money w-[76px] shrink-0 text-right text-[11px] leading-none"
           style={{ color: over ? OVER_TEXT : near ? NEAR_TEXT : undefined }}
