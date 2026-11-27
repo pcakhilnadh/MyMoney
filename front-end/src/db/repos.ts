@@ -240,5 +240,24 @@ class TransactionsRepository extends Repository<Transaction> {
     )
     return older.some(Boolean)
   }
+
+  /**
+   * Expense total per month (YYYY-MM → minor units) for `[startDate, endDate)`. Walks the
+   * date index and keeps only running sums, so a long history is never held in memory.
+   */
+  async monthlyExpenseTotals(startDate: string, endDate: string): Promise<Map<string, number>> {
+    const totals = new Map<string, number>()
+    for (const status of ['active', 'archived'] as const) {
+      await db.transactions
+        .where('[status+transaction_date]')
+        .between([status, startDate], [status, endDate], true, false)
+        .each((t) => {
+          if (t.transaction_type !== 'expense') return
+          const month = t.transaction_date.slice(0, 7)
+          totals.set(month, (totals.get(month) ?? 0) + t.amount_minor)
+        })
+    }
+    return totals
+  }
 }
 export const transactionsRepo = new TransactionsRepository(db.transactions)

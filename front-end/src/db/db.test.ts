@@ -315,6 +315,13 @@ describe('repository', () => {
     ])
     expect(await transactionsRepo.hasByDateBefore('2026-10-01')).toBe(true)
     expect(await transactionsRepo.hasByDateBefore('2026-09-01')).toBe(false)
+    expect([...(await transactionsRepo.monthlyExpenseTotals('2026-10-01', '2026-12-01'))]).toEqual(
+      expect.arrayContaining([
+        ['2026-10', 200],
+        ['2026-11', 100],
+      ]),
+    )
+    expect((await transactionsRepo.monthlyExpenseTotals('2026-10-01', '2026-12-01')).size).toBe(2)
   })
 
   it('requires an active account for transactions', async () => {

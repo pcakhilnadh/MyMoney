@@ -1,3 +1,4 @@
+import { useState } from 'react'
 import { useLiveQuery } from 'dexie-react-hooks'
 import { CalendarDays, Sun } from 'lucide-react'
 import { useNavigate } from 'react-router-dom'
@@ -14,7 +15,7 @@ import { budgetsRepo, transactionsRepo } from '@/db/repos'
 import { computeBudgetRing } from '@/lib/budget-ring'
 import { findTotalBudget } from '@/lib/budget'
 import { formatCompactMinor } from '@/lib/money'
-import { currentDay, currentMonth, dayTotal, monthTotal, monthlySeries } from '@/lib/summary'
+import { currentDay, currentMonth, dayTotal, monthTotal } from '@/lib/summary'
 import { useCurrency } from '@/money/CurrencyContext'
 
 const spendingPeriod = () => {
@@ -26,13 +27,55 @@ const spendingPeriod = () => {
   }
 }
 
+const CHART_MONTHS = 6
+
+/** First day (YYYY-MM-DD) of the month `offset` months after `year`/`month` (1-based). */
+const monthStart = (year: number, month: number, offset = 0) => {
+  const d = new Date(year, month - 1 + offset, 1)
+  return `${currentMonth(d)}-01`
+}
+
+/** The 6-month chart window ending `pagesBack` windows before this month, read from the index. */
+function useMonthlyChart(pagesBack: number) {
+  const now = new Date()
+  const [y, m] = [now.getFullYear(), now.getMonth() + 1]
+  const endOffset = -pagesBack * CHART_MONTHS
+  const start = monthStart(y, m, endOffset - (CHART_MONTHS - 1))
+  const end = monthStart(y, m, endOffset + 1)
+  const totals = useLiveQuery(() => transactionsRepo.monthlyExpenseTotals(start, end), [start, end])
+  const hasOlder = useLiveQuery(() => transactionsRepo.hasByDateBefore(start), [start]) ?? false
+  const months = Array.from(
+    { length: CHART_MONTHS },
+    (_, i) => new Date(y, m - 1 + endOffset - (CHART_MONTHS - 1) + i, 1),
+  )
+  const data = months.map((d) => ({
+    name: d.toLocaleString('en', { month: 'short' }),
+    value: (totals?.get(currentMonth(d)) ?? 0) / 100,
+  }))
+  const first = months[0]
+  const last = months[months.length - 1]
+  const label =
+    first.getFullYear() === last.getFullYear()
+      ? `${data[0].name} – ${data[data.length - 1].name} ${last.getFullYear()}`
+      : `${data[0].name} ${String(first.getFullYear()).slice(2)} – ${data[data.length - 1].name} ${String(last.getFullYear()).slice(2)}`
+  return { data, label, hasOlder, key: start }
+}
+
 export default function Home() {
   const { currency } = useCurrency()
   const navigate = useNavigate()
-  const txs = useLiveQuery(() => transactionsRepo.list(), []) ?? []
+  const [pagesBack, setPagesBack] = useState(0)
+  const chart = useMonthlyChart(pagesBack)
+  const period = spendingPeriod()
+  // Every card above the chart is about this month: read just this month from the index.
+  const [year, monthNo] = period.month.split('-').map(Number)
+  const txs =
+    useLiveQuery(
+      () => transactionsRepo.listByDateRange(`${period.month}-01`, monthStart(year, monthNo, 1)),
+      [period.month],
+    ) ?? []
   const budgets = useLiveQuery(() => budgetsRepo.list(), []) ?? []
   const cats = useLiveQuery(() => db.categories.toArray(), []) ?? []
-  const period = spendingPeriod()
   const todayTotal = dayTotal(txs, period.today)
   const total = monthTotal(txs, period.month)
   const now = new Date()
@@ -140,9 +183,17 @@ export default function Home() {
       <BudgetsCard rows={budgetRows} currency={currency} />
 
       <BarChartCard
-        title="Last 6 months"
-        data={monthlySeries(txs, period.month).map((p) => ({ ...p, value: p.value / 100 }))}
+        key={chart.key}
+        title={pagesBack === 0 ? 'Last 6 months' : 'Monthly spending'}
+        data={chart.data}
         budget={budgetMinor === null ? null : budgetMinor / 100}
+        paging={{
+          label: chart.label,
+          canPrev: chart.hasOlder,
+          canNext: pagesBack > 0,
+          onPrev: () => setPagesBack((n) => n + 1),
+          onNext: () => setPagesBack((n) => Math.max(n - 1, 0)),
+        }}
       />
       <DueAlerts />
       <RecentLedger />

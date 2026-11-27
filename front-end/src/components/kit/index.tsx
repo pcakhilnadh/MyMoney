@@ -1,5 +1,5 @@
 import { useEffect, useId, useRef, useState, type ReactNode } from 'react'
-import { Check, ChevronDown, Plus } from 'lucide-react'
+import { Check, ChevronDown, ChevronLeft, ChevronRight, Plus } from 'lucide-react'
 import { Cell, Pie, PieChart, ResponsiveContainer, Tooltip } from 'recharts'
 import { cn } from '@/lib/utils'
 import { currencySymbol } from '@/lib/currency'
@@ -476,24 +476,37 @@ const TIP = {
 
 const BAR_OVER = '#d9797f'
 
+/** Paging for a chart's window: a range label and previous / next controls. */
+export type ChartPaging = {
+  label: string
+  onPrev: () => void
+  onNext: () => void
+  canPrev: boolean
+  canNext: boolean
+}
+
+const pageButton =
+  'grid size-7 place-items-center rounded-full text-muted-foreground transition-colors hover:bg-white/[0.06] hover:text-foreground disabled:pointer-events-none disabled:opacity-30'
+
 /**
  * Bar chart of monthly values. When `budget` (same units as `data`) is given, a faint
  * budget line is drawn and months that went over it are tinted. Tapping a month shows
- * its amount in the header; the latest month is shown first.
+ * its amount in the header; the latest month is shown first. `paging` adds ‹ › controls.
  */
 export function BarChartCard({
   title,
   data,
   budget,
+  paging,
 }: {
   title: string
   data: ChartPoint[]
   budget?: number | null
+  paging?: ChartPaging
 }) {
   const { currency } = useCurrency()
   const [selected, setSelected] = useState(data.length - 1)
   const hasBudget = budget != null && budget > 0
-  const overCount = hasBudget ? data.filter((p) => p.value > budget).length : 0
   const max = Math.max(...data.map((p) => p.value), hasBudget ? budget : 0) * 1.08 || 1
   const active = data[Math.min(selected, data.length - 1)]
   const fmt = (value: number) => formatCompactMinor(Math.round(value * 100), currency)
@@ -501,34 +514,50 @@ export function BarChartCard({
 
   return (
     <Card className="space-y-3">
-      <div className="flex items-start justify-between gap-3">
-        <div className="min-w-0">
-          <div className="label">{title}</div>
-          {active && (
-            <p className="mt-1 text-sm">
-              <span className="text-muted-foreground">{active.name} </span>
-              <span className="money font-semibold">{fmt(active.value)}</span>
-              {hasBudget && active.value > 0 && (
-                <span
-                  className="text-xs"
-                  style={{ color: activeOver ? '#f2a0a6' : 'var(--muted-foreground)' }}
-                >
-                  {' · '}
-                  {fmt(Math.abs(active.value - budget))} {activeOver ? 'over' : 'under'}
-                </span>
-              )}
-            </p>
-          )}
-        </div>
-        {hasBudget && (
-          <div className="shrink-0 pt-0.5 text-[11px] text-muted-foreground">
-            {overCount === 0
-              ? 'Within budget every month'
-              : `Over in ${overCount} of ${data.length}`}
+      <div className="flex items-center justify-between gap-3">
+        <div className="label">{title}</div>
+        {paging && (
+          <div className="-my-1 -mr-2 flex shrink-0 items-center gap-0.5">
+            <button
+              type="button"
+              aria-label="Previous 6 months"
+              disabled={!paging.canPrev}
+              onClick={paging.onPrev}
+              className={pageButton}
+            >
+              <ChevronLeft size={16} aria-hidden="true" />
+            </button>
+            <span className="text-[11px] whitespace-nowrap text-muted-foreground">
+              {paging.label}
+            </span>
+            <button
+              type="button"
+              aria-label="Next 6 months"
+              disabled={!paging.canNext}
+              onClick={paging.onNext}
+              className={pageButton}
+            >
+              <ChevronRight size={16} aria-hidden="true" />
+            </button>
           </div>
         )}
       </div>
 
+      {active && (
+        <p className="-mt-1.5 truncate text-sm">
+          <span className="text-muted-foreground">{active.name} </span>
+          <span className="money font-semibold">{fmt(active.value)}</span>
+          {hasBudget && active.value > 0 && (
+            <span
+              className="text-xs"
+              style={{ color: activeOver ? '#f2a0a6' : 'var(--muted-foreground)' }}
+            >
+              {' · '}
+              {fmt(Math.abs(active.value - budget))} {activeOver ? 'over' : 'under'}
+            </span>
+          )}
+        </p>
+      )}
       <div role="group" aria-label={`${title} spending by month`}>
         <div className="relative h-32">
           {hasBudget && (

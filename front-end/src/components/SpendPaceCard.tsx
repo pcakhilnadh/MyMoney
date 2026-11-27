@@ -87,10 +87,15 @@ export function SpendPaceCard({
               }
             : { label: 'On track', color: GOOD, Icon: CircleCheck }
 
+  // Whole rupees: paise only add noise to a chart label.
+  const fmt = (minor: number) => formatCompactMinor(Math.round(minor / 100) * 100, currency)
+  // Past the budget, pace no longer matters: say how far over, matching the overview.
   const youLabel =
-    ahead === null
-      ? `You · ${formatCompactMinor(spent, currency)}`
-      : `You · ${formatCompactMinor(Math.abs(ahead), currency)} ${ahead > 0 ? 'ahead' : 'under'}`
+    budget !== null && spent > budget
+      ? `You · ${fmt(spent - budget)} over budget`
+      : ahead === null
+        ? `You · ${fmt(spent)}`
+        : `You · ${fmt(Math.abs(ahead))} ${ahead > 0 ? 'above pace' : 'below pace'}`
   const anchor = todayPoint.px > W * 0.7 ? 'end' : todayPoint.px < W * 0.2 ? 'start' : 'middle'
   const idealY = budget !== null ? y((budget * (daysInMonth * 0.8)) / daysInMonth) : 0
 
